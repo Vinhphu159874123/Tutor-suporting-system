@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  # Backend API
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/tutor_system
+      - SUPABASE_URL=your_supabase_url
+      - SUPABASE_ANON_KEY=your_supabase_anon_key
+      - JWT_SECRET_KEY=your_jwt_secret_key
+      - HCMUT_SSO_URL=http://mock-sso:3001
+      - HCMUT_DATACORE_URL=http://mock-datacore:3002
+      - HCMUT_LIBRARY_URL=http://mock-library:3003
+      - AI_RECOMMENDER_URL=http://mock-ai:3004
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
+  # Frontend React App
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_SUPABASE_URL=your_supabase_url
+      - REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    restart: unless-stopped
+
+  # PostgreSQL Database
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=tutor_system
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+
+  # Redis for caching and sessions
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  # Mock HCMUT_SSO Service
+  mock-sso:
+    build:
+      context: ./backend/mock_services/sso
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+
+  # Mock HCMUT_DATACORE Service
+  mock-datacore:
+    build:
+      context: ./backend/mock_services/datacore
+    ports:
+      - "3002:3002"
+    restart: unless-stopped
+
+  # Mock HCMUT_LIBRARY Service
+  mock-library:
+    build:
+      context: ./backend/mock_services/library
+    ports:
+      - "3003:3003"
+    restart: unless-stopped
+
+  # Mock AI_RECOMMENDER Service
+  mock-ai:
+    build:
+      context: ./backend/mock_services/ai_recommender
+    ports:
+      - "3004:3004"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

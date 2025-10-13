@@ -1,0 +1,90 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Full Stack",
+      "type": "shell",
+      "command": "docker-compose up",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Start Backend Only",
+      "type": "shell",
+      "command": "docker-compose up backend db redis mock-sso",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Start Frontend Only (Dev)",
+      "type": "shell",
+      "command": "npm start",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      }
+    },
+    {
+      "label": "Install Backend Dependencies",
+      "type": "shell",
+      "command": "pip install -r requirements.txt",
+      "group": "build",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}/backend"
+      }
+    },
+    {
+      "label": "Install Frontend Dependencies",
+      "type": "shell",
+      "command": "npm install",
+      "group": "build",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}/frontend"
+      }
+    },
+    {
+      "label": "Stop All Services",
+      "type": "shell",
+      "command": "docker-compose down",
+      "group": "build",
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "Build and Start",
+      "type": "shell",
+      "command": "docker-compose up --build",
+      "group": "build",
+      "isBackground": true,
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "View Logs",
+      "type": "shell",
+      "command": "docker-compose logs -f",
+      "group": "test",
+      "isBackground": true,
+      "problemMatcher": [],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    }
+  ]
+}
