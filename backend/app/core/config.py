@@ -3,10 +3,10 @@ from typing import Optional
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
-    # Database
+    # Database - Supabase PostgreSQL
     DATABASE_URL: str = "postgresql://postgres:password@localhost:5432/tutor_system"
     
-    # Supabase
+    # Supabase Configuration
     SUPABASE_URL: Optional[str] = None
     SUPABASE_ANON_KEY: Optional[str] = None
     
