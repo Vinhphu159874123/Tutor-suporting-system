@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from app.api import auth, users, tutors, students, sessions, scheduling, reports, admin, forum
 from app.core.database import engine, create_tables
 from app.core.config import settings
+from app.events import register_all_listeners
 
 # Load environment variables
 load_dotenv()
@@ -46,8 +47,19 @@ app.include_router(forum.router, prefix="/api/v1/forum", tags=["forum"])
 
 @app.on_event("startup")
 async def startup_event():
-    """Create database tables on startup"""
-    await create_tables()
+    """Create database tables and register event listeners on startup"""
+    try:
+        # Register event listeners
+        register_all_listeners()
+        print("✅ Event listeners registered")
+        
+        # Create database tables
+        await create_tables()
+        await create_tables()
+        print("✅ Database tables created successfully")
+    except Exception as e:
+        print(f"⚠️  Database connection failed: {e}")
+        print("⚠️  API will run without database connection for testing")
     print("🚀 HCMUT Tutor Support System API is starting up...")
 
 @app.on_event("shutdown")

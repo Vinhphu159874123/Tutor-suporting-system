@@ -1,14 +1,22 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import MetaData
-import asyncpg
 from app.core.config import settings
 
-# Create async engine
+# Create async engine with proper URL handling
+database_url = settings.DATABASE_URL
+
+# Convert to async URL
+if database_url.startswith("postgresql://"):
+    database_url = database_url.replace("postgresql://", "postgresql+asyncpg://")
+elif database_url.startswith("sqlite"):
+    database_url = database_url.replace("sqlite:///", "sqlite+aiosqlite:///")
+
 engine = create_async_engine(
-    settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://"),
+    database_url,
     echo=True,
-    future=True
+    future=True,
+    pool_pre_ping=True  # Enable connection health checks
 )
 
 # Create session factory

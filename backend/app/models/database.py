@@ -37,7 +37,7 @@ class User(Base):
     email = Column(String(100), unique=True, index=True, nullable=False)
     full_name = Column(String(100), nullable=False)
     hashed_password = Column(String(255), nullable=True)  # Nullable for SSO users
-    role = Column(Enum(UserRole), nullable=False)
+    role = Column(String(50), nullable=False)  # Stored as string: 'admin', 'student', 'tutor', etc.
     faculty = Column(String(100), nullable=True)
     major = Column(String(100), nullable=True)
     phone = Column(String(20), nullable=True)
@@ -61,14 +61,18 @@ class Tutor(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True)
     bio = Column(Text, nullable=True)
-    expertise_areas = Column(Text, nullable=True)  # JSON string
-    available_hours = Column(Text, nullable=True)  # JSON string
+    subjects = Column(Text, nullable=True)  # JSON array - teaching subjects
+    expertise_areas = Column(Text, nullable=True)  # JSON string - deprecated, use subjects
+    available_hours = Column(Text, nullable=True)  # JSON string - availability schedule
     hourly_rate = Column(Float, nullable=True)
+    experience_years = Column(Integer, default=0)  # Years of teaching experience
     rating = Column(Float, default=0.0)
     total_sessions = Column(Integer, default=0)
+    is_available = Column(Boolean, default=True)  # Currently available for tutoring
     is_approved = Column(Boolean, default=False)
     approval_date = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     
     # Relationships
     user = relationship("User", back_populates="tutor_profile")
@@ -80,12 +84,17 @@ class Student(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), unique=True)
-    year = Column(Integer, nullable=True)  # Năm học
+    year = Column(Integer, nullable=True)  # Năm học (1-5)
     gpa = Column(Float, nullable=True)
     learning_goals = Column(Text, nullable=True)
-    preferred_subjects = Column(Text, nullable=True)  # JSON string
+    subjects_needed = Column(Text, nullable=True)  # JSON string - subjects needing help
+    preferred_subjects = Column(Text, nullable=True)  # JSON string - deprecated, use subjects_needed
+    preferred_schedule = Column(Text, nullable=True)  # Preferred time slots
     study_schedule = Column(Text, nullable=True)  # JSON string
+    is_active = Column(Boolean, default=True)  # Active student status
+    total_sessions = Column(Integer, default=0)  # Total completed sessions
     created_at = Column(DateTime, default=func.now())
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
     
     # Relationships
     user = relationship("User", back_populates="student_profile")

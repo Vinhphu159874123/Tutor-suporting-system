@@ -6,7 +6,7 @@ from typing import List, Optional
 from datetime import datetime
 
 from app.core.database import get_db
-from app.models.database import User, UserRole
+from app.models.database import User
 from app.api.auth import get_current_user
 
 router = APIRouter()
@@ -20,7 +20,7 @@ class UserResponse(BaseModel):
     id: int
     email: str
     full_name: str
-    role: UserRole
+    role: str  # Changed from UserRole enum to str
     faculty: Optional[str]
     major: Optional[str]
     phone: Optional[str]
@@ -64,14 +64,14 @@ async def update_user_profile(
 async def get_users(
     skip: int = 0,
     limit: int = 100,
-    role: Optional[UserRole] = None,
+    role: Optional[str] = None,  # Changed from UserRole to str
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Get users list (admin only)"""
     
     # Check permissions
-    if current_user.role not in [UserRole.ADMIN, UserRole.COORDINATOR]:
+    if current_user.role not in ['admin', 'coordinator']:  # Changed from enum to str
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
@@ -97,7 +97,7 @@ async def get_user(
     """Get user by ID"""
     
     # Users can only view their own profile, or admins can view any profile
-    if current_user.id != user_id and current_user.role not in [UserRole.ADMIN, UserRole.COORDINATOR]:
+    if current_user.id != user_id and current_user.role not in ['admin', 'coordinator']:  # Changed from enum to str
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
@@ -122,7 +122,7 @@ async def delete_user(
 ):
     """Delete user (admin only)"""
     
-    if current_user.role != UserRole.ADMIN:
+    if current_user.role != 'admin':  # Changed from enum to str
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
