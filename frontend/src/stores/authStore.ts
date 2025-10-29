@@ -13,6 +13,7 @@ export interface User {
   avatar_url?: string;
   is_active: boolean;
   is_verified: boolean;
+  created_at?: string;
 }
 
 interface AuthState {
