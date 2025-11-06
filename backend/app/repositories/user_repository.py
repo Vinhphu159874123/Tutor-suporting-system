@@ -16,7 +16,7 @@ class UserRepository:
     async def get_by_id(self, user_id: int) -> Optional[User]:
         """Get user by ID"""
         result = await self.db.execute(
-            select(User).where(User.id == user_id)
+            select(User).where(User.user_id == user_id)
         )
         return result.scalar_one_or_none()
     
@@ -55,7 +55,7 @@ class UserRepository:
         """Update user"""
         await self.db.execute(
             update(User)
-            .where(User.id == user_id)
+            .where(User.user_id == user_id)
             .values(**user_data)
         )
         await self.db.commit()
@@ -65,7 +65,7 @@ class UserRepository:
         """Delete user (soft delete by setting is_active=False)"""
         result = await self.db.execute(
             update(User)
-            .where(User.id == user_id)
+            .where(User.user_id == user_id)
             .values(is_active=False)
         )
         await self.db.commit()
