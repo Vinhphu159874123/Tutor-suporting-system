@@ -16,7 +16,6 @@ services:
       - HCMUT_SSO_URL=http://mock-sso:3001
       - HCMUT_DATACORE_URL=http://mock-datacore:3002
       - HCMUT_LIBRARY_URL=http://mock-library:3003
-      - AI_RECOMMENDER_URL=http://mock-ai:3004
     depends_on:
       - db
       - redis
@@ -83,14 +82,6 @@ services:
       context: ./backend/mock_services/library
     ports:
       - "3003:3003"
-    restart: unless-stopped
-
-  # Mock AI_RECOMMENDER Service
-  mock-ai:
-    build:
-      context: ./backend/mock_services/ai_recommender
-    ports:
-      - "3004:3004"
     restart: unless-stopped
 
 volumes:
