@@ -39,11 +39,6 @@ class LocationType(enum.Enum):
     OFFLINE = "offline"
     HYBRID = "hybrid"
 
-class PaymentStatus(enum.Enum):
-    PENDING = "pending"
-    PAID = "paid"
-    REFUNDED = "refunded"
-
 class MemberRole(enum.Enum):
     ADMIN = "admin"
     MODERATOR = "moderator"
@@ -228,9 +223,6 @@ class Session(Base):
     status = Column(String, default='draft')  # draft, published, pending_assignment, confirmed, ongoing, completed, cancelled
     actual_start = Column(DateTime(timezone=True), nullable=True)
     actual_end = Column(DateTime(timezone=True), nullable=True)
-    
-    price = Column(Numeric, nullable=True)
-    payment_status = Column(String, default='pending')  # pending, paid, refunded
     
     session_notes = Column(Text, nullable=True)
     max_students = Column(Integer, default=1)
