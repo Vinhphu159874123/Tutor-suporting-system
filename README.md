@@ -1,10 +1,6 @@
 # 🎓 HCMUT Tutor Support System# 🎓 HCMUT Tutor Support System
 
-
-
 > A comprehensive platform for managing tutoring programs, connecting students with tutors, scheduling sessions, and supporting academic learning at Ho Chi Minh City University of Technology (HCMUT).> A comprehensive platform for managing tutoring programs, connecting students with tutors, scheduling sessions, and supporting academic learning at Ho Chi Minh City University of Technology (HCMUT).
-
-
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -14,15 +10,9 @@
 
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
 
-
-
-------
-
-
+---
 
 ## 📋 Table of Contents## 📋 Table of Contents
-
-
 
 - [Overview](#-overview)- [Overview](#-overview)
 
@@ -42,19 +32,11 @@
 
 - [Contributing](#-contributing)- [Contributing](#-contributing)
 
-
-
-------
-
-
+---
 
 ## 🌟 Overview## 🌟 Overview
 
-
-
 The HCMUT Tutor Support System is a modern, full-stack web application designed to streamline tutoring services at HCMUT. It provides:The HCMUT Tutor Support System is a modern, full-stack web application designed to streamline tutoring services at HCMUT. It provides:
-
-
 
 - **Student-Tutor Matching**: AI-powered recommendation system- **Student-Tutor Matching**: AI-powered recommendation system
 
@@ -66,21 +48,13 @@ The HCMUT Tutor Support System is a modern, full-stack web application designed 
 
 - **External Integration**: HCMUT SSO, DataCore, and Library services- **External Integration**: HCMUT SSO, DataCore, and Library services
 
-
-
-------
-
-
+---
 
 ## 🏗️ System Architecture## 🏗️ System Architecture
 
-
-
 ### Tech Stack### Tech Stack
 
-
-
-**Backend:****Backend:**
+**Backend:\*\***Backend:\*\*
 
 - **Framework**: FastAPI (Python 3.11+)- **Framework**: FastAPI (Python 3.11+)
 
@@ -90,9 +64,7 @@ The HCMUT Tutor Support System is a modern, full-stack web application designed 
 
 - **Authentication**: JWT + HCMUT SSO Integration- **Authentication**: JWT + HCMUT SSO Integration
 
-
-
-**Frontend:****Frontend:**
+**Frontend:\*\***Frontend:\*\*
 
 - **Framework**: React 18.2+ with TypeScript- **Framework**: React 18.2+ with TypeScript
 
@@ -102,17 +74,13 @@ The HCMUT Tutor Support System is a modern, full-stack web application designed 
 
 - **HTTP Client**: Axios- **HTTP Client**: Axios
 
-
-
-**DevOps:****DevOps:**
+**DevOps:\*\***DevOps:\*\*
 
 - **Containerization**: Docker & Docker Compose- **Containerization**: Docker & Docker Compose
 
 - **CI/CD**: GitHub Actions (planned)- **CI/CD**: GitHub Actions (planned)
 
-
-
-**Mock Services:****Mock Services:**
+**Mock Services:\*\***Mock Services:\*\*
 
 - **HCMUT SSO** (Port 3001): Authentication service- **HCMUT SSO** (Port 3001): Authentication service
 
@@ -120,15 +88,9 @@ The HCMUT Tutor Support System is a modern, full-stack web application designed 
 
 - **HCMUT Library** (Port 3003): Library resources- **HCMUT Library** (Port 3003): Library resources
 
-
-
-------
-
-
+---
 
 ## ✨ Features## ✨ Features
-
-
 
 ### 🔐 Authentication & Authorization### 🔐 Authentication & Authorization
 
@@ -140,8 +102,6 @@ The HCMUT Tutor Support System is a modern, full-stack web application designed 
 
 - [x] Profile management- [x] Profile management
 
-
-
 ### 📝 Registration System### 📝 Registration System
 
 - [x] Student registration with subject preferences- [x] Student registration with subject preferences
@@ -151,8 +111,6 @@ The HCMUT Tutor Support System is a modern, full-stack web application designed 
 - [x] Coordinator approval workflow- [x] Coordinator approval workflow
 
 - [x] Registration status tracking- [x] Registration status tracking
-
-
 
 ### 📅 Scheduling & Sessions### 📅 Scheduling & Sessions
 
@@ -166,8 +124,6 @@ The HCMUT Tutor Support System is a modern, full-stack web application designed 
 
 - [x] Session materials upload/download- [x] Session materials upload/download
 
-
-
 ### 📊 Reports & Analytics### 📊 Reports & Analytics
 
 - [x] Student progress tracking- [x] Student progress tracking
@@ -178,8 +134,6 @@ The HCMUT Tutor Support System is a modern, full-stack web application designed 
 
 - [x] Learning achievements (Gamification)- [x] Learning achievements (Gamification)
 
-
-
 ### 💬 Community Features### 💬 Community Features
 
 - [x] Discussion forums- [x] Discussion forums
@@ -189,8 +143,6 @@ The HCMUT Tutor Support System is a modern, full-stack web application designed 
 - [x] Q&A threads- [x] Q&A threads
 
 - [x] Resource sharing- [x] Resource sharing
-
-
 
 ### 🤖 AI Features
 
@@ -222,11 +174,7 @@ JWT_SECRET_KEY=your-super-secret-jwt-key-change-this-in-production
 
 - **Git**HCMUT_DATACORE_URL=http://localhost:3002
 
-
-
 ### Installation## 🚀 Quick StartHCMUT_LIBRARY_URL=http://localhost:3003
-
-
 
 1. **Clone the repository**AI_RECOMMENDER_URL=http://localhost:3004
 
@@ -236,9 +184,7 @@ JWT_SECRET_KEY=your-super-secret-jwt-key-change-this-in-production
 
    cd Tutor-suporting-system
 
-   ```````
-
-
+   ```
 
 2. **Run with Docker Compose (Recommended)**- **Docker** & **Docker Compose** (Recommended)
 
@@ -247,36 +193,39 @@ JWT_SECRET_KEY=your-super-secret-jwt-key-change-this-in-production
    # Start all services- **Node.js** 18+ (for local development)## 👥 Tài khoản demo
 
    docker-compose up -d
+   ```
 
 - **Python** 3.11+ (for local development)
 
-   # View logs
+  # View logs
 
-   docker-compose logs -f- **Git**Để test hệ thống, sử dụng các tài khoản sau:
+  docker-compose logs -f- **Git**Để test hệ thống, sử dụng các tài khoản sau:
 
-   ```
+  ```
+
+  ```
 
 ### Installation| Role | Email | Password |
 
-   ```bash
+`````bash
 
-   # Stop all services|------|-------|----------|
+# Stop all services|------|-------|----------|
 
-   docker-compose down
+docker-compose down
 
-   ```1. **Clone the repository**| Student | student@hcmut.edu.vn | password123 |
+```1. **Clone the repository**| Student | student@hcmut.edu.vn | password123 |
 
 
 
 3. **Access the application**   ````bash| Tutor | tutor@hcmut.edu.vn | password123 |
 
-   - **Frontend**: http://localhost:3000
+- **Frontend**: http://localhost:3000
 
-   - **Backend API**: http://localhost:8000   git clone https://github.com/Vinhphu159874123/Tutor-suporting-system.git| Admin | admin@hcmut.edu.vn | password123 |
+- **Backend API**: http://localhost:8000   git clone https://github.com/Vinhphu159874123/Tutor-suporting-system.git| Admin | admin@hcmut.edu.vn | password123 |
 
-   - **API Docs**: http://localhost:8000/docs
+- **API Docs**: http://localhost:8000/docs
 
-   - **Supabase Studio** (if using local): http://localhost:54323   cd Tutor-suporting-system
+- **Supabase Studio** (if using local): http://localhost:54323   cd Tutor-suporting-system
 
 
 
@@ -296,11 +245,11 @@ JWT_SECRET_KEY=your-super-secret-jwt-key-change-this-in-production
 
 | Student | 2312345@hcmut.edu.vn | student123 |
 
-   # Start all services- Quản lý profile người dùng
+# Start all services- Quản lý profile người dùng
 
 ---
 
-   docker-compose up -d- Tích hợp HCMUT_SSO
+docker-compose up -d- Tích hợp HCMUT_SSO
 
 ## 🔧 Environment Setup
 
@@ -308,11 +257,11 @@ JWT_SECRET_KEY=your-super-secret-jwt-key-change-this-in-production
 
 ### Backend Configuration
 
-   # View logs### 2. Registration Module (Module đăng ký)
+# View logs### 2. Registration Module (Module đăng ký)
 
 Create `.env` file in `backend/` directory:
 
-   docker-compose logs -f- Đăng ký làm Student/Tutor
+docker-compose logs -f- Đăng ký làm Student/Tutor
 
 ```bash   ```
 
@@ -330,7 +279,7 @@ SUPABASE_ANON_KEY=your_anon_key_here  docker-compose down
 
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
 
-  ```### 3. Scheduling Module (Module lên lịch)
+```### 3. Scheduling Module (Module lên lịch)
 
 # JWT
 
@@ -350,7 +299,7 @@ HCMUT_DATACORE_URL=http://mock-datacore:3002   - **Frontend**: http://localhost:
 
 HCMUT_LIBRARY_URL=http://mock-library:3003
 
-   - **Backend API**: http://localhost:8000
+- **Backend API**: http://localhost:8000
 
 # Redis
 
@@ -392,35 +341,35 @@ REACT_APP_SUPABASE_ANON_KEY=your_anon_key_here
 
 1. **Using Supabase (Recommended)**| Student | 2312345@hcmut.edu.vn | student123 |### 6. Administrator Configuration (Cấu hình admin)
 
-   - Create a project at [supabase.com](https://supabase.com)
+- Create a project at [supabase.com](https://supabase.com)
 
-   - Run migration scripts:- Quản lý người dùng
+- Run migration scripts:- Quản lý người dùng
 
-     ```bash
+  ```bash
 
-     # Copy SQL from backend/sql/add_missing_tables.sql---- Phân quyền
+  # Copy SQL from backend/sql/add_missing_tables.sql---- Phân quyền
 
-     # Run in Supabase SQL Editor
+  # Run in Supabase SQL Editor
 
-     ```- Cấu hình hệ thống
+  ```- Cấu hình hệ thống
 
 
 
 2. **Using Local PostgreSQL**## 🔧 Environment Setup
 
-   ```bash
+```bash
 
-   # Docker Compose includes PostgreSQL### 7. Learning Forum (Diễn đàn học tập)
+# Docker Compose includes PostgreSQL### 7. Learning Forum (Diễn đàn học tập)
 
-   docker-compose up db -d
+docker-compose up db -d
 
 ### Backend Configuration- Tạo forum thảo luận
 
-   # Access psql
+# Access psql
 
-   docker exec -it tutor-db psql -U postgres -d tutor_system- Nhóm học tập
+docker exec -it tutor-db psql -U postgres -d tutor_system- Nhóm học tập
 
-   ```
+`````
 
 Create `.env` file in `backend/` directory:- Chia sẻ kiến thức
 
@@ -572,29 +521,17 @@ REACT_APP_API_URL=http://localhost:8000```
 
 - `POST /forum/posts/{id}/comments` - Add comment### Database Setup- **Swagger UI**: http://localhost:8000/docs
 
-
-
 For complete API reference, visit `/docs` after starting the backend.- **ReDoc**: http://localhost:8000/redoc
-
-
 
 ---1. **Using Supabase (Recommended)**
 
+## 💻 Development - Create a project at [supabase.com](https://supabase.com)### Database
 
+### Running Locally (Without Docker) - Run migration scripts:- **PostgreSQL**: localhost:5432
 
-## 💻 Development   - Create a project at [supabase.com](https://supabase.com)### Database
+#### Backend ```bash- **Database Name**: tutor_system
 
-
-
-### Running Locally (Without Docker)   - Run migration scripts:- **PostgreSQL**: localhost:5432
-
-
-
-#### Backend     ```bash- **Database Name**: tutor_system
-
-
-
-```bash     # Copy SQL from backend/sql/add_missing_tables.sql- **Username**: postgres
+`````bash # Copy SQL from backend/sql/add_missing_tables.sql- **Username**: postgres
 
 cd backend
 
@@ -660,13 +597,13 @@ pip install -r requirements.txt
 
 python main.py  # Runs on port 3001````
 
-```
+`````
 
 Tutor-suporting-system/# Chạy tests (khi có)
 
 **DataCore (Node.js):**
 
-```bash├── backend/cd backend && python -m pytest
+````bash├── backend/cd backend && python -m pytest
 
 cd backend/mock_services/datacore
 
@@ -688,15 +625,15 @@ npm install
 
 npm start  # Runs on port 3003│   │   ├── models/           # SQLAlchemy ORM models
 
-```
+````
 
-│   │   ├── repositories/     # Data access layer1. Fork project
+│ │ ├── repositories/ # Data access layer1. Fork project
 
 ### Useful Commands
 
-│   │   ├── schemas/          # Pydantic schemas (DTOs)2. Tạo feature branch (`git checkout -b feature/amazing-feature`)
+│ │ ├── schemas/ # Pydantic schemas (DTOs)2. Tạo feature branch (`git checkout -b feature/amazing-feature`)
 
-```bash
+````bash
 
 # Docker Compose│   │   └── services/         # Business logic layer3. Commit changes (`git commit -m 'Add amazing feature'`)
 
@@ -816,23 +753,15 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---- `GET /auth/profile` - Get current user profile
 
-
-
 ## 👥 Team#### Students
-
-
 
 - **Backend Development**: FastAPI architecture, API design, database modeling- `GET /students` - List students
 
-- **Frontend Development**: React UI/UX, component library, state management  - `POST /students/register` - Register as student
+- **Frontend Development**: React UI/UX, component library, state management - `POST /students/register` - Register as student
 
 - **DevOps & Infrastructure**: Docker containerization, deployment automation- `GET /students/{id}/sessions` - Get student sessions
 
-
-
 ---#### Tutors
-
-
 
 ## 🙏 Acknowledgments- `GET /tutors` - List tutors (with filters)
 
@@ -854,11 +783,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support- `POST /sessions/{id}/materials` - Upload materials
 
-
-
 If you encounter any issues or have questions:#### Forums
-
-
 
 1. Check existing [GitHub Issues](https://github.com/Vinhphu159874123/Tutor-suporting-system/issues)- `GET /forum/posts` - List forum posts
 
@@ -866,18 +791,11 @@ If you encounter any issues or have questions:#### Forums
 
 3. Contact the development team- `POST /forum/posts/{id}/comments` - Add comment
 
-
-
 ---For complete API reference, visit `/docs` after starting the backend.
 
-
-
-**Made with ❤️ by Nguyen Trung Nhan & Nguyen Vinh Phu**---
-
-
+**Made with  by Nguyen Trung Nhan & Nguyen Vinh Phu**---
 
 **Happy Coding! 🚀**## 💻 Development
-
 
 ### Running Locally (Without Docker)
 
