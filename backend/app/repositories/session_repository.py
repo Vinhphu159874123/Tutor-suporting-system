@@ -16,7 +16,7 @@ class SessionRepository:
     async def get_by_id(self, session_id: int) -> Optional[SessionModel]:
         """Get session by ID"""
         result = await self.db.execute(
-            select(SessionModel).where(SessionModel.id == session_id)
+            select(SessionModel).where(SessionModel.session_id == session_id)
         )
         return result.scalar_one_or_none()
     

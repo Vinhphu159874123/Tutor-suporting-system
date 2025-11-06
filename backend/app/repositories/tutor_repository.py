@@ -17,7 +17,7 @@ class TutorRepository:
     async def get_by_id(self, tutor_id: int) -> Optional[Tutor]:
         """Get tutor by ID"""
         result = await self.db.execute(
-            select(Tutor).where(Tutor.id == tutor_id)
+            select(Tutor).where(Tutor.tutor_id == tutor_id)
         )
         return result.scalar_one_or_none()
     
@@ -33,7 +33,6 @@ class TutorRepository:
         skip: int = 0, 
         limit: int = 100,
         subject: Optional[str] = None,
-        is_available: Optional[bool] = None,
         min_rating: Optional[float] = None
     ) -> List[Tutor]:
         """Get all tutors with optional filters"""
@@ -42,9 +41,6 @@ class TutorRepository:
         # TODO: Filter by subject (needs ARRAY contains in PostgreSQL)
         # if subject:
         #     query = query.where(Tutor.subjects.contains([subject]))
-        
-        if is_available is not None:
-            query = query.where(Tutor.is_available == is_available)
         
         if min_rating is not None:
             query = query.where(Tutor.rating >= min_rating)
@@ -87,6 +83,6 @@ class TutorRepository:
     async def exists_by_user_id(self, user_id: int) -> bool:
         """Check if user already has tutor profile"""
         result = await self.db.execute(
-            select(Tutor.id).where(Tutor.user_id == user_id)
+            select(Tutor.tutor_id).where(Tutor.user_id == user_id)
         )
         return result.scalar_one_or_none() is not None

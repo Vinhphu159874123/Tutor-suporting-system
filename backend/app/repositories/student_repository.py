@@ -17,7 +17,7 @@ class StudentRepository:
     async def get_by_id(self, student_id: int) -> Optional[Student]:
         """Get student by ID"""
         result = await self.db.execute(
-            select(Student).where(Student.id == student_id)
+            select(Student).where(Student.student_id == student_id)
         )
         return result.scalar_one_or_none()
     
@@ -32,17 +32,13 @@ class StudentRepository:
         self, 
         skip: int = 0, 
         limit: int = 100,
-        year: Optional[int] = None,
-        is_active: Optional[bool] = None
+        year: Optional[int] = None
     ) -> List[Student]:
         """Get all students with optional filters"""
         query = select(Student)
         
         if year is not None:
             query = query.where(Student.year == year)
-        
-        if is_active is not None:
-            query = query.where(Student.is_active == is_active)
         
         query = query.offset(skip).limit(limit)
         result = await self.db.execute(query)
@@ -82,6 +78,6 @@ class StudentRepository:
     async def exists_by_user_id(self, user_id: int) -> bool:
         """Check if user already has student profile"""
         result = await self.db.execute(
-            select(Student.id).where(Student.user_id == user_id)
+            select(Student.student_id).where(Student.user_id == user_id)
         )
         return result.scalar_one_or_none() is not None
