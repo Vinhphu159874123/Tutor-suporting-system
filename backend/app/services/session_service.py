@@ -55,7 +55,7 @@ class SessionService:
         
         # Emit event for async processing (notifications, etc.)
         await event_bus.emit(EventTypes.SESSION_CREATED, {
-            "session_id": session.id,
+            "session_id": session.session_id,
             "tutor_id": session.tutor_id,
             "student_id": session.student_id,
             "subject": session.subject,
