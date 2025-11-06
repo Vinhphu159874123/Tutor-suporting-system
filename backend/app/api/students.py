@@ -57,7 +57,7 @@ async def get_my_student_profile(
     Requires: Valid authentication
     Returns: Student profile or 404 if not registered
     """
-    profile = await student_service.get_student_by_user_id(current_user.id)
+    profile = await student_service.get_student_by_user_id(current_user.user_id)
     if not profile:
         from fastapi import HTTPException, status
         raise HTTPException(
@@ -86,7 +86,7 @@ async def register_student(
     Returns: Student profile
     """
     # Override user_id with current user for security
-    student_data.user_id = current_user.id
+    student_data.user_id = current_user.user_id
     return await student_service.register_student(student_data)
 
 

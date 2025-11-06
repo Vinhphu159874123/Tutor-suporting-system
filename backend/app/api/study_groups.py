@@ -66,7 +66,7 @@ async def create_study_group(
         "name": group_data.name,
         "description": group_data.description,
         "subject_id": group_data.subject_id,
-        "creator_id": current_user.id,
+        "creator_id": current_user.user_id,
         "max_members": group_data.max_members or 10,
         "current_member_count": 1,
         "is_active": True,

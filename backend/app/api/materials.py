@@ -48,7 +48,7 @@ async def upload_material(
         "file_path": f"/uploads/{file.filename}",
         "file_size": 0,
         "mime_type": file.content_type,
-        "uploaded_by": current_user.id,
+        "uploaded_by": current_user.user_id,
         "created_at": "2025-11-05T00:00:00Z"
     }
 
