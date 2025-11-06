@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey, Enum, Float
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey, Enum, Float, Numeric, Date, Time, BigInteger, CheckConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from sqlalchemy.dialects.postgresql import JSONB
 import enum
 from datetime import datetime
 
@@ -11,240 +12,594 @@ class UserRole(enum.Enum):
     STUDENT = "student"
     TUTOR = "tutor"
     COORDINATOR = "coordinator"
-    DEPARTMENT_CHAIR = "department_chair"
-    ACADEMIC_AFFAIR = "academic_affair"
     ADMIN = "admin"
 
 class SessionStatus(enum.Enum):
-    SCHEDULED = "scheduled"
+    DRAFT = "draft"
+    PUBLISHED = "published"
+    PENDING_ASSIGNMENT = "pending_assignment"
     CONFIRMED = "confirmed"
-    IN_PROGRESS = "in_progress"
+    ONGOING = "ongoing"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
-    RESCHEDULED = "rescheduled"
 
 class RegistrationStatus(enum.Enum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
 
+class AttendanceStatus(enum.Enum):
+    PRESENT = "present"
+    LATE = "late"
+    ABSENT = "absent"
+    EXCUSED = "excused"
+
+class LocationType(enum.Enum):
+    ONLINE = "online"
+    OFFLINE = "offline"
+    HYBRID = "hybrid"
+
+class PaymentStatus(enum.Enum):
+    PENDING = "pending"
+    PAID = "paid"
+    REFUNDED = "refunded"
+
+class MemberRole(enum.Enum):
+    ADMIN = "admin"
+    MODERATOR = "moderator"
+    MEMBER = "member"
+    OWNER = "owner"
+
+class MemberStatus(enum.Enum):
+    ACTIVE = "active"
+    PENDING = "pending"
+    BANNED = "banned"
+
+class ReviewerType(enum.Enum):
+    STUDENT = "student"
+    TUTOR = "tutor"
+
+class ResponderType(enum.Enum):
+    TUTOR = "tutor"
+    STUDENT = "student"
+
+class ResponseAction(enum.Enum):
+    ACCEPT = "accept"
+    DECLINE = "decline"
+    REQUEST_NEW_TIME = "request_new_time"
+
+class ResourceSource(enum.Enum):
+    HCMUT_LIBRARY = "hcmut_library"
+    YOUTUBE = "youtube"
+    OTHER = "other"
+
+class Urgency(enum.Enum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
 class User(Base):
-    __tablename__ = "users"
+    __tablename__ = "User"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
     
-    id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(String(20), unique=True, index=True, nullable=True)  # MSSV
-    staff_id = Column(String(20), unique=True, index=True, nullable=True)    # MSCB
-    email = Column(String(100), unique=True, index=True, nullable=False)
-    full_name = Column(String(100), nullable=False)
-    hashed_password = Column(String(255), nullable=True)  # Nullable for SSO users
-    role = Column(String(50), nullable=False)  # Stored as string: 'admin', 'student', 'tutor', etc.
-    faculty = Column(String(100), nullable=True)
-    major = Column(String(100), nullable=True)
-    phone = Column(String(20), nullable=True)
-    avatar_url = Column(String(255), nullable=True)
+    user_id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, nullable=False, unique=True)
+    hashed_password = Column(String, nullable=False)
+    full_name = Column(String, nullable=False)
+    phone = Column(String, nullable=True)
+    role = Column(String, nullable=False)  # student, tutor, coordinator, admin
+    avatar_url = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    
-    # SSO Integration
-    sso_id = Column(String(100), unique=True, nullable=True)
-    last_login = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relationships
-    tutor_profile = relationship("Tutor", back_populates="user", uselist=False)
-    student_profile = relationship("Student", back_populates="user", uselist=False)
-
-class Tutor(Base):
-    __tablename__ = "tutors"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
-    bio = Column(Text, nullable=True)
-    subjects = Column(Text, nullable=True)  # JSON array - teaching subjects
-    expertise_areas = Column(Text, nullable=True)  # JSON string - deprecated, use subjects
-    available_hours = Column(Text, nullable=True)  # JSON string - availability schedule
-    hourly_rate = Column(Float, nullable=True)
-    experience_years = Column(Integer, default=0)  # Years of teaching experience
-    rating = Column(Float, default=0.0)
-    total_sessions = Column(Integer, default=0)
-    is_available = Column(Boolean, default=True)  # Currently available for tutoring
-    is_approved = Column(Boolean, default=False)
-    approval_date = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    
-    # Relationships
-    user = relationship("User", back_populates="tutor_profile")
-    sessions = relationship("Session", back_populates="tutor")
-    registrations = relationship("TutorRegistration", back_populates="tutor")
+    student = relationship("Student", back_populates="user", uselist=False)
+    tutor = relationship("Tutor", back_populates="user", uselist=False)
+    coordinator = relationship("Coordinator", back_populates="user", uselist=False)
+    created_forums = relationship("Forum", foreign_keys="Forum.creator_id", back_populates="creator")
+    forum_memberships = relationship("ForumMember", back_populates="user")
+    forum_posts = relationship("ForumPost", back_populates="author")
+    study_group_created = relationship("StudyGroup", foreign_keys="StudyGroup.creator_id", back_populates="creator")
+    study_group_memberships = relationship("StudyGroupMember", back_populates="user")
+    uploaded_materials = relationship("SessionMaterial", back_populates="uploader")
+    session_feedbacks = relationship("SessionFeedback", back_populates="reviewer")
+    session_responses = relationship("SessionResponse", back_populates="user")
+    reports_generated = relationship("CourseReport", back_populates="generator", foreign_keys="[CourseReport.generated_by]")
 
 class Student(Base):
-    __tablename__ = "students"
+    __tablename__ = "student"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
     
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
-    year = Column(Integer, nullable=True)  # Năm học (1-5)
-    gpa = Column(Float, nullable=True)
-    learning_goals = Column(Text, nullable=True)
-    subjects_needed = Column(Text, nullable=True)  # JSON string - subjects needing help
-    preferred_subjects = Column(Text, nullable=True)  # JSON string - deprecated, use subjects_needed
-    preferred_schedule = Column(Text, nullable=True)  # Preferred time slots
-    study_schedule = Column(Text, nullable=True)  # JSON string
-    is_active = Column(Boolean, default=True)  # Active student status
-    total_sessions = Column(Integer, default=0)  # Total completed sessions
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    student_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("tutor_system.User.user_id"), unique=True, nullable=False)
+    student_code = Column(String, nullable=False, unique=True)
+    faculty = Column(String, nullable=True)
+    major = Column(String, nullable=True)
+    year = Column(Integer, CheckConstraint('year >= 1 AND year <= 5'), nullable=True)
+    preferences = Column(JSONB, default={})
     
     # Relationships
-    user = relationship("User", back_populates="student_profile")
+    user = relationship("User", back_populates="student")
     sessions = relationship("Session", back_populates="student")
     registrations = relationship("StudentRegistration", back_populates="student")
+    attendance_records = relationship("Attendance", back_populates="student")
+
+class Tutor(Base):
+    __tablename__ = "tutor"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    tutor_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("tutor_system.User.user_id"), unique=True, nullable=False)
+    staff_code = Column(String, nullable=True)
+    faculty = Column(String, nullable=True)
+    hourly_rate = Column(Numeric, default=0)
+    bio = Column(Text, nullable=True)
+    rating = Column(Numeric, CheckConstraint('rating >= 0 AND rating <= 5'), default=0)
+    total_sessions = Column(Integer, default=0)
+    is_verified = Column(Boolean, default=False)
+    teaching_experience = Column(JSONB, default={})
+    verified_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Relationships
+    user = relationship("User", back_populates="tutor")
+    sessions = relationship("Session", back_populates="tutor")
+    registrations = relationship("TutorRegistration", back_populates="tutor")
+    activity_reports = relationship("TutorActivityReport", back_populates="tutor")
+    matching_logs = relationship("MatchingLog", back_populates="selected_tutor")
+
+class Coordinator(Base):
+    __tablename__ = "coordinator"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    coordinator_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("tutor_system.User.user_id"), unique=True, nullable=False)
+    department = Column(String, nullable=True)
+    assigned_subjects = Column(JSONB, default=[])
+    workload = Column(Integer, default=0)
+    
+    # Relationships
+    user = relationship("User", back_populates="coordinator")
+    approved_student_regs = relationship("StudentRegistration", back_populates="approved_by_coordinator")
+    approved_tutor_regs = relationship("TutorRegistration", back_populates="approved_by_coordinator")
+    coordinated_sessions = relationship("Session", back_populates="coordinator")
+    matching_logs = relationship("MatchingLog", back_populates="coordinator")
 
 class Subject(Base):
-    __tablename__ = "subjects"
+    __tablename__ = "subject"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
     
-    id = Column(Integer, primary_key=True, index=True)
-    code = Column(String(20), unique=True, nullable=False)  # Mã môn học
-    name = Column(String(200), nullable=False)
-    faculty = Column(String(100), nullable=False)
-    credits = Column(Integer, nullable=False)
+    subject_id = Column(Integer, primary_key=True, index=True)
+    subject_code = Column(String, nullable=False, unique=True)
+    subject_name = Column(String, nullable=False)
+    department = Column(String, nullable=True)
+    credits = Column(Integer, default=3)
     description = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=func.now())
+    prerequisites = Column(JSONB, default=[])
+    
+    # Relationships
+    sessions = relationship("Session", back_populates="subject")
+    student_registrations = relationship("StudentRegistration", back_populates="subject")
+    tutor_registrations = relationship("TutorRegistration", back_populates="subject")
+    forums = relationship("Forum", back_populates="subject")
+    study_groups = relationship("StudyGroup", back_populates="subject")
+    course_reports = relationship("CourseReport", back_populates="subject")
 
 class Session(Base):
-    __tablename__ = "sessions"
+    __tablename__ = "session"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
     
-    id = Column(Integer, primary_key=True, index=True)
-    tutor_id = Column(Integer, ForeignKey("tutors.id"))
-    student_id = Column(Integer, ForeignKey("students.id"))
-    subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=True)
+    session_id = Column(Integer, primary_key=True, index=True)
+    tutor_id = Column(Integer, ForeignKey("tutor_system.tutor.tutor_id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("tutor_system.student.student_id"), nullable=True)
+    subject_id = Column(Integer, ForeignKey("tutor_system.subject.subject_id"), nullable=False)
+    coordinator_id = Column(Integer, ForeignKey("tutor_system.coordinator.coordinator_id"), nullable=True)
     
-    title = Column(String(200), nullable=False)
+    title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
-    scheduled_at = Column(DateTime, nullable=False)
-    duration_minutes = Column(Integer, default=60)
-    location = Column(String(200), nullable=True)
-    is_online = Column(Boolean, default=False)
-    meeting_url = Column(String(500), nullable=True)
+    scheduled_date = Column(Date, nullable=True)
+    start_time = Column(Time, nullable=True)
+    end_time = Column(Time, nullable=True)
+    duration = Column(Integer, CheckConstraint('duration >= 1 AND duration <= 4'), default=1)
     
-    status = Column(Enum(SessionStatus), default=SessionStatus.SCHEDULED)
+    location_type = Column(String, default='online')  # online, offline, hybrid
+    meeting_link = Column(Text, nullable=True)
+    physical_address = Column(Text, nullable=True)
     
-    # Session content
-    materials = Column(Text, nullable=True)  # JSON string
-    notes = Column(Text, nullable=True)
-    homework = Column(Text, nullable=True)
+    status = Column(String, default='draft')  # draft, published, pending_assignment, confirmed, ongoing, completed, cancelled
+    actual_start = Column(DateTime(timezone=True), nullable=True)
+    actual_end = Column(DateTime(timezone=True), nullable=True)
     
-    # Feedback and evaluation
-    tutor_feedback = Column(Text, nullable=True)
-    student_feedback = Column(Text, nullable=True)
-    tutor_rating = Column(Float, nullable=True)
-    student_rating = Column(Float, nullable=True)
+    price = Column(Numeric, nullable=True)
+    payment_status = Column(String, default='pending')  # pending, paid, refunded
     
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    session_notes = Column(Text, nullable=True)
+    max_students = Column(Integer, default=1)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relationships
     tutor = relationship("Tutor", back_populates="sessions")
     student = relationship("Student", back_populates="sessions")
-    subject = relationship("Subject")
-
-class TutorRegistration(Base):
-    __tablename__ = "tutor_registrations"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    tutor_id = Column(Integer, ForeignKey("tutors.id"))
-    subject_id = Column(Integer, ForeignKey("subjects.id"))
-    
-    qualification = Column(Text, nullable=True)  # Bằng cấp, chứng chỉ
-    experience = Column(Text, nullable=True)
-    status = Column(Enum(RegistrationStatus), default=RegistrationStatus.PENDING)
-    
-    coordinator_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    coordinator_notes = Column(Text, nullable=True)
-    
-    submitted_at = Column(DateTime, default=func.now())
-    reviewed_at = Column(DateTime, nullable=True)
-    
-    # Relationships
-    tutor = relationship("Tutor", back_populates="registrations")
-    subject = relationship("Subject")
-    coordinator = relationship("User")
+    subject = relationship("Subject", back_populates="sessions")
+    coordinator = relationship("Coordinator", back_populates="coordinated_sessions")
+    materials = relationship("SessionMaterial", back_populates="session")
+    feedbacks = relationship("SessionFeedback", back_populates="session")
+    responses = relationship("SessionResponse", back_populates="session")
+    attendance_records = relationship("Attendance", back_populates="session")
+    external_resources = relationship("ExternalResource", back_populates="session")
+    matching_logs = relationship("MatchingLog", back_populates="session")
 
 class StudentRegistration(Base):
-    __tablename__ = "student_registrations"
+    __tablename__ = "studentregistration"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
     
-    id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("students.id"))
-    subject_id = Column(Integer, ForeignKey("subjects.id"))
-    
-    reason = Column(Text, nullable=True)  # Lý do đăng ký
-    current_grade = Column(String(5), nullable=True)
-    target_grade = Column(String(5), nullable=True)
-    
-    status = Column(Enum(RegistrationStatus), default=RegistrationStatus.PENDING)
-    
-    coordinator_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    coordinator_notes = Column(Text, nullable=True)
-    
-    submitted_at = Column(DateTime, default=func.now())
-    reviewed_at = Column(DateTime, nullable=True)
+    registration_id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("tutor_system.student.student_id"), nullable=False)
+    subject_id = Column(Integer, ForeignKey("tutor_system.subject.subject_id"), nullable=False)
+    learning_goals = Column(Text, nullable=True)
+    urgency = Column(String, default='medium')  # high, medium, low
+    status = Column(String, default='pending')  # pending, approved, rejected
+    approved_by = Column(Integer, ForeignKey("tutor_system.coordinator.coordinator_id"), nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+    registered_at = Column(DateTime(timezone=True), server_default=func.now())
+    responded_at = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
     student = relationship("Student", back_populates="registrations")
-    subject = relationship("Subject")
-    coordinator = relationship("User")
+    subject = relationship("Subject", back_populates="student_registrations")
+    approved_by_coordinator = relationship("Coordinator", back_populates="approved_student_regs")
+
+class TutorRegistration(Base):
+    __tablename__ = "tutorregistration"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    registration_id = Column(Integer, primary_key=True, index=True)
+    tutor_id = Column(Integer, ForeignKey("tutor_system.tutor.tutor_id"), nullable=False)
+    subject_id = Column(Integer, ForeignKey("tutor_system.subject.subject_id"), nullable=False)
+    gpa = Column(Numeric, CheckConstraint('gpa >= 0 AND gpa <= 4.0'), nullable=True)
+    qualifications = Column(Text, nullable=True)
+    status = Column(String, default='pending')  # pending, approved, rejected
+    approved_by = Column(Integer, ForeignKey("tutor_system.coordinator.coordinator_id"), nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+    registered_at = Column(DateTime(timezone=True), server_default=func.now())
+    responded_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Relationships
+    tutor = relationship("Tutor", back_populates="registrations")
+    subject = relationship("Subject", back_populates="tutor_registrations")
+    approved_by_coordinator = relationship("Coordinator", back_populates="approved_tutor_regs")
+
+class Attendance(Base):
+    __tablename__ = "attendance"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    attendance_id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("tutor_system.session.session_id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("tutor_system.student.student_id"), nullable=False)
+    status = Column(String, default='present')  # present, late, absent, excused
+    check_in_time = Column(DateTime(timezone=True), nullable=True)
+    check_out_time = Column(DateTime(timezone=True), nullable=True)
+    duration_minutes = Column(Integer, nullable=True)
+    notes = Column(Text, nullable=True)
+    
+    # Relationships
+    session = relationship("Session", back_populates="attendance_records")
+    student = relationship("Student", back_populates="attendance_records")
+
+class SessionMaterial(Base):
+    __tablename__ = "sessionmaterial"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    material_id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("tutor_system.session.session_id"), nullable=False)
+    uploaded_by = Column(Integer, ForeignKey("tutor_system.User.user_id"), nullable=False)
+    file_name = Column(String, nullable=False)
+    file_url = Column(Text, nullable=False)
+    file_type = Column(String, nullable=True)
+    file_size = Column(BigInteger, nullable=True)
+    description = Column(Text, nullable=True)
+    uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    session = relationship("Session", back_populates="materials")
+    uploader = relationship("User", back_populates="uploaded_materials")
+
+class SessionFeedback(Base):
+    __tablename__ = "sessionfeedback"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    feedback_id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("tutor_system.session.session_id"), nullable=False)
+    reviewer_id = Column(Integer, ForeignKey("tutor_system.User.user_id"), nullable=False)
+    reviewer_type = Column(String, nullable=False)  # student, tutor
+    rating = Column(Integer, CheckConstraint('rating >= 1 AND rating <= 5'), nullable=False)
+    comment = Column(Text, nullable=True)
+    tags = Column(JSONB, default=[])
+    is_public = Column(Boolean, default=True)
+    is_anonymous = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    session = relationship("Session", back_populates="feedbacks")
+    reviewer = relationship("User", back_populates="session_feedbacks")
+
+class SessionResponse(Base):
+    __tablename__ = "sessionresponse"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    response_id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("tutor_system.session.session_id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("tutor_system.User.user_id"), nullable=False)
+    responder_type = Column(String, nullable=False)  # tutor, student
+    action = Column(String, nullable=False)  # accept, decline, request_new_time
+    reason = Column(Text, nullable=True)
+    proposed_new_time = Column(DateTime(timezone=True), nullable=True)
+    is_final = Column(Boolean, default=False)
+    responded_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    session = relationship("Session", back_populates="responses")
+    user = relationship("User", back_populates="session_responses")
+
+class ExternalResource(Base):
+    __tablename__ = "externalresource"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    resource_id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("tutor_system.session.session_id"), nullable=False)
+    resource_name = Column(String, nullable=False)
+    library_resource_id = Column(String, nullable=True)
+    external_url = Column(Text, nullable=True)
+    source = Column(String, nullable=True)  # hcmut_library, youtube, other
+    description = Column(Text, nullable=True)
+    added_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    session = relationship("Session", back_populates="external_resources")
+
+class MatchingLog(Base):
+    __tablename__ = "matchinglog"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    log_id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("tutor_system.session.session_id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("tutor_system.student.student_id"), nullable=False)
+    coordinator_id = Column(Integer, ForeignKey("tutor_system.coordinator.coordinator_id"), nullable=True)
+    ai_provider = Column(String, nullable=True)
+    ai_model = Column(String, nullable=True)
+    request_data = Column(JSONB, nullable=True)
+    ai_response = Column(JSONB, nullable=True)
+    candidates = Column(JSONB, default=[])
+    selected_tutor_id = Column(Integer, ForeignKey("tutor_system.tutor.tutor_id"), nullable=True)
+    match_score = Column(Numeric, CheckConstraint('match_score >= 0 AND match_score <= 100'), nullable=True)
+    matching_criteria = Column(Text, nullable=True)
+    processing_time_ms = Column(Numeric, nullable=True)
+    matched_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    session = relationship("Session", back_populates="matching_logs")
+    student = relationship("Student")
+    coordinator = relationship("Coordinator", back_populates="matching_logs")
+    selected_tutor = relationship("Tutor", back_populates="matching_logs")
 
 class Forum(Base):
-    __tablename__ = "forums"
+    __tablename__ = "forum"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
     
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String(200), nullable=False)
+    forum_id = Column(Integer, primary_key=True, index=True)
+    creator_id = Column(Integer, ForeignKey("tutor_system.User.user_id"), nullable=False)
+    subject_id = Column(Integer, ForeignKey("tutor_system.subject.subject_id"), nullable=True)
+    forum_name = Column(String, nullable=False)
     description = Column(Text, nullable=True)
-    subject_id = Column(Integer, ForeignKey("subjects.id"), nullable=True)
-    creator_id = Column(Integer, ForeignKey("users.id"))
+    topic = Column(String, nullable=True)
     is_public = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=func.now())
+    require_approval = Column(Boolean, default=False)
+    member_count = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relationships
-    creator = relationship("User")
-    subject = relationship("Subject")
+    creator = relationship("User", foreign_keys=[creator_id], back_populates="created_forums")
+    subject = relationship("Subject", back_populates="forums")
+    members = relationship("ForumMember", back_populates="forum")
+    posts = relationship("ForumPost", back_populates="forum")
+
+class ForumMember(Base):
+    __tablename__ = "forummember"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    member_id = Column(Integer, primary_key=True, index=True)
+    forum_id = Column(Integer, ForeignKey("tutor_system.forum.forum_id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("tutor_system.User.user_id"), nullable=False)
+    role = Column(String, default='member')  # admin, moderator, member
+    status = Column(String, default='active')  # active, pending, banned
+    joined_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    forum = relationship("Forum", back_populates="members")
+    user = relationship("User", back_populates="forum_memberships")
 
 class ForumPost(Base):
-    __tablename__ = "forum_posts"
+    __tablename__ = "forumpost"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
     
-    id = Column(Integer, primary_key=True, index=True)
-    forum_id = Column(Integer, ForeignKey("forums.id"))
-    author_id = Column(Integer, ForeignKey("users.id"))
+    post_id = Column(Integer, primary_key=True, index=True)
+    forum_id = Column(Integer, ForeignKey("tutor_system.forum.forum_id"), nullable=False)
+    author_id = Column(Integer, ForeignKey("tutor_system.User.user_id"), nullable=False)
+    parent_post_id = Column(Integer, ForeignKey("tutor_system.forumpost.post_id"), nullable=True)
+    title = Column(String, nullable=True)
     content = Column(Text, nullable=False)
-    parent_id = Column(Integer, ForeignKey("forum_posts.id"), nullable=True)  # For replies
-    
-    likes = Column(Integer, default=0)
+    attachments = Column(JSONB, default=[])
     is_pinned = Column(Boolean, default=False)
-    is_deleted = Column(Boolean, default=False)
-    
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    upvote_count = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relationships
-    forum = relationship("Forum")
-    author = relationship("User")
-    parent = relationship("ForumPost", remote_side=[id])
+    forum = relationship("Forum", back_populates="posts")
+    author = relationship("User", back_populates="forum_posts")
+    parent_post = relationship("ForumPost", remote_side=[post_id], foreign_keys=[parent_post_id])
 
-class Report(Base):
-    __tablename__ = "reports"
+class StudyGroup(Base):
+    __tablename__ = "studygroup"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
     
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String(200), nullable=False)
-    type = Column(String(50), nullable=False)  # course, academic, tutor_activity
-    generated_by = Column(Integer, ForeignKey("users.id"))
-    generated_at = Column(DateTime, default=func.now())
-    
-    # Report data (JSON)
-    data = Column(Text, nullable=True)
-    
-    # Filters used
-    filters = Column(Text, nullable=True)  # JSON string
+    group_id = Column(Integer, primary_key=True, index=True)
+    creator_id = Column(Integer, ForeignKey("tutor_system.User.user_id"), nullable=False)
+    subject_id = Column(Integer, ForeignKey("tutor_system.subject.subject_id"), nullable=True)
+    group_name = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    topic = Column(String, nullable=True)
+    is_public = Column(Boolean, default=True)
+    require_approval = Column(Boolean, default=False)
+    member_count = Column(Integer, default=0)
+    max_members = Column(Integer, default=10)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # Relationships
-    generator = relationship("User")
+    creator = relationship("User", foreign_keys=[creator_id], back_populates="study_group_created")
+    subject = relationship("Subject", back_populates="study_groups")
+    members = relationship("StudyGroupMember", back_populates="group")
+    posts = relationship("StudyGroupPost", back_populates="group")
+
+class StudyGroupMember(Base):
+    __tablename__ = "studygroupmember"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    member_id = Column(Integer, primary_key=True, index=True)
+    group_id = Column(Integer, ForeignKey("tutor_system.studygroup.group_id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("tutor_system.User.user_id"), nullable=False)
+    role = Column(String, default='member')  # owner, member
+    status = Column(String, default='active')  # active, pending
+    joined_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    group = relationship("StudyGroup", back_populates="members")
+    user = relationship("User", back_populates="study_group_memberships")
+
+class StudyGroupPost(Base):
+    __tablename__ = "studygrouppost"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    post_id = Column(Integer, primary_key=True, index=True)
+    group_id = Column(Integer, ForeignKey("tutor_system.studygroup.group_id"), nullable=False)
+    author_id = Column(Integer, ForeignKey("tutor_system.User.user_id"), nullable=False)
+    parent_post_id = Column(Integer, ForeignKey("tutor_system.studygrouppost.post_id"), nullable=True)
+    content = Column(Text, nullable=False)
+    attachments = Column(JSONB, default=[])
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    group = relationship("StudyGroup", back_populates="posts")
+    author = relationship("User")
+    parent_post = relationship("StudyGroupPost", remote_side=[post_id], foreign_keys=[parent_post_id])
+
+class CourseReport(Base):
+    __tablename__ = "coursereport"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    report_id = Column(Integer, primary_key=True, index=True)
+    subject_id = Column(Integer, ForeignKey("tutor_system.subject.subject_id"), nullable=False)
+    report_period_start = Column(Date, nullable=False)
+    report_period_end = Column(Date, nullable=False)
+    total_sessions = Column(Integer, default=0)
+    total_students = Column(Integer, default=0)
+    total_tutors = Column(Integer, default=0)
+    avg_session_rating = Column(Numeric, nullable=True)
+    completion_rate = Column(Numeric, nullable=True)
+    metrics = Column(JSONB, default={})
+    generated_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    subject = relationship("Subject", back_populates="course_reports")
+
+class TutorActivityReport(Base):
+    __tablename__ = "tutoractivityreport"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    report_id = Column(Integer, primary_key=True, index=True)
+    tutor_id = Column(Integer, ForeignKey("tutor_system.tutor.tutor_id"), nullable=False)
+    report_period_start = Column(Date, nullable=False)
+    report_period_end = Column(Date, nullable=False)
+    total_sessions = Column(Integer, default=0)
+    completed_sessions = Column(Integer, default=0)
+    avg_rating = Column(Numeric, nullable=True)
+    total_students = Column(Integer, default=0)
+    total_hours = Column(Integer, default=0)
+    social_activity_score = Column(Numeric, nullable=True)
+    activity_details = Column(JSONB, default={})
+    generated_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    tutor = relationship("Tutor", back_populates="activity_reports")
