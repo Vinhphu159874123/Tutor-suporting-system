@@ -17,12 +17,10 @@ class UserUpdate(BaseModel):
     avatar_url: Optional[str] = None
 
 class UserResponse(BaseModel):
-    id: int
+    user_id: int
     email: str
     full_name: str
     role: str  # Changed from UserRole enum to str
-    faculty: Optional[str]
-    major: Optional[str]
     phone: Optional[str]
     avatar_url: Optional[str]
     is_active: bool
@@ -97,13 +95,13 @@ async def get_user(
     """Get user by ID"""
     
     # Users can only view their own profile, or admins can view any profile
-    if current_user.id != user_id and current_user.role not in ['admin', 'coordinator']:  # Changed from enum to str
+    if current_user.user_id != user_id and current_user.role not in ['admin', 'coordinator']:  # Changed from enum to str
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
         )
     
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(select(User).where(User.user_id == user_id))
     user = result.scalar_one_or_none()
     
     if not user:
@@ -128,7 +126,7 @@ async def delete_user(
             detail="Not enough permissions"
         )
     
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(select(User).where(User.user_id == user_id))
     user = result.scalar_one_or_none()
     
     if not user:
