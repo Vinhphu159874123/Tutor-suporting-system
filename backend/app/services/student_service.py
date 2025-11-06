@@ -47,8 +47,8 @@ class StudentService:
         if user:
             response.full_name = user.full_name
             response.email = user.email
-            response.faculty = user.faculty
-            response.major = user.major
+            response.phone = user.phone
+            response.avatar_url = user.avatar_url
         
         return response
     
@@ -58,7 +58,7 @@ class StudentService:
         if not student:
             return None
         
-        return await self.get_student(student.id)
+        return await self.get_student(student.student_id)
     
     async def get_all_students(
         self,
@@ -83,8 +83,8 @@ class StudentService:
             if user:
                 response.full_name = user.full_name
                 response.email = user.email
-                response.faculty = user.faculty
-                response.major = user.major
+                response.phone = user.phone
+                response.avatar_url = user.avatar_url
             responses.append(response)
         
         return responses
@@ -123,13 +123,13 @@ class StudentService:
         
         # Emit event for welcome email, notifications
         await event_bus.emit(EventTypes.STUDENT_REGISTERED, {
-            "student_id": student.id,
+            "student_id": student.student_id,
             "user_id": student.user_id,
             "email": user.email,
             "full_name": user.full_name
         })
         
-        return await self.get_student(student.id)
+        return await self.get_student(student.student_id)
     
     async def update_student(
         self, 
@@ -150,7 +150,7 @@ class StudentService:
         
         updated = await self.student_repo.update(student_id, update_data)
         
-        return await self.get_student(updated.id)
+        return await self.get_student(updated.student_id)
     
     async def delete_student(self, student_id: int) -> bool:
         """Delete student profile"""

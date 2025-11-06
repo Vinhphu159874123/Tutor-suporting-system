@@ -41,7 +41,8 @@ class TutorService:
         if user:
             response.full_name = user.full_name
             response.email = user.email
-            response.faculty = user.faculty
+            response.phone = user.phone
+            response.avatar_url = user.avatar_url
         
         return response
     
@@ -51,14 +52,13 @@ class TutorService:
         if not tutor:
             return None
         
-        return await self.get_tutor(tutor.id)
+        return await self.get_tutor(tutor.tutor_id)
     
     async def get_all_tutors(
         self,
         skip: int = 0,
         limit: int = 100,
         subject: Optional[str] = None,
-        is_available: Optional[bool] = None,
         min_rating: Optional[float] = None
     ) -> List[TutorResponse]:
         """Get all tutors with filters - PLACEHOLDER"""
@@ -66,7 +66,6 @@ class TutorService:
             skip=skip,
             limit=limit,
             subject=subject,
-            is_available=is_available,
             min_rating=min_rating
         )
         
@@ -78,7 +77,8 @@ class TutorService:
             if user:
                 response.full_name = user.full_name
                 response.email = user.email
-                response.faculty = user.faculty
+                response.phone = user.phone
+                response.avatar_url = user.avatar_url
             responses.append(response)
         
         return responses
@@ -110,7 +110,6 @@ class TutorService:
         
         # Create tutor profile
         tutor_dict = tutor_data.model_dump()
-        tutor_dict['is_available'] = True
         tutor_dict['total_sessions'] = 0
         tutor_dict['rating'] = 0.0
         
@@ -118,14 +117,13 @@ class TutorService:
         
         # Emit event for approval workflow, welcome email
         await event_bus.emit(EventTypes.TUTOR_REGISTERED, {
-            "tutor_id": tutor.id,
+            "tutor_id": tutor.tutor_id,
             "user_id": tutor.user_id,
             "email": user.email,
-            "full_name": user.full_name,
-            "subjects": tutor.subjects
+            "full_name": user.full_name
         })
         
-        return await self.get_tutor(tutor.id)
+        return await self.get_tutor(tutor.tutor_id)
     
     async def update_tutor(
         self, 
@@ -146,7 +144,7 @@ class TutorService:
         
         updated = await self.tutor_repo.update(tutor_id, update_data)
         
-        return await self.get_tutor(updated.id)
+        return await self.get_tutor(updated.tutor_id)
     
     async def delete_tutor(self, tutor_id: int) -> bool:
         """Delete tutor profile"""
