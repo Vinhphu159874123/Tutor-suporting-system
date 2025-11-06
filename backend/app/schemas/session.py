@@ -4,7 +4,6 @@ Session Schemas - Request/Response DTOs
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime, date, time
-from decimal import Decimal
 from enum import Enum
 
 
@@ -26,13 +25,6 @@ class LocationType(str, Enum):
     HYBRID = "hybrid"
 
 
-class PaymentStatus(str, Enum):
-    """Payment status enum"""
-    PENDING = "pending"
-    PAID = "paid"
-    REFUNDED = "refunded"
-
-
 class SessionBase(BaseModel):
     """Base session fields"""
     title: str
@@ -46,7 +38,6 @@ class SessionBase(BaseModel):
     meeting_link: Optional[str] = None
     physical_address: Optional[str] = None
     max_students: int = Field(default=1, ge=1, description="Max students per session")
-    price: Optional[Decimal] = Field(None, ge=0)
 
 
 class SessionCreate(SessionBase):
@@ -69,8 +60,6 @@ class SessionUpdate(BaseModel):
     physical_address: Optional[str] = None
     status: Optional[SessionStatus] = None
     session_notes: Optional[str] = None
-    price: Optional[Decimal] = Field(None, ge=0)
-    payment_status: Optional[PaymentStatus] = None
 
 
 class SessionResponse(SessionBase):
@@ -80,7 +69,6 @@ class SessionResponse(SessionBase):
     student_id: Optional[int]
     coordinator_id: Optional[int]
     status: SessionStatus
-    payment_status: PaymentStatus
     actual_start: Optional[datetime]
     actual_end: Optional[datetime]
     session_notes: Optional[str]

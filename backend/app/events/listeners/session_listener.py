@@ -51,7 +51,6 @@ class SessionCompletedListener(BaseListener):
         # TODO: Send feedback request to student
         # TODO: Update tutor statistics (total sessions, hours)
         # TODO: Update student statistics
-        # TODO: Process payment if applicable
 
 
 class SessionCancelledListener(BaseListener):
