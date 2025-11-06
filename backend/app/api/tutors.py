@@ -21,20 +21,18 @@ async def get_tutors(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     subject: Optional[str] = None,
-    is_available: Optional[bool] = None,
     min_rating: Optional[float] = Query(None, ge=0, le=5),
     tutor_service: TutorService = Depends(get_tutor_service)
 ):
     """
     Get all tutors with optional filtering
     
-    Filters: subject, is_available, min_rating
+    Filters: subject, min_rating
     """
     return await tutor_service.get_all_tutors(
         skip=skip,
         limit=limit,
         subject=subject,
-        is_available=is_available,
         min_rating=min_rating
     )
 
@@ -50,7 +48,7 @@ async def get_my_tutor_profile(
     Requires: Valid authentication
     Returns: Tutor profile or 404 if not registered
     """
-    profile = await tutor_service.get_tutor_by_user_id(current_user.id)
+    profile = await tutor_service.get_tutor_by_user_id(current_user.user_id)
     if not profile:
         from fastapi import HTTPException, status
         raise HTTPException(
@@ -79,7 +77,7 @@ async def register_tutor(
     Returns: Tutor profile
     """
     # Override user_id with current user for security
-    tutor_data.user_id = current_user.id
+    tutor_data.user_id = current_user.user_id
     return await tutor_service.register_tutor(tutor_data)
 
 

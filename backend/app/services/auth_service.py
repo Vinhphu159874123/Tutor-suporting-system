@@ -86,7 +86,7 @@ class AuthService:
         user = await self.authenticate_user(email, password)
         
         # Update last login
-        await self.user_repo.update(user.id, {"updated_at": datetime.utcnow()})
+        await self.user_repo.update(user.user_id, {"updated_at": datetime.utcnow()})
         
         # Create access token
         access_token_expires = timedelta(
@@ -119,7 +119,7 @@ class AuthService:
             user = await self.user_repo.create(user_data)
         
         # Update last login
-        await self.user_repo.update(user.id, {"updated_at": datetime.utcnow()})
+        await self.user_repo.update(user.user_id, {"updated_at": datetime.utcnow()})
         
         # Create access token
         access_token_expires = timedelta(
