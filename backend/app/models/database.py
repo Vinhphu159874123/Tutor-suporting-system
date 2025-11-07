@@ -68,10 +68,63 @@ class ResourceSource(enum.Enum):
     YOUTUBE = "youtube"
     OTHER = "other"
 
-class Urgency(enum.Enum):
-    HIGH = "high"
-    MEDIUM = "medium"
+class Urgency(str, Enum):
     LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
+class SessionResponseStatus(str, Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    DECLINED = "declined"
+    CANCELLED = "cancelled"
+
+class ProgressStatus(str, Enum):
+    NOT_STARTED = "not_started"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    NEEDS_REVIEW = "needs_review"
+
+class AchievementType(str, Enum):
+    MILESTONE = "milestone"
+    STREAK = "streak"
+    EXCELLENCE = "excellence"
+    PARTICIPATION = "participation"
+    IMPROVEMENT = "improvement"
+
+class AchievementStatus(str, Enum):
+    LOCKED = "locked"
+    IN_PROGRESS = "in_progress"
+    EARNED = "earned"
+
+class NotificationType(str, Enum):
+    SESSION_REMINDER = "session_reminder"
+    SESSION_CANCELLED = "session_cancelled"
+    SESSION_UPDATED = "session_updated"
+    NEW_MESSAGE = "new_message"
+    ACHIEVEMENT_EARNED = "achievement_earned"
+    REPORT_AVAILABLE = "report_available"
+    SYSTEM_ANNOUNCEMENT = "system_announcement"
+
+class NotificationStatus(str, Enum):
+    UNREAD = "unread"
+    READ = "read"
+    ARCHIVED = "archived"
+
+class ResourceType(str, Enum):
+    BOOK = "book"
+    ARTICLE = "article"
+    VIDEO = "video"
+    WEBSITE = "website"
+    DOCUMENT = "document"
+    OTHER = "other"
+
+class RecurrencePattern(str, Enum):
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    BIWEEKLY = "biweekly"
+    MONTHLY = "monthly"
 
 class User(Base):
     __tablename__ = "User"
@@ -105,6 +158,7 @@ class User(Base):
     session_feedbacks = relationship("SessionFeedback", back_populates="reviewer")
     session_responses = relationship("SessionResponse", back_populates="user")
     reports_generated = relationship("CourseReport", back_populates="generator", foreign_keys="[CourseReport.generated_by]")
+    notifications = relationship("Notifications", back_populates="user")
 
 class Student(Base):
     __tablename__ = "student"
@@ -126,6 +180,8 @@ class Student(Base):
     sessions = relationship("Session", back_populates="student")
     registrations = relationship("StudentRegistration", back_populates="student")
     attendance_records = relationship("Attendance", back_populates="student")
+    progress_trackings = relationship("ProgressTracking", back_populates="student")
+    achievements = relationship("LearningAchievements", back_populates="student")
 
 class Tutor(Base):
     __tablename__ = "tutor"
@@ -152,6 +208,7 @@ class Tutor(Base):
     registrations = relationship("TutorRegistration", back_populates="tutor")
     activity_reports = relationship("TutorActivityReport", back_populates="tutor")
     matching_logs = relationship("MatchingLog", back_populates="selected_tutor")
+    schedules = relationship("SessionSchedule", back_populates="tutor")
 
 class Coordinator(Base):
     __tablename__ = "coordinator"
@@ -195,6 +252,8 @@ class Subject(Base):
     forums = relationship("Forum", back_populates="subject")
     study_groups = relationship("StudyGroup", back_populates="subject")
     course_reports = relationship("CourseReport", back_populates="subject")
+    progress_trackings = relationship("ProgressTracking", back_populates="subject")
+    schedules = relationship("SessionSchedule", back_populates="subject")
 
 class Session(Base):
     __tablename__ = "session"
@@ -241,6 +300,7 @@ class Session(Base):
     attendance_records = relationship("Attendance", back_populates="session")
     external_resources = relationship("ExternalResource", back_populates="session")
     matching_logs = relationship("MatchingLog", back_populates="session")
+    progress_tracking = relationship("ProgressTracking", back_populates="session", uselist=False)
 
 class StudentRegistration(Base):
     __tablename__ = "studentregistration"
@@ -595,3 +655,163 @@ class TutorActivityReport(Base):
     
     # Relationships
     tutor = relationship("Tutor", back_populates="activity_reports")
+
+class ProgressTracking(Base):
+    __tablename__ = "progress_tracking"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    progress_id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("tutor_system.session.session_id"), nullable=False, unique=True)
+    student_id = Column(Integer, ForeignKey("tutor_system.student.student_id"), nullable=False)
+    subject_id = Column(Integer, ForeignKey("tutor_system.subject.subject_id"), nullable=False)
+    topics_covered = Column(JSONB, default=[])  # Array in PostgreSQL
+    understanding_level = Column(Integer, CheckConstraint('understanding_level >= 1 AND understanding_level <= 5'))
+    strengths = Column(Text)
+    weaknesses = Column(Text)
+    notes = Column(Text)
+    tutor_feedback = Column(Text)
+    homework_assigned = Column(Text)
+    homework_completed = Column(Boolean, default=False)
+    homework_grade = Column(Integer, CheckConstraint('homework_grade >= 0 AND homework_grade <= 100'))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    session = relationship("Session", back_populates="progress_tracking")
+    student = relationship("Student", back_populates="progress_trackings")
+    subject = relationship("Subject", back_populates="progress_trackings")
+
+class LearningAchievements(Base):
+    __tablename__ = "learning_achievements"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    achievement_id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("tutor_system.student.student_id"), nullable=False)
+    achievement_type = Column(String, nullable=False)  # first_session, sessions_10, sessions_50, etc.
+    title = Column(String, nullable=False)
+    description = Column(Text)
+    icon_url = Column(Text)
+    metadata = Column(JSONB, default={})
+    earned_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    student = relationship("Student", back_populates="achievements")
+
+class Notifications(Base):
+    __tablename__ = "notifications"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    notification_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("tutor_system.User.user_id"), nullable=False)
+    type = Column(String, nullable=False)  # session_created, session_updated, etc.
+    title = Column(String, nullable=False)
+    message = Column(Text, nullable=False)
+    related_entity_type = Column(String)
+    related_entity_id = Column(Integer)
+    data = Column(JSONB, default={})
+    is_read = Column(Boolean, default=False)
+    read_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="notifications")
+
+class LibraryResourcesCache(Base):
+    __tablename__ = "library_resources_cache"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    cache_id = Column(Integer, primary_key=True, index=True)
+    library_resource_id = Column(String, nullable=False, unique=True)
+    title = Column(String, nullable=False)
+    authors = Column(JSONB, default=[])  # Array in PostgreSQL
+    publisher = Column(String)
+    published_year = Column(Integer)
+    isbn = Column(String)
+    resource_type = Column(String)  # book, journal, thesis, paper, video, other
+    subject_category = Column(String)
+    description = Column(Text)
+    thumbnail_url = Column(Text)
+    is_available = Column(Boolean, default=True)
+    location = Column(String)
+    call_number = Column(String)
+    cached_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_accessed = Column(DateTime(timezone=True), server_default=func.now())
+    access_count = Column(Integer, default=0)
+
+class SessionSchedule(Base):
+    __tablename__ = "session_schedule"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    schedule_id = Column(Integer, primary_key=True, index=True)
+    tutor_id = Column(Integer, ForeignKey("tutor_system.tutor.tutor_id"), nullable=False)
+    subject_id = Column(Integer, ForeignKey("tutor_system.subject.subject_id"), nullable=False)
+    title = Column(String, nullable=False)
+    description = Column(Text)
+    is_recurring = Column(Boolean, default=False)
+    recurrence_pattern = Column(String)  # daily, weekly, biweekly, monthly
+    day_of_week = Column(Integer, CheckConstraint('day_of_week >= 0 AND day_of_week <= 6'))
+    start_time = Column(Time, nullable=False)
+    end_time = Column(Time, nullable=False)
+    duration = Column(Integer, CheckConstraint('duration >= 1 AND duration <= 4'))
+    location_type = Column(String, default="online")
+    meeting_link = Column(Text)
+    physical_address = Column(Text)
+    max_students = Column(Integer, default=1)
+    valid_from = Column(Date, nullable=False)
+    valid_until = Column(Date)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    tutor = relationship("Tutor", back_populates="schedules")
+    subject = relationship("Subject", back_populates="schedules")
+
+class OverallAcademicReport(Base):
+    __tablename__ = "overall_academic_report"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    report_id = Column(Integer, primary_key=True, index=True)
+    report_period_start = Column(Date, nullable=False)
+    report_period_end = Column(Date, nullable=False)
+    total_sessions = Column(Integer, default=0)
+    completed_sessions = Column(Integer, default=0)
+    cancelled_sessions = Column(Integer, default=0)
+    total_students = Column(Integer, default=0)
+    active_students = Column(Integer, default=0)
+    total_tutors = Column(Integer, default=0)
+    active_tutors = Column(Integer, default=0)
+    verified_tutors = Column(Integer, default=0)
+    total_subjects = Column(Integer, default=0)
+    avg_session_rating = Column(Numeric)
+    avg_tutor_rating = Column(Numeric)
+    completion_rate = Column(Numeric)
+    total_forums = Column(Integer, default=0)
+    total_forum_posts = Column(Integer, default=0)
+    total_study_groups = Column(Integer, default=0)
+    subject_breakdown = Column(JSONB, default={})
+    faculty_breakdown = Column(JSONB, default={})
+    session_type_breakdown = Column(JSONB, default={})
+    generated_by = Column(Integer, ForeignKey("tutor_system.User.user_id"))
+    generated_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    generator = relationship("User")
