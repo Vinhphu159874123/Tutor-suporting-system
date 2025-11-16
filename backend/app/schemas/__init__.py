@@ -38,7 +38,7 @@ from app.schemas.report import (
     TutorPerformanceReport,
     StudentProgressReport,
     SystemStatistics,
-    ReportFilter
+    ReportFilters
 )
 from app.schemas.admin import (
     UserManagement,
