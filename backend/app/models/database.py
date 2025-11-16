@@ -157,7 +157,7 @@ class User(Base):
     uploaded_materials = relationship("SessionMaterial", back_populates="uploader")
     session_feedbacks = relationship("SessionFeedback", back_populates="reviewer")
     session_responses = relationship("SessionResponse", back_populates="user")
-    reports_generated = relationship("CourseReport", back_populates="generator", foreign_keys="[CourseReport.generated_by]")
+    reports_generated = relationship("OverallAcademicReport", back_populates="generator")
     notifications = relationship("Notifications", back_populates="user")
 
 class Student(Base):
@@ -697,7 +697,7 @@ class LearningAchievements(Base):
     title = Column(String, nullable=False)
     description = Column(Text)
     icon_url = Column(Text)
-    metadata = Column(JSONB, default={})
+    achievement_metadata = Column(JSONB, default={})
     earned_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships

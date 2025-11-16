@@ -75,3 +75,11 @@ class TutorRegistrationResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+class AvailabilitySlot(BaseModel):
+    """Tutor availability slot"""
+    day_of_week: int = Field(..., ge=0, le=6, description="0=Monday, 6=Sunday")
+    start_time: str = Field(..., description="Start time (HH:MM)")
+    end_time: str = Field(..., description="End time (HH:MM)")
+    is_available: bool = Field(default=True, description="Whether slot is available")

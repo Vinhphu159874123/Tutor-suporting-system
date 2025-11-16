@@ -78,3 +78,11 @@ class SessionFeedbackCreate(BaseModel):
     comment: Optional[str] = None
     tags: Optional[list[str]] = Field(default=[], description="Feedback tags")
     is_anonymous: bool = False
+
+
+class TutorRequestCreate(BaseModel):
+    """Request to create a tutor request"""
+    subject_id: int = Field(..., description="Subject ID to request tutor for")
+    description: Optional[str] = Field(None, description="Request description")
+    urgency: str = Field("medium", description="high, medium, low")
+    preferred_schedule: Optional[str] = Field(None, description="Preferred schedule")

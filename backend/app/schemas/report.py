@@ -89,3 +89,28 @@ class TutorPerformanceReport(BaseModel):
     subjects_taught: list[str]
     period_start: datetime
     period_end: datetime
+
+
+class StudentProgressReport(BaseModel):
+    """Student progress report"""
+    student_id: int
+    student_name: str
+    total_sessions: int
+    completed_sessions: int
+    average_rating: Optional[float] = None
+    subjects_studied: list[str] = []
+    total_hours: float = 0.0
+    period_start: datetime
+    period_end: datetime
+
+
+class SystemStatistics(BaseModel):
+    """Overall system statistics"""
+    total_users: int
+    total_students: int
+    total_tutors: int
+    total_sessions: int
+    active_sessions: int
+    completed_sessions: int
+    total_subjects: int
+    average_session_rating: Optional[float] = None
