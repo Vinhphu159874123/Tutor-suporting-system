@@ -2,7 +2,7 @@
 Tutor Routes - Layered Architecture
 Routes delegate to TutorService - PLACEHOLDER implementations preserved
 """
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from typing import List, Optional
 from datetime import datetime
 
@@ -173,20 +173,34 @@ async def delete_tutor(
 
 
 # ============================================================================
-# PLACEHOLDER ENDPOINTS - Keep original placeholder implementations
+# REVIEW ENDPOINTS
 # ============================================================================
 
 @router.get("/{tutor_id}/reviews")
-async def get_tutor_reviews(tutor_id: int):
+async def get_tutor_reviews(
+    tutor_id: int,
+    skip: int = 0,
+    limit: int = 20,
+    tutor_service: TutorService = Depends(get_tutor_service)
+):
     """
-    Get reviews and ratings for specific tutor - PLACEHOLDER
+    Get reviews and ratings for specific tutor
     
-    TODO:
-    - Aggregate ratings from completed sessions
-    - Include student feedback
-    - Calculate average rating
-    - Support pagination
+    Query params:
+    - skip: Number of reviews to skip (default: 0)
+    - limit: Max number of reviews to return (default: 20, max: 100)
     
-    Returns: List of reviews with ratings and comments
+    Returns:
+    - tutor_id: ID of the tutor
+    - statistics: Average rating, total reviews, unique reviewers
+    - reviews: List of feedback with ratings and comments
+    - pagination: Skip, limit, total count
     """
-    return {"message": f"Get reviews for tutor {tutor_id} - Implementation pending"}
+    if limit > 100:
+        limit = 100
+    
+    return await tutor_service.get_tutor_reviews(tutor_id, skip, limit)
+
+# ============================================================================
+# PLACEHOLDER ENDPOINTS
+# ============================================================================
