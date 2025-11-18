@@ -255,6 +255,26 @@ class Subject(Base):
     progress_trackings = relationship("ProgressTracking", back_populates="subject")
     schedules = relationship("SessionSchedule", back_populates="subject")
 
+class SessionParticipant(Base):
+    """Session participant - link between session and users (tutor/students)"""
+    __tablename__ = "SessionParticipant"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    participant_id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey('tutor_system.session.session_id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('tutor_system.User.user_id'), nullable=False)
+    role = Column(String, nullable=False)  # 'tutor' or 'student'
+    joined_at = Column(DateTime(timezone=True), server_default=func.now())
+    status = Column(String, default='confirmed')  # confirmed, pending, cancelled
+    notes = Column(Text, nullable=True)
+    
+    # Relationships
+    session = relationship("Session", back_populates="participants")
+    user = relationship("User")
+
 class Session(Base):
     __tablename__ = "session"
     __table_args__ = {
@@ -264,7 +284,7 @@ class Session(Base):
     
     session_id = Column(Integer, primary_key=True, index=True)
     tutor_id = Column(Integer, ForeignKey("tutor_system.tutor.tutor_id"), nullable=False)
-    student_id = Column(Integer, ForeignKey("tutor_system.student.student_id"), nullable=True)
+    student_id = Column(Integer, ForeignKey("tutor_system.student.student_id"), nullable=True)  # DEPRECATED - use SessionParticipant
     subject_id = Column(Integer, ForeignKey("tutor_system.subject.subject_id"), nullable=False)
     coordinator_id = Column(Integer, ForeignKey("tutor_system.coordinator.coordinator_id"), nullable=True)
     
@@ -291,9 +311,10 @@ class Session(Base):
     
     # Relationships
     tutor = relationship("Tutor", back_populates="sessions")
-    student = relationship("Student", back_populates="sessions")
+    student = relationship("Student", back_populates="sessions")  # DEPRECATED - use participants
     subject = relationship("Subject", back_populates="sessions")
     coordinator = relationship("Coordinator", back_populates="coordinated_sessions")
+    participants = relationship("SessionParticipant", back_populates="session", cascade="all, delete-orphan")
     materials = relationship("SessionMaterial", back_populates="session")
     feedbacks = relationship("SessionFeedback", back_populates="session")
     responses = relationship("SessionResponse", back_populates="session")

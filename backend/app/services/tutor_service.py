@@ -6,23 +6,31 @@ Now with event emission for async side effects
 from fastapi import HTTPException, status
 from typing import List, Optional
 from datetime import datetime
-
 from app.repositories.tutor_repository import TutorRepository
 from app.repositories.user_repository import UserRepository
+from app.repositories.student_repository import StudentRepository
 from app.schemas.tutor import TutorCreate, TutorUpdate, TutorResponse
 from app.events import event_bus, EventTypes
-
-
+from app.schemas.session import SessionListResponse
+from app.repositories.session_repository import SessionRepository
+from app.models.database import Session as SessionModel
+from app.models.database import Student as StudentModel
+from app.schemas.session import SessionResponse
 class TutorService:
     """Business logic for tutor operations - Placeholder implementations"""
     
     def __init__(
         self, 
         tutor_repo: TutorRepository,
-        user_repo: UserRepository
+        user_repo: UserRepository,
+        session_repo: SessionRepository,
+        student_repo: StudentRepository
     ):
         self.tutor_repo = tutor_repo
         self.user_repo = user_repo
+        self.session_repo = session_repo
+        self.student_repo = student_repo 
+
     
     async def get_tutor(self, tutor_id: int) -> TutorResponse:
         """Get tutor by ID with user data"""
@@ -157,6 +165,117 @@ class TutorService:
         return True
     
     # PLACEHOLDER methods - implement when needed
+
+    async def get_tutor_sessions(
+        self,
+        tutor_user_id: int,  # Changed: User ID instead of tutor table ID
+        status: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        skip: int = 0,
+        limit: int = 100
+    ) -> SessionListResponse:
+        """
+        Get tutor's sessions with multiple students support
+        
+        Args:
+            tutor_user_id: User ID of the tutor (not tutor table ID)
+            status: Filter by session status
+            start_date/end_date: Date range
+            skip/limit: Pagination
+        
+        Returns:
+            SessionListResponse with sessions containing multiple students
+        """
+        # Validate status parameter
+        valid_statuses = ["draft", "published", "pending_assignment", "confirmed", "ongoing", "completed", "cancelled"]
+        if status and status not in valid_statuses:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}"
+            )
+        
+        # Get sessions from repository
+        sessions, total = await self.session_repo.get_sessions_by_tutor(
+            tutor_user_id=tutor_user_id,
+            status=status,
+            start_date=start_date,  
+            end_date=end_date,
+            skip=skip,
+            limit=limit
+        )
+
+        # Build response DTOs with multiple students
+        session_responses = []
+        for session in sessions:
+            # Build tutor info
+            tutor_info = None
+            if session.tutor and session.tutor.user:
+                from app.schemas.session import TutorInfo
+                tutor_info = TutorInfo(
+                    user_id=session.tutor.user_id,
+                    tutor_id=session.tutor.tutor_id,
+                    email=session.tutor.user.email,
+                    full_name=session.tutor.user.full_name,
+                    specialization=session.tutor.bio or session.tutor.faculty  # Use bio or faculty as specialization
+                )
+            
+            # Build students list from participants
+            students = []
+            if session.participants:
+                from app.schemas.session import StudentInfo, ParticipantStatus
+                for participant in session.participants:
+                    # Only include student participants
+                    if participant.role == 'student' and participant.user:
+                        # Get student record using repository
+                        student_record = await self.student_repo.get_by_user_id(participant.user_id)
+                        student_id = student_record.student_id if student_record else 0
+                        
+                        students.append(StudentInfo(
+                            user_id=participant.user.user_id,
+                            student_id=student_id,
+                            email=participant.user.email,
+                            full_name=participant.user.full_name,
+                            status=ParticipantStatus(participant.status)
+                        ))
+            
+            # Build session response
+            session_responses.append(
+                SessionResponse(
+                    session_id=session.session_id,
+                    tutor_id=session.tutor_id,
+                    coordinator_id=session.coordinator_id,
+                    title=session.title,
+                    description=session.description,
+                    subject_id=session.subject_id,
+                    scheduled_date=session.scheduled_date,
+                    start_time=session.start_time,
+                    end_time=session.end_time,
+                    duration=session.duration,
+                    location_type=session.location_type,
+                    meeting_link=session.meeting_link,
+                    physical_address=session.physical_address,
+                    max_students=session.max_students,
+                    status=session.status,
+                    actual_start=session.actual_start,
+                    actual_end=session.actual_end,
+                    session_notes=session.session_notes,
+                    created_at=session.created_at,
+                    updated_at=session.updated_at,
+                    tutor=tutor_info,
+                    students=students,
+                    subject_name=session.subject.subject_name if session.subject else None,
+                    subject_code=session.subject.subject_code if session.subject else None
+                )
+            )
+        
+        return SessionListResponse(
+            total=total,
+            sessions=session_responses,
+            skip=skip,
+            limit=limit
+        )
+
     
     async def set_availability(self, tutor_id: int, availability_data: dict) -> dict:
         """Set tutor availability - PLACEHOLDER"""
@@ -167,3 +286,4 @@ class TutorService:
         """Get tutor schedule - PLACEHOLDER"""
         # TODO: Implement schedule retrieval
         return {"message": "Get schedule - Not implemented yet"}
+
