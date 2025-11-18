@@ -29,7 +29,6 @@ httpx==0.28.1
 
 # Email Support
 email-validator==2.3.0
-httpx==0.24.1
 
 # Code Quality
 black==23.11.0

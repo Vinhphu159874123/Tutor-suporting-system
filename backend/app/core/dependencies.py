@@ -86,10 +86,12 @@ def get_student_service(
 
 def get_tutor_service(
     tutor_repo: TutorRepository = Depends(get_tutor_repository),
-    user_repo: UserRepository = Depends(get_user_repository)
+    user_repo: UserRepository = Depends(get_user_repository),
+    session_repo: SessionRepository = Depends(get_session_repository),
+    student_repo: StudentRepository = Depends(get_student_repository)
 ) -> TutorService:
-    """Get Tutor Service instance"""
-    return TutorService(tutor_repo, user_repo)
+    """Get Tutor Service instance with all required repositories"""
+    return TutorService(tutor_repo, user_repo, session_repo, student_repo)
 
 def get_session_service(
     session_repo: SessionRepository = Depends(get_session_repository)
