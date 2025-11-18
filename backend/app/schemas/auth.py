@@ -29,11 +29,15 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     """User creation schema"""
+    password: str
     role: str  # 'student', 'tutor', 'admin', etc.
 
-class UserResponse(UserBase):
+class UserResponse(BaseModel):
     """User response schema"""
     id: int
+    email: EmailStr
+    full_name: str
+    phone: Optional[str] = None
     role: str
     is_active: bool
     is_verified: bool
@@ -41,6 +45,13 @@ class UserResponse(UserBase):
 
     class Config:
         from_attributes = True
+        
+    @classmethod
+    def model_validate(cls, obj):
+        """Custom validation to map user_id to id"""
+        if hasattr(obj, 'user_id'):
+            obj.id = obj.user_id
+        return super().model_validate(obj)
 
 class UserLogin(BaseModel):
     """Login credentials"""

@@ -5,15 +5,12 @@ Business logic for authentication operations
 from fastapi import HTTPException, status
 from datetime import datetime, timedelta
 from jose import jwt
-from passlib.context import CryptContext
+import bcrypt
 from typing import Optional
 
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth import UserCreate, UserResponse, Token
 from app.core.config import settings
-
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class AuthService:
     """Handle authentication business logic"""
@@ -22,12 +19,21 @@ class AuthService:
         self.user_repo = user_repository
     
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
-        """Verify password against hash"""
-        return pwd_context.verify(plain_password, hashed_password)
+        """
+        Verify password against hash using bcrypt
+        """
+        password_bytes = plain_password.encode('utf-8')
+        hashed_bytes = hashed_password.encode('utf-8')
+        return bcrypt.checkpw(password_bytes, hashed_bytes)
     
     def get_password_hash(self, password: str) -> str:
-        """Hash password"""
-        return pwd_context.hash(password)
+        """
+        Hash password using bcrypt
+        """
+        password_bytes = password.encode('utf-8')
+        salt = bcrypt.gensalt()
+        hashed = bcrypt.hashpw(password_bytes, salt)
+        return hashed.decode('utf-8')
     
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
         """Create JWT access token"""
@@ -83,6 +89,10 @@ class AuthService:
     
     async def login(self, email: str, password: str) -> Token:
         """Login user and return JWT token"""
+        # Auto-append @hcmut.edu.vn if not present
+        if '@' not in email:
+            email = f"{email}@hcmut.edu.vn"
+        
         user = await self.authenticate_user(email, password)
         
         # Update last login
@@ -141,12 +151,25 @@ class AuthService:
                 detail="Email already registered"
             )
         
-        # Create user (without password for SSO users)
+        # Create user with hashed password
         user_dict = user_data.model_dump()
+        
+        # Remove fields that belong to Student/Tutor tables, not User table
+        faculty = user_dict.pop('faculty', None)
+        major = user_dict.pop('major', None)
+        
+        # Hash the password
+        password = user_dict.pop('password')
+        user_dict['hashed_password'] = self.get_password_hash(password)
+        
         user_dict['is_verified'] = False
         user_dict['is_active'] = True
         
         user = await self.user_repo.create(user_dict)
+        
+        # TODO: Create Student or Tutor record with faculty/major based on role
+        # This should be implemented when we have Student/Tutor repositories
+        
         return UserResponse.model_validate(user)
     
     async def get_user_by_email(self, email: str):

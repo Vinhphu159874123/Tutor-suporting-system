@@ -25,6 +25,57 @@ class LocationType(str, Enum):
     HYBRID = "hybrid"
 
 
+class ParticipantRole(str, Enum):
+    """Participant role enum"""
+    TUTOR = "tutor"
+    STUDENT = "student"
+
+
+class ParticipantStatus(str, Enum):
+    """Participant status enum"""
+    CONFIRMED = "confirmed"
+    PENDING = "pending"
+    CANCELLED = "cancelled"
+
+
+# Participant Info Schemas
+class ParticipantInfo(BaseModel):
+    """Basic participant information"""
+    user_id: int
+    email: str
+    full_name: str
+    role: ParticipantRole
+    status: ParticipantStatus
+    joined_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class StudentInfo(BaseModel):
+    """Student participant info"""
+    user_id: int
+    student_id: int
+    email: str
+    full_name: str
+    status: ParticipantStatus
+    
+    class Config:
+        from_attributes = True
+
+
+class TutorInfo(BaseModel):
+    """Tutor participant info"""
+    user_id: int
+    tutor_id: int
+    email: str
+    full_name: str
+    specialization: Optional[str] = None
+    
+    class Config:
+        from_attributes = True
+
+
 class SessionBase(BaseModel):
     """Base session fields"""
     title: str
@@ -41,9 +92,9 @@ class SessionBase(BaseModel):
 
 
 class SessionCreate(SessionBase):
-    """Data for creating session"""
+    """Data for creating session - now supports multiple students"""
     tutor_id: int
-    student_id: Optional[int] = None
+    student_ids: list[int] = Field(default=[], description="List of student IDs to add to session")
     coordinator_id: Optional[int] = None
 
 
@@ -63,10 +114,9 @@ class SessionUpdate(BaseModel):
 
 
 class SessionResponse(SessionBase):
-    """Session response DTO"""
+    """Session response DTO - with multiple students support"""
     session_id: int
     tutor_id: int
-    student_id: Optional[int]
     coordinator_id: Optional[int]
     status: SessionStatus
     actual_start: Optional[datetime]
@@ -75,15 +125,23 @@ class SessionResponse(SessionBase):
     created_at: datetime
     updated_at: datetime
     
-    # Joined data
-    tutor_name: Optional[str] = None
-    student_name: Optional[str] = None
+    # NEW: Multiple students instead of single student
+    tutor: Optional[TutorInfo] = None
+    students: list[StudentInfo] = Field(default=[], description="List of students in this session")
+    
+    # Subject info
     subject_name: Optional[str] = None
     subject_code: Optional[str] = None
     
     class Config:
         from_attributes = True
 
+class SessionListResponse(BaseModel):
+    """Schema for paginated session list"""
+    total: int
+    sessions: list[SessionResponse]
+    skip: int
+    limit: int
 
 class SessionMaterialCreate(BaseModel):
     """Upload session material"""

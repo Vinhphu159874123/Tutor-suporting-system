@@ -18,7 +18,7 @@ class TutorBase(BaseModel):
 
 class TutorCreate(TutorBase):
     """Data for creating tutor profile"""
-    user_id: int
+    user_id: Optional[int] = None  # Will be auto-filled from current_user in endpoint
 
 
 class TutorUpdate(BaseModel):
