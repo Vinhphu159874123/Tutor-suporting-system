@@ -9,6 +9,7 @@ from datetime import datetime
 from app.repositories.tutor_repository import TutorRepository
 from app.repositories.user_repository import UserRepository
 from app.repositories.student_repository import StudentRepository
+from app.repositories.feedback_repository import FeedbackRepository
 from app.schemas.tutor import TutorCreate, TutorUpdate, TutorResponse
 from app.events import event_bus, EventTypes
 from app.schemas.session import SessionListResponse
@@ -24,12 +25,14 @@ class TutorService:
         tutor_repo: TutorRepository,
         user_repo: UserRepository,
         session_repo: SessionRepository,
-        student_repo: StudentRepository
+        student_repo: StudentRepository,
+        feedback_repo: FeedbackRepository
     ):
         self.tutor_repo = tutor_repo
         self.user_repo = user_repo
         self.session_repo = session_repo
-        self.student_repo = student_repo 
+        self.student_repo = student_repo
+        self.feedback_repo = feedback_repo 
 
     
     async def get_tutor(self, tutor_id: int) -> TutorResponse:
@@ -286,4 +289,56 @@ class TutorService:
         """Get tutor schedule - PLACEHOLDER"""
         # TODO: Implement schedule retrieval
         return {"message": "Get schedule - Not implemented yet"}
+    
+    async def get_tutor_reviews(self, tutor_id: int, skip: int = 0, limit: int = 20) -> dict:
+        """Get reviews and ratings for a tutor"""
+        # Verify tutor exists
+        tutor = await self.tutor_repo.get_by_id(tutor_id)
+        if not tutor:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Tutor not found"
+            )
+        
+        # Get rating statistics
+        stats = await self.feedback_repo.get_tutor_rating_stats(tutor_id)
+        
+        # Get feedbacks with pagination
+        feedbacks = await self.feedback_repo.get_feedbacks_by_tutor(tutor_id, skip, limit)
+        
+        # Format response
+        reviews = []
+        for feedback in feedbacks:
+            review = {
+                "feedback_id": feedback.feedback_id,
+                "session_id": feedback.session_id,
+                "rating": feedback.rating,
+                "comment": feedback.comment,
+                "tags": feedback.tags,
+                "created_at": feedback.created_at.isoformat(),
+                "is_anonymous": feedback.is_anonymous
+            }
+            
+            # Add reviewer name if not anonymous
+            if not feedback.is_anonymous and feedback.reviewer:
+                review["reviewer_name"] = feedback.reviewer.full_name
+            else:
+                review["reviewer_name"] = "Anonymous"
+            
+            reviews.append(review)
+        
+        return {
+            "tutor_id": tutor_id,
+            "statistics": {
+                "average_rating": stats['average_rating'],
+                "total_reviews": stats['total_reviews'],
+                "unique_reviewers": stats['unique_reviewers']
+            },
+            "reviews": reviews,
+            "pagination": {
+                "skip": skip,
+                "limit": limit,
+                "total": stats['total_reviews']
+            }
+        }
 

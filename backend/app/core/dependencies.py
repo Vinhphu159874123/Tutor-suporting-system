@@ -18,6 +18,7 @@ from app.repositories.scheduling_repository import SchedulingRepository
 from app.repositories.reports_repository import ReportsRepository
 from app.repositories.admin_repository import AdminRepository
 from app.repositories.forum_repository import ForumRepository
+from app.repositories.feedback_repository import FeedbackRepository
 from app.services.auth_service import AuthService
 from app.services.student_service import StudentService
 from app.services.tutor_service import TutorService
@@ -67,6 +68,10 @@ def get_forum_repository(db: AsyncSession = Depends(get_db)) -> ForumRepository:
     """Get Forum Repository instance"""
     return ForumRepository(db)
 
+def get_feedback_repository(db: AsyncSession = Depends(get_db)) -> FeedbackRepository:
+    """Get Feedback Repository instance"""
+    return FeedbackRepository(db)
+
 # ============================================================================
 # SERVICE DEPENDENCIES
 # ============================================================================
@@ -79,19 +84,21 @@ def get_auth_service(
 
 def get_student_service(
     student_repo: StudentRepository = Depends(get_student_repository),
-    user_repo: UserRepository = Depends(get_user_repository)
+    user_repo: UserRepository = Depends(get_user_repository),
+    feedback_repo: FeedbackRepository = Depends(get_feedback_repository)
 ) -> StudentService:
     """Get Student Service instance"""
-    return StudentService(student_repo, user_repo)
+    return StudentService(student_repo, user_repo, feedback_repo)
 
 def get_tutor_service(
     tutor_repo: TutorRepository = Depends(get_tutor_repository),
     user_repo: UserRepository = Depends(get_user_repository),
     session_repo: SessionRepository = Depends(get_session_repository),
-    student_repo: StudentRepository = Depends(get_student_repository)
+    student_repo: StudentRepository = Depends(get_student_repository),
+    feedback_repo: FeedbackRepository = Depends(get_feedback_repository)
 ) -> TutorService:
     """Get Tutor Service instance with all required repositories"""
-    return TutorService(tutor_repo, user_repo, session_repo, student_repo)
+    return TutorService(tutor_repo, user_repo, session_repo, student_repo, feedback_repo)
 
 def get_session_service(
     session_repo: SessionRepository = Depends(get_session_repository)

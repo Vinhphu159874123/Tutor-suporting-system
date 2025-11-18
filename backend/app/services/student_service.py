@@ -9,6 +9,7 @@ from datetime import datetime
 
 from app.repositories.student_repository import StudentRepository
 from app.repositories.user_repository import UserRepository
+from app.repositories.feedback_repository import FeedbackRepository
 from app.schemas.student import (
     StudentCreate, 
     StudentUpdate, 
@@ -25,10 +26,12 @@ class StudentService:
     def __init__(
         self, 
         student_repo: StudentRepository,
-        user_repo: UserRepository
+        user_repo: UserRepository,
+        feedback_repo: FeedbackRepository
     ):
         self.student_repo = student_repo
         self.user_repo = user_repo
+        self.feedback_repo = feedback_repo
     
     async def get_student(self, student_id: int) -> StudentResponse:
         """Get student by ID with user data"""
@@ -194,6 +197,9 @@ class StudentService:
         feedback_data: SessionFeedbackCreate
     ) -> dict:
         """Submit feedback after session"""
+        from app.repositories.session_repository import SessionRepository
+        from app.core.database import get_db
+        
         # Verify student exists
         student = await self.student_repo.get_by_id(student_id)
         if not student:
@@ -202,13 +208,56 @@ class StudentService:
                 detail="Student not found"
             )
         
-        # TODO: Implement feedback submission
-        # - Verify session belongs to student
-        # - Create feedback record
-        # - Update tutor rating
+        # Get session to verify ownership and status
+        session_repo = SessionRepository(self.student_repo.db)
+        session = await session_repo.get_by_id(feedback_data.session_id)
+        
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Session not found"
+            )
+        
+        # Verify session is completed
+        if session.status != 'completed':
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Can only submit feedback for completed sessions"
+            )
+        
+        # Check if feedback already exists
+        existing = await self.feedback_repo.get_feedback_by_session_and_reviewer(
+            feedback_data.session_id,
+            student.user_id
+        )
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Feedback already submitted for this session"
+            )
+        
+        # Create feedback
+        feedback_dict = {
+            'session_id': feedback_data.session_id,
+            'reviewer_id': student.user_id,
+            'reviewer_type': 'student',
+            'rating': feedback_data.rating,
+            'comment': feedback_data.comment,
+            'tags': feedback_data.tags or [],
+            'is_public': True,
+            'is_anonymous': feedback_data.is_anonymous,
+            'created_at': datetime.utcnow()
+        }
+        
+        feedback = await self.feedback_repo.create_feedback(feedback_dict)
+        
+        # Update tutor's aggregated rating
+        await self.feedback_repo.update_tutor_rating(session.tutor_id)
         
         return {
-            "message": "Feedback submitted",
-            "session_id": feedback_data.session_id,
-            "rating": feedback_data.rating
+            "message": "Feedback submitted successfully",
+            "feedback_id": feedback.feedback_id,
+            "session_id": feedback.session_id,
+            "rating": feedback.rating
         }
+
