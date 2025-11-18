@@ -4,8 +4,10 @@ Routes delegate to TutorService - PLACEHOLDER implementations preserved
 """
 from fastapi import APIRouter, Depends, Query
 from typing import List, Optional
+from datetime import datetime
 
 from app.schemas.tutor import TutorCreate, TutorUpdate, TutorResponse
+from app.schemas.session import SessionListResponse
 from app.services.tutor_service import TutorService
 from app.core.dependencies import get_tutor_service, get_current_user
 from app.models.database import User
@@ -81,6 +83,54 @@ async def register_tutor(
     return await tutor_service.register_tutor(tutor_data)
 
 
+# ============================================================================
+# SPECIFIC ROUTES - Must come BEFORE dynamic routes like /{tutor_id}
+# ============================================================================
+
+@router.get("/sessions", response_model=SessionListResponse)
+async def get_tutor_sessions(
+    status: Optional[str] = Query(None, description="Filter by status: draft, published, confirmed, etc."),
+    start_date: Optional[datetime] = Query(None, description="Filter sessions from this date"),
+    end_date: Optional[datetime] = Query(None, description="Filter sessions until this date"),
+    skip: int = Query(0, ge=0, description="Skip N records for pagination"),
+    limit: int = Query(100, ge=1, le=100, description="Max records to return"),
+    tutor_service: TutorService = Depends(get_tutor_service),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all sessions for current tutor - NOW SUPPORTS MULTIPLE STUDENTS
+    
+    Features:
+    - Filter by status (draft, published, confirmed, ongoing, completed, cancelled)
+    - Include all students info for each session
+    - Support date range filtering
+    - Pagination support
+    
+    Returns: List of tutoring sessions with tutor and students info
+    """
+    # Get tutor profile to get tutor_user_id
+    tutor_profile = await tutor_service.get_tutor_by_user_id(current_user.user_id)
+    if not tutor_profile:
+        from fastapi import HTTPException, status as http_status
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail="Tutor profile not found"
+        )
+    
+    return await tutor_service.get_tutor_sessions(
+        tutor_user_id=current_user.user_id,
+        status=status,
+        start_date=start_date,
+        end_date=end_date,
+        skip=skip,
+        limit=limit
+    )
+
+
+# ============================================================================
+# DYNAMIC ROUTES - Must come AFTER specific routes
+# ============================================================================
+
 @router.get("/{tutor_id}", response_model=TutorResponse)
 async def get_tutor(
     tutor_id: int,
@@ -125,43 +175,6 @@ async def delete_tutor(
 # ============================================================================
 # PLACEHOLDER ENDPOINTS - Keep original placeholder implementations
 # ============================================================================
-
-@router.get("/sessions")
-async def get_tutor_sessions():
-    """
-    Get all sessions for current tutor - PLACEHOLDER
-    
-    TODO:
-    - Filter by status (scheduled, completed, cancelled)
-    - Include student info and session details
-    - Support date range filtering
-    
-    Returns: List of tutoring sessions
-    """
-    return {"message": "Get tutor sessions - Implementation pending"}
-
-
-@router.post("/availability")
-async def set_availability():
-    """
-    Set or update tutor's available time slots - PLACEHOLDER
-    
-    TODO:
-    - Accept weekly recurring schedule
-    - Support one-time availability
-    - Prevent conflicts with existing sessions
-    - Validate time format
-    
-    Request body:
-    - day_of_week: 0-6 (Monday-Sunday)
-    - start_time: HH:MM format
-    - end_time: HH:MM format
-    - is_recurring: Boolean
-    
-    Returns: Updated availability schedule
-    """
-    return {"message": "Set availability - Implementation pending"}
-
 
 @router.get("/{tutor_id}/reviews")
 async def get_tutor_reviews(tutor_id: int):
