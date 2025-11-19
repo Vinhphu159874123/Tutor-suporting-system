@@ -96,6 +96,7 @@ class SessionCreate(SessionBase):
     tutor_id: int
     student_ids: list[int] = Field(default=[], description="List of student IDs to add to session")
     coordinator_id: Optional[int] = None
+    status: Optional[SessionStatus] = SessionStatus.PUBLISHED  # Default to published for bookings
 
 
 class SessionUpdate(BaseModel):
