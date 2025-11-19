@@ -1,42 +1,50 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from 'react-query';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import React from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "react-query";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
-import { useAuthStore } from './stores/authStore';
-import Layout from './components/Layout';
+import { useAuthStore } from "./stores/authStore";
+import Layout from "./components/Layout";
 
 // Auth pages
-import Login from './pages/auth/Login';
-import Register from './pages/auth/Register';
-import ForgotPassword from './pages/auth/ForgotPassword';
-import ResetPassword from './pages/auth/ResetPassword';
+import Login from "./pages/auth/Login";
+import Register from "./pages/auth/Register";
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import ResetPassword from "./pages/auth/ResetPassword";
 
 // Common pages
-import Dashboard from './pages/common/Dashboard';
-import Reports from './pages/common/Reports';
-import Forum from './pages/common/Forum';
+import Dashboard from "./pages/common/Dashboard";
+import Reports from "./pages/common/Reports";
+import Forum from "./pages/common/Forum";
 
 // User pages
-import Profile from './pages/user/Profile';
-import Notifications from './pages/user/Notifications';
-import Settings from './pages/user/Settings';
+import Profile from "./pages/user/Profile";
+import Notifications from "./pages/user/Notifications";
+import Settings from "./pages/user/Settings";
 
 // Tutor pages
-import TutorList from './pages/tutor/TutorList';
-import TutorDetail from './pages/tutor/TutorDetail';
+import TutorList from "./pages/tutor/TutorList";
+import TutorDetail from "./pages/tutor/TutorDetail";
 
 // Session pages
-import Sessions from './pages/session/Sessions';
-import SessionDetail from './pages/session/SessionDetail';
-import SessionHistory from './pages/session/SessionHistory';
-import Scheduling from './pages/session/Scheduling';
+import Sessions from "./pages/session/Sessions";
+import SessionDetail from "./pages/session/SessionDetail";
+import SessionHistory from "./pages/session/SessionHistory";
+import Scheduling from "./pages/session/Scheduling";
+
+// Course pages
+import MyCourses from "./pages/courses/MyCourses";
 
 // Admin pages
-import Admin from './pages/admin/Admin';
+import Admin from "./pages/admin/Admin";
 
-import './index.css';
+import "./index.css";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -57,31 +65,47 @@ function App() {
         <div className="App">
           <Routes>
             {/* Public Routes */}
-            <Route 
-              path="/login" 
+            <Route
+              path="/login"
               element={
-                isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />
-              } 
+                isAuthenticated ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <Login />
+                )
+              }
             />
-            <Route 
-              path="/register" 
+            <Route
+              path="/register"
               element={
-                isAuthenticated ? <Navigate to="/dashboard" replace /> : <Register />
-              } 
+                isAuthenticated ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <Register />
+                )
+              }
             />
-            <Route 
-              path="/forgot-password" 
+            <Route
+              path="/forgot-password"
               element={
-                isAuthenticated ? <Navigate to="/dashboard" replace /> : <ForgotPassword />
-              } 
+                isAuthenticated ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <ForgotPassword />
+                )
+              }
             />
-            <Route 
-              path="/reset-password/:token" 
+            <Route
+              path="/reset-password/:token"
               element={
-                isAuthenticated ? <Navigate to="/dashboard" replace /> : <ResetPassword />
-              } 
+                isAuthenticated ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <ResetPassword />
+                )
+              }
             />
-            
+
             {/* Protected Routes */}
             <Route
               path="/*"
@@ -91,6 +115,7 @@ function App() {
                     <Routes>
                       <Route path="/dashboard" element={<Dashboard />} />
                       <Route path="/profile" element={<Profile />} />
+                      <Route path="/courses" element={<MyCourses />} />
                       <Route path="/sessions" element={<Sessions />} />
                       <Route path="/sessions/:id" element={<SessionDetail />} />
                       <Route path="/history" element={<SessionHistory />} />
@@ -100,9 +125,15 @@ function App() {
                       <Route path="/admin" element={<Admin />} />
                       <Route path="/tutors" element={<TutorList />} />
                       <Route path="/tutors/:id" element={<TutorDetail />} />
-                      <Route path="/notifications" element={<Notifications />} />
+                      <Route
+                        path="/notifications"
+                        element={<Notifications />}
+                      />
                       <Route path="/settings" element={<Settings />} />
-                      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                      <Route
+                        path="/"
+                        element={<Navigate to="/dashboard" replace />}
+                      />
                     </Routes>
                   </Layout>
                 ) : (
@@ -111,7 +142,7 @@ function App() {
               }
             />
           </Routes>
-          
+
           <ToastContainer
             position="top-right"
             autoClose={3000}
