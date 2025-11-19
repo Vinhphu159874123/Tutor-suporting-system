@@ -209,6 +209,7 @@ class Tutor(Base):
     activity_reports = relationship("TutorActivityReport", back_populates="tutor")
     matching_logs = relationship("MatchingLog", back_populates="selected_tutor")
     schedules = relationship("SessionSchedule", back_populates="tutor")
+    availabilities = relationship("TutorAvailability", back_populates="tutor")
 
 class Coordinator(Base):
     __tablename__ = "coordinator"
@@ -836,3 +837,41 @@ class OverallAcademicReport(Base):
     
     # Relationships
     generator = relationship("User")
+
+
+class TutorAvailability(Base):
+    """Tutor availability schedule"""
+    __tablename__ = "tutor_availability"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    availability_id = Column(Integer, primary_key=True, index=True)
+    tutor_id = Column(Integer, ForeignKey("tutor_system.tutor.tutor_id"), nullable=False, index=True)
+    
+    # Recurring vs One-time
+    is_recurring = Column(Boolean, nullable=False, default=True)
+    day_of_week = Column(Integer)  # 0-6 for Mon-Sun (for recurring)
+    specific_date = Column(Date)   # For one-time availability
+    
+    # Time slots
+    start_time = Column(Time, nullable=False)
+    end_time = Column(Time, nullable=False)
+    
+    # Availability status
+    is_available = Column(Boolean, nullable=False, default=True)
+    notes = Column(Text)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    tutor = relationship("Tutor", back_populates="availabilities")
+
+
+
+        
+        
+    
