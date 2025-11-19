@@ -1,6 +1,6 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { authApi } from '../services/api';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { authApi } from "../services/api";
 
 export interface User {
   id: number;
@@ -38,13 +38,13 @@ export const useAuthStore = create<AuthState>()(
       login: async (email: string, password: string) => {
         set({ isLoading: true });
         try {
-          const response = await authApi.login(email, password);
+          const response: any = await authApi.login(email, password);
           const { access_token } = response.data;
-          
+
           // Get user profile
-          const userResponse = await authApi.getProfile(access_token);
+          const userResponse: any = await authApi.getProfile(access_token);
           const user = userResponse.data;
-          
+
           set({
             token: access_token,
             user,
@@ -75,7 +75,7 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'auth-storage',
+      name: "auth-storage",
       partialize: (state) => ({
         user: state.user,
         token: state.token,
