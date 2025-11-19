@@ -836,3 +836,29 @@ class OverallAcademicReport(Base):
     
     # Relationships
     generator = relationship("User")
+
+    class TutorAvailability(Base):
+        __tablename__ = "tutor_availability"
+        __table_args__ = {
+            'schema': 'tutor_system',
+            'extend_existing': True
+        }
+        availability_id = Column(Integer,primary_key=True,index=True)
+        tutor_id = Column(Integer,ForeignKey("tutor_system.tutor.tutor_id"),nullable=False)
+
+        is_recurring = Column(Boolean,nullable=False,default=False)
+        day_of_week = Column(Integer,CheckConstraint('day_of_week >= 0 AND day_of_week <= 6'),nullable=True) # 0=Monday, 6=Sunday
+        specific_date = Column(Date,nullable=True)
+        start_time = Column(Time,nullable=False)
+        end_time = Column(Time,nullable=False)
+        created_at = Column(DateTime(timezone=True), server_default=func.now())
+        updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+        #relationships
+        tutor = relationship("Tutor",back_populates="availabilities") #relationship at foreign key 
+
+        
+
+        
+        
+    
