@@ -117,7 +117,9 @@ class SessionService:
         # TODO: Verify tutor availability
         
         data = session_data.model_dump()
-        data['status'] = 'draft'  # Set initial status
+        # Use status from request, or default to 'draft' if not provided
+        if 'status' not in data or data['status'] is None:
+            data['status'] = 'draft'
         
         # Remove student_ids - handle separately if needed
         student_ids = data.pop('student_ids', [])

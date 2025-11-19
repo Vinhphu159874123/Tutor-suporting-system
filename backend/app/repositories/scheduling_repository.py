@@ -93,3 +93,24 @@ class SchedulingRepository:
         await self.db.delete(availability)
         await self.db.commit()
         return True
+    
+    async def get_recurring_by_day(self, tutor_id: int, day_of_week: int) -> List[TutorAvailability]:
+        query = select(TutorAvailability).where(
+            TutorAvailability.tutor_id == tutor_id,
+            TutorAvailability.is_recurring == True,
+            TutorAvailability.day_of_week == day_of_week
+        ).order_by(TutorAvailability.start_time)
+        result = await self.db.execute(query)
+        return result.scalars().all()
+    
+    async def get_one_time_by_date(self, tutor_id: int, specific_date: date) -> List[TutorAvailability]:
+        query = select(TutorAvailability).where(
+            TutorAvailability.tutor_id == tutor_id,
+            TutorAvailability.is_recurring == False,
+            TutorAvailability.specific_date == specific_date
+        ).order_by(TutorAvailability.start_time)
+        result = await self.db.execute(query)
+        return result.scalars().all()
+    
+
+

@@ -107,10 +107,11 @@ def get_session_service(
     return SessionService(session_repo)
 
 def get_scheduling_service(
-    scheduling_repo: SchedulingRepository = Depends(get_scheduling_repository)
+    scheduling_repo: SchedulingRepository = Depends(get_scheduling_repository),
+    session_repo: SessionRepository = Depends(get_session_repository)
 ) -> SchedulingService:
     """Get Scheduling Service instance"""
-    return SchedulingService(scheduling_repo)
+    return SchedulingService(scheduling_repo, session_repo)
 
 def get_reports_service(
     reports_repo: ReportsRepository = Depends(get_reports_repository)
