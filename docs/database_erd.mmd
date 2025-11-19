@@ -1,0 +1,370 @@
+erDiagram
+    %% ========================================
+    %% CORE USER ENTITIES (Inheritance)
+    %% ========================================
+    %% Cardinality notation:
+    %% ||--|| : one-to-one
+    %% ||--o{ : one-to-many (optional)
+    %% }o--o{ : many-to-many (both optional)
+    %% ||--|{ : one-to-many (mandatory)
+    
+    User ||--o| Student : "is-a"
+    User ||--o| Tutor : "is-a"
+    User ||--o| Coordinator : "is-a"
+    
+    User {
+        int user_id PK
+        string email "unique @hcmut.edu.vn"
+        string hashed_password
+        string full_name
+        string phone
+        enum role "student, tutor, coordinator, admin"
+        string avatar_url
+        boolean is_active
+        boolean is_verified
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    Student {
+        int student_id PK
+        int user_id FK "unique, references User"
+        string student_code "unique MSSV"
+        string faculty
+        string major
+        int year "1-5"
+        json preferences "learning style, goals"
+    }
+    
+    Tutor {
+        int tutor_id PK
+        int user_id FK "unique, references User"
+        string staff_code "nullable for student tutors"
+        string faculty
+        decimal hourly_rate "VND per hour"
+        text bio
+        float rating "avg 0-5"
+        int total_sessions "completed count"
+        boolean is_verified "coordinator approved"
+        json teaching_experience
+        timestamp verified_at
+    }
+    
+    Coordinator {
+        int coordinator_id PK
+        int user_id FK "unique, references User"
+        string department
+        json assigned_subjects "responsible subjects"
+        int workload "current assigned sessions"
+    }
+    
+    %% ========================================
+    %% SUBJECT & REGISTRATION
+    %% ========================================
+    
+    Subject ||--|{ TutorRegistration : "offered-by"
+    Subject ||--|{ StudentRegistration : "requested-by"
+    Tutor ||--|{ TutorRegistration : "registers-for"
+    Student ||--|{ StudentRegistration : "registers-for"
+    Coordinator ||--o{ TutorRegistration : "approves"
+    Coordinator ||--o{ StudentRegistration : "approves"
+    
+    Subject {
+        int subject_id PK
+        string subject_code "unique e.g. MT1003"
+        string subject_name "e.g., Calculus 1"
+        string department
+        int credits
+        text description
+        json prerequisites "required subjects"
+    }
+    
+    TutorRegistration {
+        int registration_id PK
+        int tutor_id FK "references Tutor"
+        int subject_id FK "references Subject"
+        float gpa "GPA for this subject"
+        text qualifications "certificates, experience"
+        enum status "pending, approved, rejected"
+        int approved_by FK "coordinator_id"
+        text rejection_reason
+        timestamp registered_at
+        timestamp responded_at
+    }
+    
+    StudentRegistration {
+        int registration_id PK
+        int student_id FK "references Student"
+        int subject_id FK "references Subject"
+        text learning_goals
+        enum urgency "high, medium, low"
+        enum status "pending, approved, rejected"
+        int approved_by FK "coordinator_id"
+        text rejection_reason
+        timestamp registered_at
+        timestamp responded_at
+    }
+    
+    %% ========================================
+    %% SESSION WORKFLOW
+    %% ========================================
+    
+    Tutor ||--|{ Session : "creates-teaches"
+    Student ||--o{ Session : "attends"
+    Subject ||--|{ Session : "taught-in"
+    Coordinator ||--o{ Session : "assigns"
+    Session ||--|{ SessionResponse : "has-responses"
+    Tutor ||--o{ SessionResponse : "responds"
+    Student ||--o{ SessionResponse : "responds"
+    Session ||--o| MatchingLog : "matched-by-AI"
+    
+    Session {
+        int session_id PK
+        int tutor_id FK "references Tutor"
+        int student_id FK "nullable until assigned"
+        int subject_id FK "references Subject"
+        int coordinator_id FK "who assigned student"
+        string title
+        text description
+        date scheduled_date "nullable if draft"
+        time start_time
+        time end_time
+        int duration "hours: 1-4"
+        enum location_type "online, offline, hybrid"
+        string meeting_link "Zoom, Meet, etc"
+        string physical_address
+        enum status "draft, published, pending_assignment, confirmed, ongoing, completed, cancelled"
+        datetime actual_start
+        datetime actual_end
+        decimal price "agreed price"
+        enum payment_status "pending, paid, refunded"
+        text session_notes "tutor notes"
+        int max_students "default 1, group sessions >1"
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    SessionResponse {
+        int response_id PK
+        int session_id FK "references Session"
+        int user_id FK "tutor or student responding"
+        enum responder_type "tutor, student"
+        enum action "accept, decline, request_new_time"
+        text reason "decline/request reason"
+        datetime proposed_new_time "if request_new_time"
+        boolean is_final "coordinator override"
+        timestamp responded_at
+    }
+    
+    MatchingLog {
+        int log_id PK
+        int session_id FK "references Session"
+        int student_id FK "requesting student"
+        int coordinator_id FK "nullable if AI only"
+        string ai_provider "gemini, openai, etc"
+        string ai_model "gemini-pro, gpt-4, etc"
+        json request_data "input to AI: subjects, schedules, preferences"
+        json ai_response "full JSON response from AI"
+        json candidates "array of {tutor_id, score, reasoning}"
+        int selected_tutor_id FK "final choice"
+        float match_score "confidence 0-100"
+        text matching_criteria "filters applied"
+        float processing_time_ms "AI response time"
+        timestamp matched_at
+    }
+    
+    %% ========================================
+    %% SESSION MATERIALS & RESOURCES
+    %% ========================================
+    
+    Session ||--o{ SessionMaterial : "includes"
+    Session ||--o{ ExternalResource : "references"
+    User ||--o{ SessionMaterial : "uploads"
+    
+    SessionMaterial {
+        int material_id PK
+        int session_id FK "references Session"
+        int uploaded_by FK "user_id"
+        string file_name
+        string file_url "cloud storage URL"
+        string file_type "pdf, docx, pptx, zip"
+        bigint file_size "bytes"
+        text description
+        timestamp uploaded_at
+    }
+    
+    ExternalResource {
+        int resource_id PK
+        int session_id FK "references Session"
+        string resource_name
+        string library_resource_id "HCMUT_LIBRARY ID"
+        string external_url "full URL"
+        enum source "hcmut_library, youtube, other"
+        text description
+        timestamp added_at
+    }
+    
+    %% ========================================
+    %% FEEDBACK & RATINGS
+    %% ========================================
+    
+    Session ||--|{ SessionFeedback : "receives"
+    User ||--|{ SessionFeedback : "gives"
+    
+    SessionFeedback {
+        int feedback_id PK
+        int session_id FK "references Session"
+        int reviewer_id FK "user_id"
+        enum reviewer_type "student, tutor"
+        int rating "1-5 stars"
+        text comment
+        json tags "helpful, clear, patient, etc"
+        boolean is_public "show on profile"
+        boolean is_anonymous "hide reviewer name"
+        timestamp created_at
+    }
+    
+    %% ========================================
+    %% ATTENDANCE & PROGRESS
+    %% ========================================
+    
+    Session ||--|{ Attendance : "tracks"
+    Student ||--|{ Attendance : "recorded-for"
+    
+    Attendance {
+        int attendance_id PK
+        int session_id FK "references Session"
+        int student_id FK "references Student"
+        enum status "present, late, absent, excused"
+        datetime check_in_time
+        datetime check_out_time
+        int duration_minutes "actual attendance"
+        text notes "late reason, etc"
+    }
+    
+    %% ========================================
+    %% FORUM & STUDY GROUPS
+    %% ========================================
+    
+    Tutor ||--|{ Forum : "creates"
+    Subject ||--o{ Forum : "related-to"
+    Forum ||--|{ ForumMember : "has"
+    User }o--|{ Forum : "joins-via-membership"
+    Forum ||--|{ ForumPost : "contains"
+    User ||--|{ ForumPost : "creates"
+    
+    Forum {
+        int forum_id PK
+        int creator_id FK "tutor user_id"
+        int subject_id FK "nullable, references Subject"
+        string forum_name
+        text description
+        string topic
+        boolean is_public "open to all or invite-only"
+        boolean require_approval "admin must approve joins"
+        int member_count
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    ForumMember {
+        int member_id PK
+        int forum_id FK "references Forum"
+        int user_id FK "references User"
+        enum role "admin, moderator, member"
+        enum status "active, pending, banned"
+        timestamp joined_at
+    }
+    
+    ForumPost {
+        int post_id PK
+        int forum_id FK "references Forum"
+        int author_id FK "user_id"
+        int parent_post_id FK "nullable for replies"
+        string title "nullable for replies"
+        text content
+        json attachments "file URLs"
+        boolean is_pinned
+        int upvote_count
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    %% Study Groups (Independent from Forums)
+    Student ||--|{ StudyGroup : "creates"
+    Subject ||--o{ StudyGroup : "focused-on"
+    StudyGroup ||--|{ StudyGroupMember : "has"
+    User }o--|{ StudyGroup : "joins-via-membership"
+    StudyGroup ||--|{ StudyGroupPost : "contains"
+    User ||--|{ StudyGroupPost : "creates"
+    
+    StudyGroup {
+        int group_id PK
+        int creator_id FK "student user_id"
+        int subject_id FK "nullable, references Subject"
+        string group_name
+        text description
+        string topic
+        boolean is_public
+        boolean require_approval
+        int member_count
+        int max_members "capacity limit"
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    StudyGroupMember {
+        int member_id PK
+        int group_id FK "references StudyGroup"
+        int user_id FK "references User"
+        enum role "owner, member"
+        enum status "active, pending"
+        timestamp joined_at
+    }
+    
+    StudyGroupPost {
+        int post_id PK
+        int group_id FK "references StudyGroup"
+        int author_id FK "user_id"
+        int parent_post_id FK "nullable for replies"
+        text content
+        json attachments
+        timestamp created_at
+        timestamp updated_at
+    }
+    
+    %% ========================================
+    %% REPORTS & ANALYTICS
+    %% ========================================
+    
+    Tutor ||--|{ TutorActivityReport : "tracked-in"
+    Subject ||--|{ CourseReport : "analyzed-in"
+    
+    TutorActivityReport {
+        int report_id PK
+        int tutor_id FK "references Tutor"
+        date report_period_start
+        date report_period_end
+        int total_sessions
+        int completed_sessions
+        float avg_rating
+        int total_students
+        int total_hours
+        float social_activity_score "sent to HCMUT_DATACORE"
+        json activity_details "breakdown by subject"
+        timestamp generated_at
+    }
+    
+    CourseReport {
+        int report_id PK
+        int subject_id FK "references Subject"
+        date report_period_start
+        date report_period_end
+        int total_sessions
+        int total_students
+        int total_tutors
+        float avg_session_rating
+        float completion_rate
+        json metrics "engagement, satisfaction, etc"
+        timestamp generated_at
+    }

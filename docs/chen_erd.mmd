@@ -1,0 +1,183 @@
+flowchart TB
+    %% ========================================
+    %% CORE USER ENTITIES (Inheritance)
+    %% ========================================
+    
+    User[User<br/>---<br/>user_id PK<br/>email<br/>password<br/>full_name<br/>role<br/>phone]
+    
+    Student[Student<br/>---<br/>student_id PK<br/>user_id FK<br/>student_code<br/>faculty<br/>major]
+    
+    Tutor[Tutor<br/>---<br/>tutor_id PK<br/>user_id FK<br/>hourly_rate<br/>rating<br/>bio]
+    
+    Coordinator[Coordinator<br/>---<br/>coordinator_id PK<br/>user_id FK<br/>department]
+    
+    User -->|1| ISA_Student{IS-A}
+    ISA_Student -->|1| Student
+    
+    User -->|1| ISA_Tutor{IS-A}
+    ISA_Tutor -->|1| Tutor
+    
+    User -->|1| ISA_Coord{IS-A}
+    ISA_Coord -->|1| Coordinator
+    
+    %% ========================================
+    %% SUBJECT & REGISTRATION
+    %% ========================================
+    
+    Subject[Subject<br/>---<br/>subject_id PK<br/>subject_code<br/>subject_name<br/>credits]
+    
+    TutorReg[TutorRegistration<br/>---<br/>registration_id PK<br/>tutor_id FK<br/>subject_id FK<br/>gpa<br/>status]
+    
+    StudentReg[StudentRegistration<br/>---<br/>registration_id PK<br/>student_id FK<br/>subject_id FK<br/>status]
+    
+    Tutor -->|M| RegistersFor{Registers For}
+    RegistersFor -->|N| Subject
+    RegistersFor -.->|creates| TutorReg
+    
+    Student -->|M| RequestsSubj{Requests}
+    RequestsSubj -->|N| Subject
+    RequestsSubj -.->|creates| StudentReg
+    
+    Coordinator -->|1| ApprovesTutor{Approves}
+    ApprovesTutor -->|N| TutorReg
+    
+    Coordinator -->|1| ApprovesStudent{Approves}
+    ApprovesStudent -->|N| StudentReg
+    
+    %% ========================================
+    %% SESSION WORKFLOW
+    %% ========================================
+    
+    Session[Session<br/>---<br/>session_id PK<br/>tutor_id FK<br/>student_id FK<br/>subject_id FK<br/>title<br/>date/time<br/>status<br/>price]
+    
+    SessionResponse[SessionResponse<br/>---<br/>response_id PK<br/>session_id FK<br/>user_id FK<br/>action<br/>reason]
+    
+    MatchingLog[MatchingLog<br/>---<br/>log_id PK<br/>session_id FK<br/>ai_provider<br/>candidates JSON<br/>match_score]
+    
+    Tutor -->|1| Creates{Creates/<br/>Teaches}
+    Creates -->|N| Session
+    
+    Student -->|1| Attends{Attends}
+    Attends -->|N| Session
+    
+    Subject -->|1| TaughtIn{Taught In}
+    TaughtIn -->|N| Session
+    
+    Coordinator -->|1| Assigns{Assigns}
+    Assigns -->|N| Session
+    
+    Session -->|1| HasResponses{Has Responses}
+    HasResponses -->|N| SessionResponse
+    
+    Tutor -->|1| RespondsTo{Responds}
+    RespondsTo -->|N| SessionResponse
+    
+    Session -->|1| MatchedBy{Matched By AI}
+    MatchedBy -->|0..1| MatchingLog
+    
+    %% ========================================
+    %% MATERIALS & FEEDBACK
+    %% ========================================
+    
+    SessionMaterial[SessionMaterial<br/>---<br/>material_id PK<br/>session_id FK<br/>file_name<br/>file_url<br/>uploaded_by FK]
+    
+    ExternalResource[ExternalResource<br/>---<br/>resource_id PK<br/>session_id FK<br/>library_resource_id<br/>external_url]
+    
+    SessionFeedback[SessionFeedback<br/>---<br/>feedback_id PK<br/>session_id FK<br/>reviewer_id FK<br/>rating<br/>comment]
+    
+    Attendance[Attendance<br/>---<br/>attendance_id PK<br/>session_id FK<br/>student_id FK<br/>status<br/>check_in_time]
+    
+    Session -->|1| IncludesMaterial{Includes}
+    IncludesMaterial -->|N| SessionMaterial
+    
+    Session -->|1| ReferencesExternal{References}
+    ReferencesExternal -->|N| ExternalResource
+    
+    User -->|1| UploadsMaterial{Uploads}
+    UploadsMaterial -->|N| SessionMaterial
+    
+    Session -->|1| ReceivesFeedback{Receives}
+    ReceivesFeedback -->|N| SessionFeedback
+    
+    User -->|1| GivesFeedback{Gives}
+    GivesFeedback -->|N| SessionFeedback
+    
+    Session -->|1| TracksAttendance{Tracks}
+    TracksAttendance -->|N| Attendance
+    
+    Student -->|1| HasAttendance{Recorded For}
+    HasAttendance -->|N| Attendance
+    
+    %% ========================================
+    %% FORUM & STUDY GROUPS
+    %% ========================================
+    
+    Forum[Forum<br/>---<br/>forum_id PK<br/>creator_id FK<br/>subject_id FK<br/>forum_name<br/>is_public]
+    
+    ForumMember[ForumMember<br/>---<br/>member_id PK<br/>forum_id FK<br/>user_id FK<br/>role<br/>status]
+    
+    ForumPost[ForumPost<br/>---<br/>post_id PK<br/>forum_id FK<br/>author_id FK<br/>content]
+    
+    StudyGroup[StudyGroup<br/>---<br/>group_id PK<br/>creator_id FK<br/>subject_id FK<br/>group_name<br/>max_members]
+    
+    StudyGroupMember[StudyGroupMember<br/>---<br/>member_id PK<br/>group_id FK<br/>user_id FK<br/>role]
+    
+    StudyGroupPost[StudyGroupPost<br/>---<br/>post_id PK<br/>group_id FK<br/>author_id FK<br/>content]
+    
+    Tutor -->|1| CreatesForum{Creates}
+    CreatesForum -->|N| Forum
+    
+    Subject -->|1| RelatedToForum{Related To}
+    RelatedToForum -->|N| Forum
+    
+    User -->|M| JoinsForum{Joins}
+    JoinsForum -->|N| Forum
+    JoinsForum -.->|via| ForumMember
+    
+    Forum -->|1| ContainsPosts{Contains}
+    ContainsPosts -->|N| ForumPost
+    
+    User -->|1| CreatesForumPost{Creates}
+    CreatesForumPost -->|N| ForumPost
+    
+    Student -->|1| CreatesGroup{Creates}
+    CreatesGroup -->|N| StudyGroup
+    
+    Subject -->|1| FocusedOn{Focused On}
+    FocusedOn -->|N| StudyGroup
+    
+    User -->|M| JoinsGroup{Joins}
+    JoinsGroup -->|N| StudyGroup
+    JoinsGroup -.->|via| StudyGroupMember
+    
+    StudyGroup -->|1| ContainsGroupPosts{Contains}
+    ContainsGroupPosts -->|N| StudyGroupPost
+    
+    User -->|1| CreatesGroupPost{Creates}
+    CreatesGroupPost -->|N| StudyGroupPost
+    
+    %% ========================================
+    %% REPORTS
+    %% ========================================
+    
+    TutorActivityReport[TutorActivityReport<br/>---<br/>report_id PK<br/>tutor_id FK<br/>period_start<br/>total_sessions<br/>avg_rating]
+    
+    CourseReport[CourseReport<br/>---<br/>report_id PK<br/>subject_id FK<br/>period_start<br/>total_students<br/>completion_rate]
+    
+    Tutor -->|1| TrackedIn{Tracked In}
+    TrackedIn -->|N| TutorActivityReport
+    
+    Subject -->|1| AnalyzedIn{Analyzed In}
+    AnalyzedIn -->|N| CourseReport
+    
+    %% ========================================
+    %% STYLING
+    %% ========================================
+    
+    classDef entityBox fill:#B3D9FF,stroke:#000,stroke-width:2px
+    classDef relationshipDiamond fill:#98D8C8,stroke:#000,stroke-width:2px
+    classDef weakEntity fill:#FFE6CC,stroke:#000,stroke-width:2px
+    
+    class User,Student,Tutor,Coordinator,Subject,Session,Forum,StudyGroup entityBox
+    class TutorReg,StudentReg,SessionResponse,MatchingLog,SessionMaterial,ExternalResource,SessionFeedback,Attendance,ForumMember,ForumPost,StudyGroupMember,StudyGroupPost,TutorActivityReport,CourseReport weakEntity
+    class ISA_Student,ISA_Tutor,ISA_Coord,RegistersFor,RequestsSubj,ApprovesTutor,ApprovesStudent,Creates,Attends,TaughtIn,Assigns,HasResponses,RespondsTo,MatchedBy,IncludesMaterial,ReferencesExternal,UploadsMaterial,ReceivesFeedback,GivesFeedback,TracksAttendance,HasAttendance,CreatesForum,RelatedToForum,JoinsForum,ContainsPosts,CreatesForumPost,CreatesGroup,FocusedOn,JoinsGroup,ContainsGroupPosts,CreatesGroupPost,TrackedIn,AnalyzedIn relationshipDiamond
