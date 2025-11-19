@@ -1,29 +1,29 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import api from '../services/api';
+import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import { toast } from "react-toastify";
+import api from "../../services/api";
 
 const ForgotPassword: React.FC = () => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!email.endsWith('@hcmut.edu.vn')) {
-      toast.error('Vui lòng sử dụng email HCMUT!');
+    if (!email.endsWith("@hcmut.edu.vn")) {
+      toast.error("Vui lòng sử dụng email HCMUT!");
       return;
     }
 
     setLoading(true);
 
     try {
-      await api.post('/auth/forgot-password', { email });
+      await api.post("/auth/forgot-password", { email });
       setEmailSent(true);
-      toast.success('Email khôi phục mật khẩu đã được gửi!');
+      toast.success("Email khôi phục mật khẩu đã được gửi!");
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Có lỗi xảy ra!');
+      toast.error(error.response?.data?.detail || "Có lỗi xảy ra!");
     } finally {
       setLoading(false);
     }
@@ -38,8 +38,8 @@ const ForgotPassword: React.FC = () => {
             Email đã được gửi!
           </h1>
           <p className="text-gray-600 mb-6">
-            Chúng tôi đã gửi hướng dẫn khôi phục mật khẩu đến email <strong>{email}</strong>.
-            Vui lòng kiểm tra hộp thư của bạn.
+            Chúng tôi đã gửi hướng dẫn khôi phục mật khẩu đến email{" "}
+            <strong>{email}</strong>. Vui lòng kiểm tra hộp thư của bạn.
           </p>
           <div className="space-y-3">
             <Link
@@ -93,12 +93,15 @@ const ForgotPassword: React.FC = () => {
             disabled={loading}
             className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Đang gửi...' : 'Gửi email khôi phục'}
+            {loading ? "Đang gửi..." : "Gửi email khôi phục"}
           </button>
         </form>
 
         <div className="mt-6 text-center">
-          <Link to="/login" className="text-blue-600 hover:text-blue-700 font-medium">
+          <Link
+            to="/login"
+            className="text-blue-600 hover:text-blue-700 font-medium"
+          >
             ← Quay lại đăng nhập
           </Link>
         </div>

@@ -1,23 +1,25 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import api from '../services/api';
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { toast } from "react-toastify";
+import api from "../../services/api";
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    full_name: '',
-    role: 'student',
-    faculty: '',
-    major: '',
-    phone: '',
+    email: "",
+    password: "",
+    confirmPassword: "",
+    full_name: "",
+    role: "student",
+    faculty: "",
+    major: "",
+    phone: "",
   });
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
@@ -29,17 +31,17 @@ const Register: React.FC = () => {
 
     // Validation
     if (formData.password !== formData.confirmPassword) {
-      toast.error('Mật khẩu không khớp!');
+      toast.error("Mật khẩu không khớp!");
       return;
     }
 
     if (formData.password.length < 6) {
-      toast.error('Mật khẩu phải có ít nhất 6 ký tự!');
+      toast.error("Mật khẩu phải có ít nhất 6 ký tự!");
       return;
     }
 
-    if (!formData.email.endsWith('@hcmut.edu.vn')) {
-      toast.error('Email phải là email HCMUT (@hcmut.edu.vn)!');
+    if (!formData.email.endsWith("@hcmut.edu.vn")) {
+      toast.error("Email phải là email HCMUT (@hcmut.edu.vn)!");
       return;
     }
 
@@ -47,12 +49,12 @@ const Register: React.FC = () => {
 
     try {
       const { confirmPassword, ...registerData } = formData;
-      await api.post('/auth/register', registerData);
-      
-      toast.success('Đăng ký thành công! Vui lòng đăng nhập.');
-      navigate('/login');
+      await api.post("/auth/register", registerData);
+
+      toast.success("Đăng ký thành công! Vui lòng đăng nhập.");
+      navigate("/login");
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Đăng ký thất bại!');
+      toast.error(error.response?.data?.detail || "Đăng ký thất bại!");
     } finally {
       setLoading(false);
     }
@@ -203,15 +205,18 @@ const Register: React.FC = () => {
             disabled={loading}
             className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Đang xử lý...' : 'Đăng ký'}
+            {loading ? "Đang xử lý..." : "Đăng ký"}
           </button>
         </form>
 
         {/* Links */}
         <div className="mt-6 text-center">
           <p className="text-gray-600">
-            Đã có tài khoản?{' '}
-            <Link to="/login" className="text-blue-600 hover:text-blue-700 font-medium">
+            Đã có tài khoản?{" "}
+            <Link
+              to="/login"
+              className="text-blue-600 hover:text-blue-700 font-medium"
+            >
               Đăng nhập ngay
             </Link>
           </p>
