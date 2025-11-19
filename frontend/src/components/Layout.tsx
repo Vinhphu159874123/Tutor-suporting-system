@@ -1,6 +1,6 @@
-import React, { ReactNode } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { useAuthStore } from '../stores/authStore';
+import React, { ReactNode } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { useAuthStore } from "../stores/authStore";
 
 interface LayoutProps {
   children: ReactNode;
@@ -11,16 +11,22 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: '🏠' },
-    { name: 'Sessions', href: '/sessions', icon: '📅' },
-    { name: 'Scheduling', href: '/scheduling', icon: '⏰' },
-    { name: 'Forum', href: '/forum', icon: '💬' },
-    { name: 'Reports', href: '/reports', icon: '📊', roles: ['admin', 'coordinator', 'department_chair'] },
-    { name: 'Admin', href: '/admin', icon: '⚙️', roles: ['admin'] },
+    { name: "Dashboard", href: "/dashboard" },
+    { name: "Các khóa học của tôi", href: "/courses" },
+    { name: "Sessions", href: "/sessions", icon: "📅" },
+    { name: "Scheduling", href: "/scheduling", icon: "⏰" },
+    { name: "Forum", href: "/forum", icon: "💬" },
+    {
+      name: "Reports",
+      href: "/reports",
+      icon: "📊",
+      roles: ["admin", "coordinator", "department_chair"],
+    },
+    { name: "Admin", href: "/admin", icon: "⚙️", roles: ["admin"] },
   ];
 
-  const filteredNavigation = navigation.filter(item => 
-    !item.roles || item.roles.includes(user?.role || '')
+  const filteredNavigation = navigation.filter(
+    (item) => !item.roles || item.roles.includes(user?.role || "")
   );
 
   return (
@@ -32,7 +38,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             HCMUT Tutor System
           </h1>
         </div>
-        
+
         <nav className="mt-8">
           <div className="space-y-1">
             {filteredNavigation.map((item) => {
@@ -43,9 +49,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   to={item.href}
                   className={`
                     group flex items-center px-4 py-3 text-sm font-medium transition-colors
-                    ${isActive 
-                      ? 'bg-blue-50 text-blue-600 border-r-2 border-blue-600' 
-                      : 'text-gray-700 hover:bg-gray-50 hover:text-blue-600'
+                    ${
+                      isActive
+                        ? "bg-blue-50 text-blue-600 border-r-2 border-blue-600"
+                        : "text-gray-700 hover:bg-gray-50 hover:text-blue-600"
                     }
                   `}
                 >
@@ -64,23 +71,24 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <header className="bg-white shadow-sm border-b border-gray-200">
           <div className="flex h-16 items-center justify-between px-6">
             <h2 className="text-2xl font-semibold text-gray-900">
-              {navigation.find(item => item.href === location.pathname)?.name || 'Dashboard'}
+              {navigation.find((item) => item.href === location.pathname)
+                ?.name || "Dashboard"}
             </h2>
-            
+
             <div className="flex items-center space-x-4">
               <div className="text-sm text-gray-600">
                 Xin chào, {user?.full_name}
               </div>
-              
+
               <div className="relative group">
                 <button className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500">
                   <img
                     className="h-8 w-8 rounded-full bg-gray-300"
-                    src={user?.avatar_url || '/default-avatar.png'}
+                    src={user?.avatar_url || "/default-avatar.png"}
                     alt={user?.full_name}
                   />
                 </button>
-                
+
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
                   <Link
                     to="/profile"
@@ -101,9 +109,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </header>
 
         {/* Page content */}
-        <main className="p-6">
-          {children}
-        </main>
+        <main className="p-6">{children}</main>
       </div>
     </div>
   );
