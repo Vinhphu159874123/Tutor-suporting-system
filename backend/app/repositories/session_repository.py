@@ -9,6 +9,7 @@ from app.models.database import (
     Session as SessionModel,
     SessionParticipant,
     Tutor,
+    Student,
     User
 )
 from datetime import datetime
@@ -21,9 +22,14 @@ class SessionRepository:
         self.db = db
     
     async def get_by_id(self, session_id: int) -> Optional[SessionModel]:
-        """Get session by ID"""
+        """Get session by ID with eager loading"""
         result = await self.db.execute(
-            select(SessionModel).where(SessionModel.session_id == session_id)
+            select(SessionModel)
+            .options(
+                selectinload(SessionModel.tutor).selectinload(Tutor.user),
+                selectinload(SessionModel.participants).selectinload(SessionParticipant.user)
+            )
+            .where(SessionModel.session_id == session_id)
         )
         return result.scalar_one_or_none()
     
@@ -35,8 +41,11 @@ class SessionRepository:
         student_id: Optional[int] = None,
         status: Optional[str] = None
     ) -> List[SessionModel]:
-        """Get all sessions with filters"""
-        query = select(SessionModel)
+        """Get all sessions with filters and eager loading"""
+        query = select(SessionModel).options(
+            selectinload(SessionModel.tutor).selectinload(Tutor.user),
+            selectinload(SessionModel.participants).selectinload(SessionParticipant.user)
+        )
         
         if tutor_id:
             query = query.where(SessionModel.tutor_id == tutor_id)
@@ -50,11 +59,16 @@ class SessionRepository:
         return result.scalars().all()
     
     async def create(self, session_data: dict) -> SessionModel:
-        """Create new session"""
+        """Create new session with eager loading"""
         session = SessionModel(**session_data)
         self.db.add(session)
         await self.db.commit()
-        await self.db.refresh(session)
+        await self.db.refresh(session, ['tutor', 'participants'])
+        
+        # Load tutor.user relationship
+        if session.tutor:
+            await self.db.refresh(session.tutor, ['user'])
+        
         return session
     
     async def update(self, session_id: int, session_data: dict) -> Optional[SessionModel]:

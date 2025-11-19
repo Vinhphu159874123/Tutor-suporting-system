@@ -315,7 +315,7 @@ class Session(Base):
     subject = relationship("Subject", back_populates="sessions")
     coordinator = relationship("Coordinator", back_populates="coordinated_sessions")
     participants = relationship("SessionParticipant", back_populates="session", cascade="all, delete-orphan")
-    materials = relationship("SessionMaterial", back_populates="session")
+    materials = relationship("SessionMaterial", back_populates="session", cascade="all, delete-orphan")
     feedbacks = relationship("SessionFeedback", back_populates="session")
     responses = relationship("SessionResponse", back_populates="session")
     attendance_records = relationship("Attendance", back_populates="session")

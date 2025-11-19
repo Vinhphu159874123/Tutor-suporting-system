@@ -2,7 +2,7 @@
 Student Routes - Layered Architecture
 Routes delegate to StudentService
 """
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException, status
 from typing import List, Optional
 
 from app.schemas.student import (
@@ -172,9 +172,9 @@ async def submit_feedback(
     - session_id: ID of completed session
     - rating: Rating 1-5
     - comment: Optional comment
-    - would_recommend: Boolean
+    - tags: Optional tags list
+    - is_anonymous: Boolean (default: False)
     
     Returns: Feedback confirmation
     """
-    # TODO: Add permission check (student themselves)
     return await student_service.submit_feedback(student_id, feedback_data)
