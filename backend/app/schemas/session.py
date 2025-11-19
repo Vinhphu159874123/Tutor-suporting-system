@@ -1,7 +1,7 @@
 """
 Session Schemas - Request/Response DTOs
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 from typing import Optional
 from datetime import datetime, date, time
 from enum import Enum
@@ -122,6 +122,7 @@ class SessionResponse(SessionBase):
     actual_start: Optional[datetime]
     actual_end: Optional[datetime]
     session_notes: Optional[str]
+    materials: Optional[list] = Field(default=[], description="Session materials metadata")
     created_at: datetime
     updated_at: datetime
     
