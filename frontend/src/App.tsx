@@ -17,11 +17,18 @@ import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import ForgotPassword from "./pages/auth/ForgotPassword";
 import ResetPassword from "./pages/auth/ResetPassword";
+import Landing from "./pages/auth/Landing";
+import SessionExpired from "./pages/auth/SessionExpired";
 
 // Common pages
 import Dashboard from "./pages/common/Dashboard";
 import Reports from "./pages/common/Reports";
 import Forum from "./pages/common/Forum";
+import ForumDetail from "./pages/common/ForumDetail";
+import CreateForum from "./pages/common/CreateForum";
+import ExportReport from "./pages/common/ExportReport";
+import StudyGroups from "./pages/common/StudyGroups";
+import StudyGroupDetail from "./pages/common/StudyGroupDetail";
 
 // User pages
 import Profile from "./pages/user/Profile";
@@ -37,12 +44,18 @@ import Sessions from "./pages/session/Sessions";
 import SessionDetail from "./pages/session/SessionDetail";
 import SessionHistory from "./pages/session/SessionHistory";
 import Scheduling from "./pages/session/Scheduling";
+import UploadMaterials from "./pages/session/UploadMaterials";
+import MaterialsList from "./pages/session/MaterialsList";
+import OnlineSession from "./pages/session/OnlineSession";
+import LearningProgress from "./pages/session/LearningProgress";
 
 // Course pages
 import MyCourses from "./pages/courses/MyCourses";
 
 // Admin pages
 import Admin from "./pages/admin/Admin";
+import CoordinatorReview from "./pages/admin/CoordinatorReview";
+import CoordinatorSessions from "./pages/admin/CoordinatorSessions";
 
 import "./index.css";
 
@@ -65,6 +78,17 @@ function App() {
         <div className="App">
           <Routes>
             {/* Public Routes */}
+            <Route
+              path="/landing"
+              element={
+                isAuthenticated ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <Landing />
+                )
+              }
+            />
+            <Route path="/session-expired" element={<SessionExpired />} />
             <Route
               path="/login"
               element={
@@ -120,9 +144,20 @@ function App() {
                       <Route path="/sessions/:id" element={<SessionDetail />} />
                       <Route path="/history" element={<SessionHistory />} />
                       <Route path="/scheduling" element={<Scheduling />} />
+                      <Route path="/upload-materials" element={<UploadMaterials />} />
+                      <Route path="/materials" element={<MaterialsList />} />
+                      <Route path="/online-session/:id" element={<OnlineSession />} />
+                      <Route path="/learning-progress" element={<LearningProgress />} />
                       <Route path="/reports" element={<Reports />} />
+                      <Route path="/export-report" element={<ExportReport />} />
                       <Route path="/forum" element={<Forum />} />
+                      <Route path="/forum/:id" element={<ForumDetail />} />
+                      <Route path="/forum/create" element={<CreateForum />} />
+                      <Route path="/study-groups" element={<StudyGroups />} />
+                      <Route path="/study-groups/:id" element={<StudyGroupDetail />} />
                       <Route path="/admin" element={<Admin />} />
+                      <Route path="/admin/review" element={<CoordinatorReview />} />
+                      <Route path="/admin/sessions" element={<CoordinatorSessions />} />
                       <Route path="/tutors" element={<TutorList />} />
                       <Route path="/tutors/:id" element={<TutorDetail />} />
                       <Route
