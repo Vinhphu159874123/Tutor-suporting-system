@@ -14,7 +14,7 @@ from app.models.database import (
 )
 from datetime import datetime
 from typing import Tuple
-
+from datetime import date
 class SessionRepository:
     """Handle database operations for Session model"""
     
@@ -161,3 +161,12 @@ class SessionRepository:
         sessions = result.scalars().all()
         
         return list(sessions), int(total)
+    
+    async def get_sessions_by_tutor_date(self, tutor_id: int, date: date, statuses: List[str]) -> List[SessionModel]:
+        query = select(SessionModel).where(
+            SessionModel.tutor_id == tutor_id,
+            SessionModel.scheduled_date == date,
+            SessionModel.status.in_(statuses)
+        )
+        result = await self.db.execute(query)
+        return result.scalars().all()
