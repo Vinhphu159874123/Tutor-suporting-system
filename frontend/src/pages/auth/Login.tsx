@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useAuthStore } from "../../stores/authStore";
+import { useAuthStore } from "../../stores/authStore.ts";
 import { toast } from "react-toastify";
 import logoBK from "../../png/logobk.png";
 

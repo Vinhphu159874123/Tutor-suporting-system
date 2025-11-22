@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 
 interface ExportOptions {
@@ -11,6 +12,7 @@ interface ExportOptions {
 }
 
 const ExportReport: React.FC = () => {
+  const navigate = useNavigate();
   const [options, setOptions] = useState<ExportOptions>({
     reportType: "tutor-activity",
     dateFrom: "",
@@ -38,7 +40,23 @@ const ExportReport: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Xuất báo cáo</h1>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6">
+        <div>
+          <p className="text-sm uppercase tracking-wide text-blue-600 font-semibold">
+            Báo cáo & Phân tích
+          </p>
+          <h1 className="text-3xl font-bold text-gray-900">Xuất báo cáo</h1>
+          <p className="text-gray-500">
+            Chọn khoảng thời gian, định dạng và tùy chọn chi tiết trước khi tải về
+          </p>
+        </div>
+        <button
+          onClick={() => navigate("/reports")}
+          className="self-start md:self-auto inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50"
+        >
+          ← Về trang Báo cáo
+        </button>
+      </div>
 
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
         {/* Report Type */}
