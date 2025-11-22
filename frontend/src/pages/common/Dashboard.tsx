@@ -1,8 +1,10 @@
 import React from "react";
-import { useAuthStore } from "../../stores/authStore";
+import { useNavigate } from "react-router-dom";
+import { useAuthStore } from "../../stores/authStore.ts";
 
 const Dashboard: React.FC = () => {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
 
   const stats = [
     { name: "Tổng số phiên học", value: "24", icon: "📚" },
@@ -108,7 +110,10 @@ const Dashboard: React.FC = () => {
             </div>
           </button>
 
-          <button className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors">
+          <button
+            onClick={() => navigate("/forum")}
+            className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors"
+          >
             <div className="text-2xl mr-3">💬</div>
             <div className="text-left">
               <p className="font-medium">Tham gia Forum</p>

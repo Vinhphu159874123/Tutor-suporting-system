@@ -54,12 +54,20 @@ const StudyGroupDetail: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <button
-        onClick={() => navigate("/study-groups")}
-        className="mb-4 text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-2"
-      >
-        ← Quay lại danh sách
-      </button>
+      <div className="flex flex-wrap gap-2 mb-4">
+        <button
+          onClick={() => navigate("/study-groups")}
+          className="text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-2"
+        >
+          ← Quay lại danh sách
+        </button>
+        <button
+          onClick={() => navigate("/forum")}
+          className="text-gray-600 hover:text-gray-800 font-semibold flex items-center gap-2"
+        >
+          ⤺ Về Forum
+        </button>
+      </div>
 
       {/* Group Header */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
