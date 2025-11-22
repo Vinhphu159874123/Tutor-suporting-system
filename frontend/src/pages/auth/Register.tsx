@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "react-toastify";
-import api from "../../services/api";
+import api from "../../services/api.ts";
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
@@ -218,6 +218,15 @@ const Register: React.FC = () => {
               className="text-blue-600 hover:text-blue-700 font-medium"
             >
               Đăng nhập ngay
+            </Link>
+          </p>
+          <p className="text-gray-600">
+            Hoặc quay về{" "}
+            <Link
+              to="/landing"
+              className="text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Trang chủ
             </Link>
           </p>
         </div>
