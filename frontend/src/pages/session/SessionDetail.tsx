@@ -1,6 +1,20 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
+import SessionBackButton from './SessionBackButton';
+import {
+  CalendarDays,
+  Clock3,
+  MapPin,
+  Hourglass,
+  MessageCircle,
+  FileText,
+  CreditCard,
+  Edit3,
+  XCircle,
+  Star,
+  Download,
+} from 'lucide-react';
 
 const SessionDetail: React.FC = () => {
   const { id } = useParams();
@@ -63,13 +77,7 @@ const SessionDetail: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Back Button */}
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center text-blue-600 hover:text-blue-700 font-medium"
-      >
-        ← Quay lại danh sách
-      </button>
+      <SessionBackButton className="w-fit" />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Session Details */}
@@ -87,29 +95,37 @@ const SessionDetail: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center">
-                <span className="text-2xl mr-3">📅</span>
+            <div className="flex items-center">
+              <span className="mr-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                <CalendarDays className="h-6 w-6" />
+              </span>
                 <div>
                   <p className="text-sm text-gray-600">Ngày học</p>
                   <p className="font-medium text-gray-900">{session.date}</p>
                 </div>
               </div>
               <div className="flex items-center">
-                <span className="text-2xl mr-3">⏰</span>
+              <span className="mr-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                <Clock3 className="h-6 w-6" />
+              </span>
                 <div>
                   <p className="text-sm text-gray-600">Giờ học</p>
                   <p className="font-medium text-gray-900">{session.time}</p>
                 </div>
               </div>
               <div className="flex items-center">
-                <span className="text-2xl mr-3">📍</span>
+              <span className="mr-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                <MapPin className="h-6 w-6" />
+              </span>
                 <div>
                   <p className="text-sm text-gray-600">Địa điểm</p>
                   <p className="font-medium text-gray-900">{session.location}</p>
                 </div>
               </div>
               <div className="flex items-center">
-                <span className="text-2xl mr-3">⏱️</span>
+              <span className="mr-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-600">
+                <Hourglass className="h-6 w-6" />
+              </span>
                 <div>
                   <p className="text-sm text-gray-600">Thời lượng</p>
                   <p className="font-medium text-gray-900">{session.duration} giờ</p>
@@ -133,8 +149,9 @@ const SessionDetail: React.FC = () => {
                   <p className="font-medium text-gray-900">{session.tutor_name}</p>
                   <p className="text-sm text-gray-600">Gia sư</p>
                 </div>
-                <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-white transition-colors">
-                  💬 Nhắn tin
+                <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-white transition-colors inline-flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4 text-gray-600" />
+                  Nhắn tin
                 </button>
               </div>
 
@@ -146,8 +163,9 @@ const SessionDetail: React.FC = () => {
                   <p className="font-medium text-gray-900">{session.student_name}</p>
                   <p className="text-sm text-gray-600">Học viên</p>
                 </div>
-                <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-white transition-colors">
-                  💬 Nhắn tin
+                <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-white transition-colors inline-flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4 text-gray-600" />
+                  Nhắn tin
                 </button>
               </div>
             </div>
@@ -170,13 +188,16 @@ const SessionDetail: React.FC = () => {
               {session.materials.map((material, index) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center">
-                    <span className="text-2xl mr-3">📄</span>
+                    <span className="mr-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                      <FileText className="h-5 w-5" />
+                    </span>
                     <div>
                       <p className="font-medium text-gray-900">{material.name}</p>
                       <p className="text-sm text-gray-600">{material.size}</p>
                     </div>
                   </div>
-                  <button className="text-blue-600 hover:text-blue-700 font-medium">
+                  <button className="text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-2">
+                    <Download className="h-4 w-4" />
                     Tải xuống
                   </button>
                 </div>
@@ -192,9 +213,10 @@ const SessionDetail: React.FC = () => {
               </h2>
               <button
                 onClick={() => setShowFeedbackModal(true)}
-                className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all"
+                className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all inline-flex items-center justify-center gap-2"
               >
-                ⭐ Để lại đánh giá
+                <Star className="h-5 w-5 text-yellow-500" />
+                Để lại đánh giá
               </button>
             </div>
           )}
@@ -225,8 +247,9 @@ const SessionDetail: React.FC = () => {
             </div>
             
             {session.status === 'scheduled' && (
-              <button className="w-full mt-4 bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700 transition-colors">
-                💳 Thanh toán
+              <button className="w-full mt-4 bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700 transition-colors inline-flex items-center justify-center gap-2">
+                <CreditCard className="h-5 w-5" />
+                Thanh toán
               </button>
             )}
           </div>
@@ -238,14 +261,16 @@ const SessionDetail: React.FC = () => {
                 Hành động
               </h2>
               <div className="space-y-3">
-                <button className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors">
-                  📝 Sửa lịch học
+                <button className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors inline-flex items-center justify-center gap-2">
+                  <Edit3 className="h-4 w-4" />
+                  Sửa lịch học
                 </button>
                 <button
                   onClick={handleCancelSession}
-                  className="w-full bg-red-600 text-white py-2 rounded-lg font-medium hover:bg-red-700 transition-colors"
+                  className="w-full bg-red-600 text-white py-2 rounded-lg font-medium hover:bg-red-700 transition-colors inline-flex items-center justify-center gap-2"
                 >
-                  ❌ Hủy phiên học
+                  <XCircle className="h-4 w-4" />
+                  Hủy phiên học
                 </button>
               </div>
             </div>
@@ -282,13 +307,21 @@ const SessionDetail: React.FC = () => {
             <div className="mb-4">
               <p className="text-sm font-medium text-gray-700 mb-2">Đánh giá</p>
               <div className="flex gap-2">
-                {[1, 2, 3, 4, 5].map((star) => (
+                {[1, 2, 3, 4, 5].map((starValue) => (
                   <button
-                    key={star}
-                    onClick={() => setRating(star)}
-                    className="text-3xl transition-transform hover:scale-110"
+                    key={starValue}
+                    onClick={() => setRating(starValue)}
+                    type="button"
+                    aria-label={`Đánh giá ${starValue} sao`}
+                    className="rounded-full p-1 transition-transform hover:scale-110"
                   >
-                    {star <= rating ? '⭐' : '☆'}
+                    <Star
+                      className={`h-8 w-8 ${
+                        starValue <= rating
+                          ? 'fill-yellow-400 text-yellow-400'
+                          : 'text-gray-300'
+                      }`}
+                    />
                   </button>
                 ))}
               </div>
