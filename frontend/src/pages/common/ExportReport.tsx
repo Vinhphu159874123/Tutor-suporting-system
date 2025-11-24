@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import { ArrowLeft, BarChart3, FileDown, FileText } from "lucide-react";
 
 interface ExportOptions {
   reportType: string;
@@ -54,7 +55,8 @@ const ExportReport: React.FC = () => {
           onClick={() => navigate("/reports")}
           className="self-start md:self-auto inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50"
         >
-          ← Về trang Báo cáo
+          <ArrowLeft className="w-4 h-4" />
+          Về trang Báo cáo
         </button>
       </div>
 
@@ -189,13 +191,19 @@ const ExportReport: React.FC = () => {
         <button
           onClick={handleExport}
           disabled={isGenerating}
-          className={`w-full py-3 rounded-lg font-semibold text-white transition ${
+          className={`w-full py-3 rounded-lg font-semibold text-white transition inline-flex items-center justify-center gap-2 ${
             isGenerating
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-blue-600 hover:bg-blue-700"
           }`}
         >
-          {isGenerating ? "Đang tạo báo cáo..." : "📄 Xuất báo cáo"}
+          {isGenerating ? (
+            "Đang tạo báo cáo..."
+          ) : (
+            <>
+              <FileDown className="w-5 h-5" /> Xuất báo cáo
+            </>
+          )}
         </button>
       </div>
 
@@ -227,8 +235,12 @@ const ExportReport: React.FC = () => {
               className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
             >
               <div className="flex items-center gap-3">
-                <div className="text-2xl">
-                  {report.format === "PDF" ? "📄" : "📊"}
+                <div className="text-blue-600">
+                  {report.format === "PDF" ? (
+                    <FileText className="w-6 h-6" />
+                  ) : (
+                    <BarChart3 className="w-6 h-6" />
+                  )}
                 </div>
                 <div>
                   <p className="font-semibold text-gray-900">{report.name}</p>

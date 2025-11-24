@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { FileText } from "lucide-react";
 
 interface CourseStat {
   id: string;
@@ -152,9 +153,10 @@ const Reports: React.FC = () => {
           </select>
           <button
             onClick={() => navigate("/export-report")}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-semibold"
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-semibold inline-flex items-center gap-2"
           >
-            📄 Xuất báo cáo
+            <FileText className="w-5 h-5" />
+            Xuất báo cáo
           </button>
         </div>
       </div>

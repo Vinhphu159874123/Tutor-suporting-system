@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ArrowLeft, CalendarDays, UserRound, Users } from "lucide-react";
 
 interface StudyGroup {
   id: string;
@@ -105,7 +106,8 @@ const StudyGroups: React.FC = () => {
             onClick={() => navigate("/forum")}
             className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50"
           >
-            ← Quay lại Forum
+            <ArrowLeft className="w-4 h-4" />
+            Quay lại Forum
           </button>
           <button
             onClick={() => navigate("/study-groups/create")}
@@ -189,17 +191,24 @@ const StudyGroups: React.FC = () => {
             <div className="grid md:grid-cols-3 gap-4 mb-4">
               <div>
                 <p className="text-sm text-gray-500">Trưởng nhóm</p>
-                <p className="font-semibold">👤 {group.createdBy}</p>
+                <p className="font-semibold inline-flex items-center gap-1">
+                  <UserRound className="w-4 h-4" />
+                  {group.createdBy}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Thành viên</p>
-                <p className="font-semibold">
-                  👥 {group.members}/{group.maxMembers}
+                <p className="font-semibold inline-flex items-center gap-1">
+                  <Users className="w-4 h-4" />
+                  {group.members}/{group.maxMembers}
                 </p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Lịch học</p>
-                <p className="font-semibold">📅 {group.schedule}</p>
+                <p className="font-semibold inline-flex items-center gap-1">
+                  <CalendarDays className="w-4 h-4" />
+                  {group.schedule}
+                </p>
               </div>
             </div>
 

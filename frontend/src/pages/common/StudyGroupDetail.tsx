@@ -1,5 +1,15 @@
 import React from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import {
+  ArrowLeft,
+  ArrowLeftRight,
+  CalendarDays,
+  MapPin,
+  NotebookPen,
+  MessageSquare,
+  UserRound,
+  Users,
+} from "lucide-react";
 
 const StudyGroupDetail: React.FC = () => {
   const { id } = useParams();
@@ -59,13 +69,15 @@ const StudyGroupDetail: React.FC = () => {
           onClick={() => navigate("/study-groups")}
           className="text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-2"
         >
-          ← Quay lại danh sách
+          <ArrowLeft className="w-4 h-4" />
+          Quay lại danh sách
         </button>
         <button
           onClick={() => navigate("/forum")}
           className="text-gray-600 hover:text-gray-800 font-semibold flex items-center gap-2"
         >
-          ⤺ Về Forum
+          <ArrowLeftRight className="w-4 h-4" />
+          Về Forum
         </button>
       </div>
 
@@ -91,21 +103,31 @@ const StudyGroupDetail: React.FC = () => {
         <div className="grid md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
           <div>
             <p className="text-sm text-gray-500">Trưởng nhóm</p>
-            <p className="font-semibold">👤 {group.createdBy}</p>
+            <p className="font-semibold inline-flex items-center gap-1">
+              <UserRound className="w-4 h-4" />
+              {group.createdBy}
+            </p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Thành viên</p>
-            <p className="font-semibold">
-              👥 {group.members}/{group.maxMembers}
+            <p className="font-semibold inline-flex items-center gap-1">
+              <Users className="w-4 h-4" />
+              {group.members}/{group.maxMembers}
             </p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Lịch học</p>
-            <p className="font-semibold">📅 {group.schedule}</p>
+            <p className="font-semibold inline-flex items-center gap-1">
+              <CalendarDays className="w-4 h-4" />
+              {group.schedule}
+            </p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Địa điểm</p>
-            <p className="font-semibold">📍 {group.location}</p>
+            <p className="font-semibold inline-flex items-center gap-1">
+              <MapPin className="w-4 h-4" />
+              {group.location}
+            </p>
           </div>
         </div>
       </div>
@@ -123,8 +145,8 @@ const StudyGroupDetail: React.FC = () => {
                 className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    👤
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                    <UserRound className="w-5 h-5" />
                   </div>
                   <div>
                     <p className="font-semibold text-gray-900">{member.name}</p>
@@ -151,12 +173,14 @@ const StudyGroupDetail: React.FC = () => {
                 className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
               >
                 <div className="flex items-start gap-3">
-                  <div className="text-2xl">
-                    {activity.type === "meeting"
-                      ? "📅"
-                      : activity.type === "assignment"
-                      ? "📝"
-                      : "💬"}
+                  <div className="text-blue-600">
+                    {activity.type === "meeting" ? (
+                      <CalendarDays className="w-6 h-6" />
+                    ) : activity.type === "assignment" ? (
+                      <NotebookPen className="w-6 h-6" />
+                    ) : (
+                      <MessageSquare className="w-6 h-6" />
+                    )}
                   </div>
                   <div className="flex-1">
                     <p className="font-semibold text-gray-900 mb-1">
