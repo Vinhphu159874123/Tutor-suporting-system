@@ -1,4 +1,13 @@
 import React, { useState } from "react";
+import SessionBackButton from "./SessionBackButton";
+import {
+  FileText,
+  Archive,
+  FileType,
+  Presentation,
+  Paperclip,
+  Download,
+} from "lucide-react";
 
 interface Material {
   id: string;
@@ -51,18 +60,18 @@ const MaterialsList: React.FC = () => {
   const getFileIcon = (type: string) => {
     switch (type.toLowerCase()) {
       case "pdf":
-        return "📄";
+        return <FileText className="h-5 w-5" />;
       case "zip":
       case "rar":
-        return "🗜️";
+        return <Archive className="h-5 w-5" />;
       case "doc":
       case "docx":
-        return "📝";
+        return <FileType className="h-5 w-5" />;
       case "ppt":
       case "pptx":
-        return "📊";
+        return <Presentation className="h-5 w-5" />;
       default:
-        return "📎";
+        return <Paperclip className="h-5 w-5" />;
     }
   };
 
@@ -81,6 +90,7 @@ const MaterialsList: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <SessionBackButton className="mb-6" />
       <h1 className="text-3xl font-bold text-gray-900 mb-6">
         Tài liệu học tập
       </h1>
@@ -101,10 +111,14 @@ const MaterialsList: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label
+              htmlFor="file-type-filter"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
               Loại file
             </label>
             <select
+              id="file-type-filter"
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -137,7 +151,9 @@ const MaterialsList: React.FC = () => {
               className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition"
             >
               <div className="flex items-center gap-4 flex-1">
-                <div className="text-4xl">{getFileIcon(material.type)}</div>
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                  {getFileIcon(material.type)}
+                </div>
                 <div className="flex-1">
                   <h3 className="font-semibold text-gray-900 mb-1">
                     {material.name}
@@ -156,8 +172,9 @@ const MaterialsList: React.FC = () => {
               </div>
               <button
                 onClick={() => handleDownload(material)}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-semibold"
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-semibold inline-flex items-center gap-2"
               >
+                <Download className="h-4 w-4" />
                 Tải về
               </button>
             </div>
