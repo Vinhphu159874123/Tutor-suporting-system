@@ -1,5 +1,14 @@
 import React, { useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import {
+  ArrowLeft,
+  CalendarDays,
+  Eye,
+  MessageSquare,
+  Share2,
+  ThumbsUp,
+  UserRound,
+} from "lucide-react";
 
 type ThreadCategory = "study" | "exam" | "project" | "career" | "other";
 
@@ -178,7 +187,8 @@ const ForumDetail: React.FC = () => {
         onClick={() => navigate("/forum")}
         className="text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-2"
       >
-        ← Quay lại danh sách
+        <ArrowLeft className="w-4 h-4" />
+        Quay lại danh sách
       </button>
 
       {/* Thread header */}
@@ -187,10 +197,22 @@ const ForumDetail: React.FC = () => {
           <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-semibold text-xs uppercase">
             {thread.category}
           </span>
-          <span>👤 {thread.author}</span>
-          <span>📅 {formatDateTime(thread.createdAt)}</span>
-          <span>👁️ {thread.views} lượt xem</span>
-          <span>💬 {thread.replies} phản hồi</span>
+          <span className="inline-flex items-center gap-1">
+            <UserRound className="w-4 h-4" />
+            {thread.author}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <CalendarDays className="w-4 h-4" />
+            {formatDateTime(thread.createdAt)}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <Eye className="w-4 h-4" />
+            {thread.views} lượt xem
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <MessageSquare className="w-4 h-4" />
+            {thread.replies} phản hồi
+          </span>
           {thread.isSolved && (
             <span className="text-green-600 font-semibold">Đã giải quyết</span>
           )}
@@ -208,10 +230,12 @@ const ForumDetail: React.FC = () => {
             ))}
           </div>
           <div className="flex gap-3 ml-auto">
-            <button className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700">
-              👍 {thread.likes}
+            <button className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 flex items-center gap-2">
+              <ThumbsUp className="w-4 h-4" />
+              {thread.likes}
             </button>
-            <button className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700">
+            <button className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 flex items-center gap-2">
+              <Share2 className="w-4 h-4" />
               Chia sẻ
             </button>
           </div>
@@ -225,8 +249,8 @@ const ForumDetail: React.FC = () => {
           {replies.map((reply) => (
             <div key={reply.id} className="bg-white rounded-lg shadow-md p-5">
               <div className="flex gap-4">
-                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-xl">
-                  👤
+                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                  <UserRound className="w-6 h-6" />
                 </div>
                 <div className="flex-1">
                   <div className="flex flex-wrap items-center gap-2 justify-between">
@@ -252,10 +276,11 @@ const ForumDetail: React.FC = () => {
                           : "border-gray-200 text-gray-700 hover:bg-gray-50"
                       }`}
                     >
-                      👍 {reply.likes}
+                      <ThumbsUp className="w-4 h-4" /> {reply.likes}
                     </button>
-                    <button className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">
-                      💬 Trả lời
+                    <button className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4" />
+                      Trả lời
                     </button>
                   </div>
                 </div>

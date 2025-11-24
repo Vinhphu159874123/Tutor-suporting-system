@@ -1,5 +1,14 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  ArrowRight,
+  CalendarDays,
+  Eye,
+  MessageSquare,
+  Search,
+  ThumbsUp,
+  UserRound,
+} from "lucide-react";
 
 type ThreadCategory =
   | "all"
@@ -190,9 +199,9 @@ const Forum: React.FC = () => {
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               placeholder="Tìm kiếm chủ đề, tag, tác giả..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
-            <span className="absolute right-3 top-2.5 text-gray-400">🔍</span>
+            <Search className="absolute right-3 top-2.5 h-5 w-5 text-gray-400" />
           </div>
           <select
             value={sortBy}
@@ -249,14 +258,26 @@ const Forum: React.FC = () => {
                 </span>
               )}
 
-              <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 mb-3">
+              <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500 mb-3">
                 <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full font-semibold text-xs uppercase">
                   {thread.category}
                 </span>
-                <span>👤 {thread.author}</span>
-                <span>📅 {formatDate(thread.createdAt)}</span>
-                <span>👁️ {thread.views} lượt xem</span>
-                <span>💬 {thread.replies} phản hồi</span>
+                <span className="inline-flex items-center gap-1">
+                  <UserRound className="w-4 h-4" />
+                  {thread.author}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <CalendarDays className="w-4 h-4" />
+                  {formatDate(thread.createdAt)}
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <Eye className="w-4 h-4" />
+                  {thread.views} lượt xem
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <MessageSquare className="w-4 h-4" />
+                  {thread.replies} phản hồi
+                </span>
                 {thread.isSolved && (
                   <span className="text-green-600 font-semibold">Đã giải quyết</span>
                 )}
@@ -290,13 +311,14 @@ const Forum: React.FC = () => {
                         : "border-gray-200 text-gray-700 hover:bg-gray-50"
                     }`}
                   >
-                    👍 {thread.likes}
+                    <ThumbsUp className="w-4 h-4" /> {thread.likes}
                   </button>
                   <button
                     onClick={() => navigate(`/forum/${thread.id}`)}
-                    className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50"
+                    className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 flex items-center gap-2"
                   >
                     Xem chi tiết
+                    <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -353,9 +375,10 @@ const Forum: React.FC = () => {
             </p>
             <button
               onClick={() => navigate("/study-groups")}
-              className="w-full bg-white text-purple-600 font-semibold py-2 rounded-lg hover:bg-purple-50 transition"
+              className="w-full bg-white text-purple-600 font-semibold py-2 rounded-lg hover:bg-purple-50 transition inline-flex items-center justify-center gap-2"
             >
-              👉 Đi tới Study Groups
+              Đi tới Study Groups
+              <ArrowRight className="w-4 h-4" />
             </button>
           </div>
 

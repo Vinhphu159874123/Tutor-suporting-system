@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Briefcase, GraduationCap, MessageCircle, Star, UserRound } from 'lucide-react';
 
 const TutorDetail: React.FC = () => {
   const { id } = useParams();
@@ -65,9 +66,10 @@ const TutorDetail: React.FC = () => {
       {/* Back Button */}
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center text-blue-600 hover:text-blue-700 font-medium"
+        className="flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
       >
-        ← Quay lại danh sách
+        <ArrowLeft className="w-4 h-4" />
+        Quay lại danh sách
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -88,14 +90,11 @@ const TutorDetail: React.FC = () => {
                 
                 <div className="flex items-center gap-4 mb-4">
                   <div className="flex items-center">
-                    <span className="text-yellow-500 text-xl mr-1">⭐</span>
+                    <Star className="w-5 h-5 text-yellow-500 mr-1" />
                     <span className="font-semibold text-gray-900">{tutor.rating.toFixed(1)}</span>
                     <span className="text-sm text-gray-600 ml-1">
                       ({tutor.total_sessions} phiên)
                     </span>
-                  </div>
-                  <div className="text-lg font-bold text-green-600">
-                    {tutor.hourly_rate.toLocaleString()}đ/giờ
                   </div>
                 </div>
 
@@ -106,8 +105,9 @@ const TutorDetail: React.FC = () => {
                   >
                     Đặt lịch học
                   </button>
-                  <button className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-                    💬 Nhắn tin
+                  <button className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
+                    <MessageCircle className="w-4 h-4" />
+                    Nhắn tin
                   </button>
                 </div>
               </div>
@@ -121,14 +121,14 @@ const TutorDetail: React.FC = () => {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
               <div className="flex items-center">
-                <span className="text-2xl mr-3">🎓</span>
+                <GraduationCap className="w-6 h-6 text-blue-600 mr-3" />
                 <div>
                   <p className="text-sm text-gray-600">Trình độ</p>
                   <p className="font-medium text-gray-900">{tutor.education}</p>
                 </div>
               </div>
               <div className="flex items-center">
-                <span className="text-2xl mr-3">💼</span>
+                <Briefcase className="w-6 h-6 text-indigo-600 mr-3" />
                 <div>
                   <p className="text-sm text-gray-600">Kinh nghiệm</p>
                   <p className="font-medium text-gray-900">{tutor.experience}</p>
@@ -159,14 +159,14 @@ const TutorDetail: React.FC = () => {
                 <div key={review.id} className="p-4 bg-gray-50 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center">
-                      <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-teal-600 rounded-full flex items-center justify-center text-white font-bold">
-                        {review.student_name.charAt(0)}
+                      <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-teal-600 rounded-full flex items-center justify-center text-white">
+                        <UserRound className="w-5 h-5" />
                       </div>
                       <div className="ml-3">
                         <p className="font-medium text-gray-900">{review.student_name}</p>
                         <div className="flex items-center">
                           {[...Array(review.rating)].map((_, i) => (
-                            <span key={i} className="text-yellow-500">⭐</span>
+                            <Star key={i} className="w-4 h-4 text-yellow-500" />
                           ))}
                         </div>
                       </div>
