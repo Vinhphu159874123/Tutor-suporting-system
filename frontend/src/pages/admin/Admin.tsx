@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import {Pencil, Trash2, User, Users, Calendar, Star} from "lucide-react";
 
 interface User {
   id: string;
@@ -22,10 +23,10 @@ const Admin: React.FC = () => {
   const [activeTab, setActiveTab] = useState("overview");
 
   const stats = [
-    { name: "Tổng số sinh viên", value: "1004", icon: "🎓" },
-    { name: "Tổng số tutor", value: "18", icon: "👨‍🏫" },
-    { name: "Tổng số phiên học", value: "120", icon: "📅" },
-    { name: "Đánh giá trung bình", value: "4.8/5", icon: "⭐" },
+    { name: "Tổng số sinh viên", value: "1004", icon: <User size={24} className="text-blue-500" />},
+    { name: "Tổng số tutor", value: "18", icon: <Users size={24} className="text-green-500" /> },
+    { name: "Tổng số phiên học", value: "120", icon: <Calendar size={24} className="text-yellow-500" /> },
+    { name: "Đánh giá trung bình", value: "4.8/5", icon: <Star size={24} className="text-orange-400" /> },
   ];
 
   const tabs = [
@@ -129,10 +130,10 @@ const Admin: React.FC = () => {
                       <td className="px-4 py-2 text-sm text-gray-900">{user.studentId || "-"}</td>
                       <td className="px-4 py-2 text-sm text-gray-900 flex gap-4">
                         <button className="hover:text-blue-800" title="Edit">
-                        ✏️
+                         < Pencil size={18} />
                         </button>
                         <button className="hover:text-red-800" title="Delete">
-                        🗑️
+                        < Trash2 size={18} />
                         </button>
                       </td>
                     </tr>
