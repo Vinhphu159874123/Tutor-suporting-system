@@ -1,11 +1,33 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  CalendarClock,
+  CreditCard,
+  Star,
+  BellRing,
+  MessageSquareText,
+  AlertCircle,
+} from 'lucide-react';
+
+type NotificationItem = {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  time: string;
+  read: boolean;
+  icon: React.ComponentType<{ className?: string }>;
+  link: string | null;
+};
+
+const iconClasses =
+  'h-5 w-5 text-blue-600';
 
 const Notifications: React.FC = () => {
   const [filter, setFilter] = useState('all');
 
   // Mock data - sẽ thay bằng API call
-  const notifications = [
+  const notifications: NotificationItem[] = [
     {
       id: 1,
       type: 'session',
@@ -13,7 +35,7 @@ const Notifications: React.FC = () => {
       message: 'Bạn có phiên học "Toán cao cấp A1" vào ngày mai lúc 14:00',
       time: '2 giờ trước',
       read: false,
-      icon: '📚',
+      icon: CalendarClock,
       link: '/sessions/1',
     },
     {
@@ -23,7 +45,7 @@ const Notifications: React.FC = () => {
       message: 'Bạn đã thanh toán thành công 300,000đ cho phiên học #123',
       time: '5 giờ trước',
       read: false,
-      icon: '💳',
+      icon: CreditCard,
       link: '/sessions/123',
     },
     {
@@ -33,7 +55,7 @@ const Notifications: React.FC = () => {
       message: 'Nguyễn Văn A đã đánh giá 5⭐ cho phiên học của bạn',
       time: '1 ngày trước',
       read: true,
-      icon: '⭐',
+      icon: Star,
       link: '/sessions/120',
     },
     {
@@ -43,7 +65,7 @@ const Notifications: React.FC = () => {
       message: 'Hệ thống đã được cập nhật phiên bản mới với nhiều tính năng',
       time: '2 ngày trước',
       read: true,
-      icon: '🔔',
+      icon: BellRing,
       link: null,
     },
     {
@@ -53,7 +75,7 @@ const Notifications: React.FC = () => {
       message: 'Trần Thị B đã gửi tin nhắn cho bạn',
       time: '3 ngày trước',
       read: true,
-      icon: '💬',
+      icon: MessageSquareText,
       link: '/forum',
     },
   ];
@@ -164,7 +186,9 @@ const Notifications: React.FC = () => {
               }`}
             >
               <div className="flex items-start gap-4">
-                <div className="text-3xl flex-shrink-0">{notification.icon}</div>
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50">
+                  <notification.icon className={iconClasses} />
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">

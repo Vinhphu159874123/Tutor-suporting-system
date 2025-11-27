@@ -1,4 +1,13 @@
 import React, { useState } from 'react';
+import SessionBackButton from './SessionBackButton';
+import {
+  BookOpen,
+  CheckCircle2,
+  Clock3,
+  Star,
+  FileBarChart2,
+  CalendarX2,
+} from 'lucide-react';
 
 const SessionHistory: React.FC = () => {
   const [filter, setFilter] = useState('all');
@@ -87,6 +96,7 @@ const SessionHistory: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <SessionBackButton />
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg p-6 text-white">
         <h1 className="text-3xl font-bold mb-2">Lịch sử học tập</h1>
@@ -99,7 +109,9 @@ const SessionHistory: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="card">
           <div className="flex items-center">
-            <div className="text-3xl mr-4">📚</div>
+            <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+              <BookOpen className="h-6 w-6" />
+            </div>
             <div>
               <p className="text-sm font-medium text-gray-600">Tổng phiên học</p>
               <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
@@ -109,7 +121,9 @@ const SessionHistory: React.FC = () => {
 
         <div className="card">
           <div className="flex items-center">
-            <div className="text-3xl mr-4">✅</div>
+            <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-green-50 text-green-600">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
             <div>
               <p className="text-sm font-medium text-gray-600">Hoàn thành</p>
               <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
@@ -119,7 +133,9 @@ const SessionHistory: React.FC = () => {
 
         <div className="card">
           <div className="flex items-center">
-            <div className="text-3xl mr-4">⏱️</div>
+            <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+              <Clock3 className="h-6 w-6" />
+            </div>
             <div>
               <p className="text-sm font-medium text-gray-600">Tổng giờ học</p>
               <p className="text-2xl font-bold text-blue-600">{stats.totalHours}h</p>
@@ -129,7 +145,9 @@ const SessionHistory: React.FC = () => {
 
         <div className="card">
           <div className="flex items-center">
-            <div className="text-3xl mr-4">⭐</div>
+            <div className="mr-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-yellow-50 text-yellow-600">
+              <Star className="h-6 w-6 fill-yellow-400 text-yellow-500" />
+            </div>
             <div>
               <p className="text-sm font-medium text-gray-600">Đánh giá TB</p>
               <p className="text-2xl font-bold text-yellow-600">{stats.avgRating}</p>
@@ -184,9 +202,10 @@ const SessionHistory: React.FC = () => {
             />
             <button
               onClick={exportHistory}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors whitespace-nowrap"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors whitespace-nowrap"
             >
-              📊 Xuất báo cáo
+              <FileBarChart2 className="h-4 w-4" />
+              Xuất báo cáo
             </button>
           </div>
         </div>
@@ -236,7 +255,7 @@ const SessionHistory: React.FC = () => {
                   <td className="py-3 px-4">
                     {session.rating ? (
                       <div className="flex items-center">
-                        <span className="text-yellow-500 mr-1">⭐</span>
+                        <Star className="mr-1 h-4 w-4 fill-yellow-400 text-yellow-500" />
                         <span className="font-medium">{session.rating}</span>
                       </div>
                     ) : (
@@ -251,7 +270,9 @@ const SessionHistory: React.FC = () => {
 
         {filteredSessions.length === 0 && (
           <div className="text-center py-12">
-            <div className="text-6xl mb-4">📚</div>
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-50 text-purple-600">
+              <CalendarX2 className="h-8 w-8" />
+            </div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">
               Không tìm thấy phiên học
             </h3>
