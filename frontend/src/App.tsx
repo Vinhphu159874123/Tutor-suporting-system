@@ -54,8 +54,11 @@ import MyCourses from "./pages/courses/MyCourses.tsx";
 
 // Admin pages
 import Admin from "./pages/admin/Admin.tsx";
-import CoordinatorReview from "./pages/admin/CoordinatorReview.tsx";
-import CoordinatorSessions from "./pages/admin/CoordinatorSessions.tsx";
+
+// Coordinator pages
+import CoordinatorDashboard from "./pages/coordinator/CoordinatorDashboard.tsx";
+import CoordinatorReview from "./pages/coordinator/CoordinatorReview.tsx";
+import CoordinatorSessions from "./pages/coordinator/CoordinatorSessions.tsx";
 
 import "./index.css";
 
@@ -156,8 +159,9 @@ function App() {
                       <Route path="/study-groups" element={<StudyGroups />} />
                       <Route path="/study-groups/:id" element={<StudyGroupDetail />} />
                       <Route path="/admin" element={<Admin />} />
-                      <Route path="/admin/review" element={<CoordinatorReview />} />
-                      <Route path="/admin/sessions" element={<CoordinatorSessions />} />
+                      <Route path="/coor" element={<CoordinatorDashboard />} />
+                      <Route path="/coor/review" element={<CoordinatorReview />} />
+                      <Route path="/coor/sessions" element={<CoordinatorSessions />} />
                       <Route path="/tutors" element={<TutorList />} />
                       <Route path="/tutors/:id" element={<TutorDetail />} />
                       <Route

@@ -220,6 +220,15 @@ const Register: React.FC = () => {
               Đăng nhập ngay
             </Link>
           </p>
+          <p className="text-gray-600">
+            Hoặc quay về{" "}
+            <Link
+              to="/landing"
+              className="text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Trang chủ
+            </Link>
+          </p>
         </div>
       </div>
     </div>

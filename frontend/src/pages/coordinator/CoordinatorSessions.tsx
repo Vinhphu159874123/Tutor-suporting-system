@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom"; // nav to admin page
 
 const CoordinatorSessions: React.FC = () => {
+  const navigate = useNavigate();
   const [sessions] = useState([
     {
       id: "1",
@@ -84,15 +86,20 @@ const CoordinatorSessions: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <button
+        onClick={()=> navigate("/coor")}
+        className="mb-4 text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-2">
+          ← Quay lại trang chủ
+      </button>
       <h1 className="text-3xl font-bold text-gray-900 mb-6">
-        Quản lý lịch học - Coordinator
+        Quản lý lịch học 
       </h1>
 
       {/* Stats */}
       <div className="grid md:grid-cols-4 gap-6 mb-6">
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="text-3xl mb-2">📅</div>
-          <p className="text-sm text-gray-600 mb-1">Tổng sessions</p>
+          <p className="text-sm text-gray-600 mb-1">Tổng phiên học</p>
           <p className="text-3xl font-bold text-gray-900">{sessions.length}</p>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">

@@ -11,6 +11,7 @@ const Profile: React.FC = () => {
 
   const [formData, setFormData] = useState({
     full_name: user?.full_name || "",
+    program: (user as any)?.program || "",
     faculty: user?.faculty || "",
     major: user?.major || "",
     phone: user?.phone || "",
@@ -22,12 +23,22 @@ const Profile: React.FC = () => {
     confirmPassword: "",
   });
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
     });
   };
+
+  const availableMajors = useMemo(() => {
+    const facultyEntry = facultyOptions.find(
+      (option) => option.label === formData.faculty
+    );
+    if (!facultyEntry) return [];
+    return FACULTY_STRUCTURE[facultyEntry.id].majors;
+  }, [formData.faculty]);
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPasswordData({
@@ -113,19 +124,30 @@ const Profile: React.FC = () => {
 
           <button
             onClick={() => setIsEditing(!isEditing)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
           >
-            {isEditing ? "Hủy" : "✏️ Chỉnh sửa"}
+            {isEditing ? (
+              <>
+                <Ban className="h-4 w-4" />
+                Hủy
+              </>
+            ) : (
+              <>
+                <Edit3 className="h-4 w-4" />
+                Chỉnh sửa
+              </>
+            )}
           </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="profile-name" className="block text-sm font-medium text-gray-700 mb-2">
               Họ và tên
             </label>
             {isEditing ? (
               <input
+                id="profile-name"
                 type="text"
                 name="full_name"
                 value={formData.full_name}
@@ -148,47 +170,107 @@ const Profile: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Khoa
+            <label
+              htmlFor="profile-program"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Chương trình đào tạo
             </label>
             {isEditing ? (
-              <input
-                type="text"
-                name="faculty"
-                value={formData.faculty}
+              <select
+                id="profile-program"
+                name="program"
+                value={formData.program}
                 onChange={handleInputChange}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+              >
+                <option value="" disabled>
+                  Chọn chương trình
+                </option>
+                {TRAINING_PROGRAMS.map((program) => (
+                  <option key={program} value={program}>
+                    {program}
+                  </option>
+                ))}
+              </select>
             ) : (
               <p className="text-gray-900 font-medium">
-                {user?.faculty || "-"}
+                {formData.program || "-"}
               </p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Ngành
+            <label htmlFor="profile-faculty" className="block text-sm font-medium text-gray-700 mb-2">
+              Khoa
             </label>
             {isEditing ? (
-              <input
-                type="text"
-                name="major"
-                value={formData.major}
-                onChange={handleInputChange}
+              <select
+                id="profile-faculty"
+                name="faculty"
+                value={formData.faculty}
+                onChange={(e) => {
+                  const selected = e.target.value;
+                  setFormData((prev) => ({
+                    ...prev,
+                    faculty: selected,
+                    major: "",
+                  }));
+                }}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+              >
+                <option value="" disabled>
+                  Chọn khoa
+                </option>
+                {facultyOptions.map((option) => (
+                  <option key={option.id} value={option.label}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             ) : (
-              <p className="text-gray-900 font-medium">{user?.major || "-"}</p>
+              <p className="text-gray-900 font-medium">
+                {formData.faculty || "-"}
+              </p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="profile-major" className="block text-sm font-medium text-gray-700 mb-2">
+              Ngành
+            </label>
+            {isEditing ? (
+              <select
+                id="profile-major"
+                name="major"
+                value={formData.major}
+                onChange={handleInputChange}
+                disabled={!formData.faculty}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
+              >
+                <option value="" disabled>
+                  {formData.faculty
+                    ? "Chọn ngành"
+                    : "Chọn khoa trước để xem ngành"}
+                </option>
+                {availableMajors.map((major: string) => (
+                  <option key={major} value={major}>
+                    {major}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-gray-900 font-medium">{formData.major || "-"}</p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="profile-phone" className="block text-sm font-medium text-gray-700 mb-2">
               Số điện thoại
             </label>
             {isEditing ? (
               <input
+                id="profile-phone"
                 type="tel"
                 name="phone"
                 value={formData.phone}
@@ -201,7 +283,7 @@ const Profile: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="profile-role" className="block text-sm font-medium text-gray-700 mb-2">
               Vai trò
             </label>
             <p className="text-gray-900 font-medium capitalize">{user?.role}</p>
@@ -213,14 +295,22 @@ const Profile: React.FC = () => {
             <button
               onClick={handleSaveProfile}
               disabled={loading}
-              className="px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
             >
-              {loading ? "Đang lưu..." : "💾 Lưu thay đổi"}
+              {loading ? (
+                "Đang lưu..."
+              ) : (
+                <>
+                  <Save className="h-4 w-4" />
+                  Lưu thay đổi
+                </>
+              )}
             </button>
             <button
               onClick={() => setIsEditing(false)}
-              className="px-6 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+              className="inline-flex items-center gap-2 px-6 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors"
             >
+              <Ban className="h-4 w-4" />
               Hủy
             </button>
           </div>
@@ -238,19 +328,30 @@ const Profile: React.FC = () => {
           </div>
           <button
             onClick={() => setIsChangingPassword(!isChangingPassword)}
-            className="px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors"
           >
-            {isChangingPassword ? "Hủy" : "🔒 Đổi mật khẩu"}
+            {isChangingPassword ? (
+              <>
+                <Ban className="h-4 w-4" />
+                Hủy
+              </>
+            ) : (
+              <>
+                <KeyRound className="h-4 w-4" />
+                Đổi mật khẩu
+              </>
+            )}
           </button>
         </div>
 
         {isChangingPassword && (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="password-current" className="block text-sm font-medium text-gray-700 mb-2">
                 Mật khẩu hiện tại
               </label>
               <input
+                id="password-current"
                 type="password"
                 name="currentPassword"
                 value={passwordData.currentPassword}
@@ -260,10 +361,11 @@ const Profile: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="password-new" className="block text-sm font-medium text-gray-700 mb-2">
                 Mật khẩu mới
               </label>
               <input
+                id="password-new"
                 type="password"
                 name="newPassword"
                 value={passwordData.newPassword}
@@ -274,10 +376,11 @@ const Profile: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="password-confirm" className="block text-sm font-medium text-gray-700 mb-2">
                 Xác nhận mật khẩu mới
               </label>
               <input
+                id="password-confirm"
                 type="password"
                 name="confirmPassword"
                 value={passwordData.confirmPassword}
@@ -291,14 +394,22 @@ const Profile: React.FC = () => {
               <button
                 onClick={handleChangePassword}
                 disabled={loading}
-                className="px-6 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-6 py-2 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 transition-colors disabled:opacity-50"
               >
-                {loading ? "Đang xử lý..." : "Cập nhật mật khẩu"}
+                {loading ? (
+                  "Đang xử lý..."
+                ) : (
+                  <>
+                    <LockKeyhole className="h-4 w-4" />
+                    Cập nhật mật khẩu
+                  </>
+                )}
               </button>
               <button
                 onClick={() => setIsChangingPassword(false)}
-                className="px-6 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors"
               >
+                <Ban className="h-4 w-4" />
                 Hủy
               </button>
             </div>
@@ -319,7 +430,17 @@ const Profile: React.FC = () => {
                 user?.is_active ? "text-green-600" : "text-red-600"
               }`}
             >
-              {user?.is_active ? "✅ Đang hoạt động" : "❌ Bị khóa"}
+              {user?.is_active ? (
+                <span className="inline-flex items-center gap-1">
+                  <ShieldCheck className="h-4 w-4" />
+                  Đang hoạt động
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1">
+                  <ShieldAlert className="h-4 w-4" />
+                  Bị khóa
+                </span>
+              )}
             </span>
           </div>
           <div className="flex justify-between py-2 border-b">

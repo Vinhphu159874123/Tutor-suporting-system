@@ -13,7 +13,7 @@ const Landing: React.FC = () => {
             HCMUT Tutor Support System
           </h1>
           <p className="text-xl text-gray-600 mb-8">
-            Hệ thống hỗ trợ học tập và kèm đào dành cho sinh viên Đại học Bách Khoa TP.HCM
+            Hệ thống hỗ trợ học tập dành cho sinh viên Trường Đại học Bách Khoa - ĐHQG TP.HCM
           </p>
           <div className="flex gap-4 justify-center">
             <button
@@ -51,7 +51,7 @@ const Landing: React.FC = () => {
 
           <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition">
             <div className="text-4xl mb-4">💬</div>
-            <h3 className="text-xl font-bold mb-2">Diễn đàn & Study Groups</h3>
+            <h3 className="text-xl font-bold mb-2">Diễn đàn & Nhóm học tập</h3>
             <p className="text-gray-600">
               Tham gia thảo luận và học nhóm cùng sinh viên khác
             </p>
@@ -61,7 +61,7 @@ const Landing: React.FC = () => {
             <div className="text-4xl mb-4">📊</div>
             <h3 className="text-xl font-bold mb-2">Theo dõi tiến độ</h3>
             <p className="text-gray-600">
-              Theo dõi quá trình học tập và đánh giá hiệu quả
+              Giám sát quá trình học tập, nhận phản hồi và cải thiện hiệu quả
             </p>
           </div>
         </div>
@@ -117,7 +117,7 @@ const Landing: React.FC = () => {
           <p className="mb-2">
             © 2025 HCMUT Tutor Support System. All rights reserved.
           </p>
-          <p>Đại học Bách Khoa - ĐHQG TP.HCM</p>
+          <p>Trường Đại học Bách Khoa - ĐHQG TP.HCM</p>
         </div>
       </div>
     </div>
