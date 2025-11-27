@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { useAuthStore } from "../../stores/authStore";
+import { useAuthStore } from "../../stores/authStore.ts";
 import { toast } from "react-toastify";
-import api from "../../services/api";
+import api from "../../services/api.ts";
 
 const Profile: React.FC = () => {
   const { user, setUser } = useAuthStore();

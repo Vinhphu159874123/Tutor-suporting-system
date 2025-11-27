@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useAuthStore } from "../../stores/authStore";
+import { useAuthStore } from "../../stores/authStore.ts";
 import { toast } from "react-toastify";
 import logoBK from "../../png/logobk.png";
 
@@ -127,10 +127,16 @@ const Login: React.FC = () => {
 
               <div className="mt-4">
                 <a
-                  href="#forgot-password"
+                  href="/forgot-password"
                   className="text-blue-600 hover:text-blue-800 text-sm underline"
                 >
-                  Thay đổi mật khẩu?
+                  Quên mật khẩu?
+                </a>
+                <a
+                  href="/landing"
+                  className="ml-4 text-blue-600 hover:text-blue-800 text-sm underline"
+                >
+                  Trang chủ
                 </a>
               </div>
             </div>
@@ -175,7 +181,7 @@ const Login: React.FC = () => {
                     điện tử,...
                   </p>
                   <p>
-                    Vì vấn đề an ninh, hãy Thoát khỏi trình duyệt Web khi bạn
+                    Vì vấn đề an ninh, hãy thoát khỏi trình duyệt Web khi bạn
                     kết thúc việc truy cập các dịch vụ đòi hỏi xác thực!
                   </p>
                 </div>
