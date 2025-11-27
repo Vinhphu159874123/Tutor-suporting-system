@@ -16,7 +16,7 @@
     "autoprefixer": "^10.4.16",
     "axios": "^1.6.2",
     "date-fns": "^2.30.0",
-    "lucide-react": "^0.460.0",
+    "lucide-react": "^0.554.0",
     "postcss": "^8.4.32",
     "react": "^18.2.0",
     "react-calendar": "^4.7.0",

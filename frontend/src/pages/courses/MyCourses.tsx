@@ -62,7 +62,7 @@ const MyCourses: React.FC = () => {
     {
       id: "7",
       code: "79748_CO3094_010360_CLC",
-      name: "Computer Networks (Lab) (CO3094)_NGUYỄN THÀNH NHÂN Trap Boy",
+      name: "Computer Networks (Lab) (CO3094)_NGUYỄN THÀNH NHÂN",
       instructor: "NGUYỄN THÀNH NHÂN",
       color: "bg-gray-300",
     },
@@ -101,43 +101,48 @@ const MyCourses: React.FC = () => {
 
             {/* Filter Controls */}
             <div className="flex flex-wrap items-center gap-3 mb-4">
+              {/* Status Filter */}
               <select
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:ring-2 focus:ring-blue-500"
               >
-                <option value="all">All</option>
                 <option value="inprogress">In Progress</option>
                 <option value="completed">Completed</option>
+                <option value="all">All</option>
               </select>
 
+              {/* Search */}
               <input
                 type="text"
-                placeholder="Tìm kiếm"
+                placeholder="Tìm kiếm khoá học"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="flex-1 min-w-[200px] max-w-md px-3 py-2 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 min-w-[220px] max-w-md px-3 py-2 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
               />
 
+              {/* Sort */}
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:ring-2 focus:ring-blue-500"
               >
                 <option value="short_name">Sort by short name</option>
                 <option value="full_name">Sort by full name</option>
                 <option value="last_accessed">Last accessed</option>
               </select>
 
+              {/* View Mode */}
               <select
                 value={viewMode}
                 onChange={(e) => setViewMode(e.target.value)}
-                className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-2 text-sm border border-gray-300 rounded bg-white focus:ring-2 focus:ring-blue-500"
               >
                 <option value="card">Card</option>
                 <option value="list">List</option>
                 <option value="summary">Summary</option>
               </select>
+
             </div>
 
             {/* Semester Heading */}
