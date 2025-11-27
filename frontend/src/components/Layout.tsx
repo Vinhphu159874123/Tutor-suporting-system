@@ -15,6 +15,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: "Các khóa học của tôi", href: "/courses" },
     { name: "Sessions", href: "/sessions", icon: "📅" },
     { name: "Scheduling", href: "/scheduling", icon: "⏰" },
+    { name: "Tutors", href: "/tutors", icon: "🎓" },
     { name: "Notifications", href: "/notifications", icon: "🔔" },
     { name: "Settings", href: "/settings", icon: "⚙️" },
     { name: "Forum", href: "/forum", icon: "💬" },
