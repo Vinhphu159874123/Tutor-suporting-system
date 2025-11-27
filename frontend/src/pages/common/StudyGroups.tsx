@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ArrowLeft, CalendarDays, UserRound, Users } from "lucide-react";
 
 interface StudyGroup {
   id: string;
@@ -90,14 +91,31 @@ const StudyGroups: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Study Groups</h1>
-        <button
-          onClick={() => navigate("/study-groups/create")}
-          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-semibold"
-        >
-          + Tạo nhóm mới
-        </button>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6">
+        <div>
+          <p className="text-sm uppercase tracking-wide text-blue-600 font-semibold">
+            Cộng đồng học tập
+          </p>
+          <h1 className="text-3xl font-bold text-gray-900">Study Groups</h1>
+          <p className="text-gray-500">
+            Kết nối với bạn học, luyện thi và chia sẻ tài liệu theo từng môn học.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => navigate("/forum")}
+            className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Quay lại Forum
+          </button>
+          <button
+            onClick={() => navigate("/study-groups/create")}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-semibold"
+          >
+            + Tạo nhóm mới
+          </button>
+        </div>
       </div>
 
       {/* Search and Filter */}
@@ -173,17 +191,24 @@ const StudyGroups: React.FC = () => {
             <div className="grid md:grid-cols-3 gap-4 mb-4">
               <div>
                 <p className="text-sm text-gray-500">Trưởng nhóm</p>
-                <p className="font-semibold">👤 {group.createdBy}</p>
+                <p className="font-semibold inline-flex items-center gap-1">
+                  <UserRound className="w-4 h-4" />
+                  {group.createdBy}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Thành viên</p>
-                <p className="font-semibold">
-                  👥 {group.members}/{group.maxMembers}
+                <p className="font-semibold inline-flex items-center gap-1">
+                  <Users className="w-4 h-4" />
+                  {group.members}/{group.maxMembers}
                 </p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Lịch học</p>
-                <p className="font-semibold">📅 {group.schedule}</p>
+                <p className="font-semibold inline-flex items-center gap-1">
+                  <CalendarDays className="w-4 h-4" />
+                  {group.schedule}
+                </p>
               </div>
             </div>
 
