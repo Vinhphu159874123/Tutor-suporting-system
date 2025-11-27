@@ -1,6 +1,6 @@
 import React, { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { useAuthStore } from "../stores/authStore";
+import { useAuthStore } from "../stores/authStore.ts";
 
 interface LayoutProps {
   children: ReactNode;
@@ -18,6 +18,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: "Notifications", href: "/notifications", icon: "🔔" },
     { name: "Settings", href: "/settings", icon: "⚙️" },
     { name: "Forum", href: "/forum", icon: "💬" },
+    { name: "Review Sessions", href: "/review-sessions", icon: "✅", roles: ["coordinator"]},
     {
       name: "Reports",
       href: "/reports",

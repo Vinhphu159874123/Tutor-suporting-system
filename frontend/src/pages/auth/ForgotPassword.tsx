@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
-import api from "../../services/api";
+import api from "../../services/api.ts";
 
 const ForgotPassword: React.FC = () => {
   const [email, setEmail] = useState("");
