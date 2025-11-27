@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom"; // nav to admin page
 
 interface RegistrationRequest {
   id: string;
@@ -13,6 +14,7 @@ interface RegistrationRequest {
 }
 
 const CoordinatorReview: React.FC = () => {
+  const navigate = useNavigate();  // nav
   const [requests, setRequests] = useState<RegistrationRequest[]>([
     {
       id: "1",
@@ -84,8 +86,13 @@ const CoordinatorReview: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      <button
+        onClick={()=> navigate("/coor")}
+        className="mb-4 text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-2">
+          ← Quay lại trang chủ
+      </button>
       <h1 className="text-3xl font-bold text-gray-900 mb-6">
-        Phê duyệt đăng ký Tutor
+        Xét duyệt đăng ký Tutor
       </h1>
 
       {/* Filter Tabs */}
