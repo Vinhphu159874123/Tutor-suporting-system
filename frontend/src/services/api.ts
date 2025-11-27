@@ -338,10 +338,73 @@ export const sessionsApi = {
 
 // Scheduling API
 export const schedulingApi = {
+  getTutorAvailability: (tutorId: string | number) => {
+    if (MOCK_MODE) {
+      return mockResponse({
+        availability: [
+          {
+            availability_id: 1,
+            tutor_id: Number(tutorId),
+            date: "2025-11-20",
+            start_time: "09:00",
+            end_time: "10:00",
+          },
+          {
+            availability_id: 2,
+            tutor_id: Number(tutorId),
+            date: "2025-11-21",
+            start_time: "14:00",
+            end_time: "15:30",
+          },
+        ],
+      });
+    }
+    return apiClient.get(`/api/v1/scheduling/availability/${tutorId}`);
+  },
+
+  createAvailability: (data: any) => {
+    if (MOCK_MODE) {
+      return mockResponse({
+        availability_id: Math.floor(Math.random() * 100000),
+        ...data,
+      });
+    }
+    return apiClient.post("/api/v1/scheduling/availability", data);
+  },
+
+  updateAvailability: (availabilityId: number, data: any) => {
+    if (MOCK_MODE) {
+      return mockResponse({
+        availability_id: availabilityId,
+        ...data,
+      });
+    }
+    return apiClient.put(`/api/v1/scheduling/availability/${availabilityId}`, data);
+  },
+
+  deleteAvailability: (availabilityId: number) => {
+    if (MOCK_MODE) {
+      return mockResponse({ message: "Availability removed" });
+    }
+    return apiClient.delete(`/api/v1/scheduling/availability/${availabilityId}`);
+  },
+
+  findSlots: (data: any) => {
+    if (MOCK_MODE) {
+      return mockResponse({
+        slots: [
+          { date: "2025-11-22", start_time: "08:00", end_time: "09:00" },
+          { date: "2025-11-22", start_time: "13:00", end_time: "14:00" },
+        ],
+      });
+    }
+    return apiClient.post("/api/v1/scheduling/find-slots", data);
+  },
+
   scheduleSession: (data: any) => {
     if (MOCK_MODE) {
       return mockResponse({
-        session_id: 999,
+        session_id: Math.floor(Math.random() * 100000),
         ...data,
         message: "Session scheduled",
       });
@@ -349,21 +412,9 @@ export const schedulingApi = {
     return apiClient.post("/api/v1/scheduling/sessions", data);
   },
 
-  getAvailability: (params?: any) => {
-    if (MOCK_MODE) {
-      return mockResponse({
-        available_slots: [
-          { date: "2025-11-20", time: "09:00-10:00" },
-          { date: "2025-11-20", time: "10:00-11:00" },
-        ],
-      });
-    }
-    return apiClient.get("/api/v1/scheduling/availability", { params });
-  },
-
   rescheduleSession: (sessionId: number, data: any) => {
     if (MOCK_MODE) {
-      return mockResponse({ message: "Session rescheduled" });
+      return mockResponse({ message: "Session rescheduled", session_id: sessionId, ...data });
     }
     return apiClient.put(
       `/api/v1/scheduling/sessions/${sessionId}/reschedule`,
@@ -373,7 +424,7 @@ export const schedulingApi = {
 
   cancelSession: (sessionId: number) => {
     if (MOCK_MODE) {
-      return mockResponse({ message: "Session cancelled" });
+      return mockResponse({ message: "Session cancelled", session_id: sessionId });
     }
     return apiClient.delete(`/api/v1/scheduling/sessions/${sessionId}`);
   },

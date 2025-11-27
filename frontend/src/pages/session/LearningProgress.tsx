@@ -1,4 +1,6 @@
 import React from "react";
+import SessionBackButton from "./SessionBackButton";
+import { BookOpen, CheckCircle2, Star, BarChart3 } from "lucide-react";
 
 interface CourseProgress {
   courseId: string;
@@ -49,8 +51,33 @@ const LearningProgress: React.FC = () => {
     return "text-red-600";
   };
 
+  const progressWidthClassMap: Record<number, string> = {
+    0: "w-[0%]",
+    10: "w-[10%]",
+    20: "w-[20%]",
+    30: "w-[30%]",
+    40: "w-[40%]",
+    50: "w-[50%]",
+    60: "w-[60%]",
+    70: "w-[70%]",
+    80: "w-[80%]",
+    90: "w-[90%]",
+    100: "w-[100%]",
+  };
+
+  const getProgressWidthClass = (percentage: number) => {
+    const steps = [100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0];
+    for (const step of steps) {
+      if (percentage >= step) {
+        return progressWidthClassMap[step];
+      }
+    }
+    return progressWidthClassMap[0];
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
+      <SessionBackButton className="mb-6" />
       <h1 className="text-3xl font-bold text-gray-900 mb-6">
         Theo dõi tiến độ học tập
       </h1>
@@ -58,19 +85,25 @@ const LearningProgress: React.FC = () => {
       {/* Overall Statistics */}
       <div className="grid md:grid-cols-4 gap-6 mb-8">
         <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="text-3xl mb-2">📚</div>
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+            <BookOpen className="h-6 w-6" />
+          </div>
           <p className="text-sm text-gray-600 mb-1">Tổng môn học</p>
           <p className="text-3xl font-bold text-gray-900">{courses.length}</p>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="text-3xl mb-2">✅</div>
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-green-50 text-green-600">
+            <CheckCircle2 className="h-6 w-6" />
+          </div>
           <p className="text-sm text-gray-600 mb-1">Sessions hoàn thành</p>
           <p className="text-3xl font-bold text-gray-900">
             {courses.reduce((sum, c) => sum + c.completedSessions, 0)}
           </p>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="text-3xl mb-2">⭐</div>
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-yellow-50 text-yellow-600">
+            <Star className="h-6 w-6 fill-yellow-400 text-yellow-500" />
+          </div>
           <p className="text-sm text-gray-600 mb-1">Điểm trung bình</p>
           <p className="text-3xl font-bold text-green-600">
             {(
@@ -80,7 +113,9 @@ const LearningProgress: React.FC = () => {
           </p>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="text-3xl mb-2">📊</div>
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+            <BarChart3 className="h-6 w-6" />
+          </div>
           <p className="text-sm text-gray-600 mb-1">Tỷ lệ tham gia</p>
           <p className="text-3xl font-bold text-blue-600">
             {(
@@ -129,8 +164,7 @@ const LearningProgress: React.FC = () => {
                   <div
                     className={`h-3 rounded-full transition-all ${getProgressColor(
                       progressPercentage
-                    )}`}
-                    style={{ width: `${progressPercentage}%` }}
+                    )} ${getProgressWidthClass(progressPercentage)}`}
                   ></div>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">

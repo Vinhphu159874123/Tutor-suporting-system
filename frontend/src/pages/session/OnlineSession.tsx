@@ -1,4 +1,15 @@
 import React, { useState } from "react";
+import SessionBackButton from "./SessionBackButton";
+import {
+  UserRound,
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  MonitorUp,
+  ScreenShare,
+  PhoneOff,
+} from "lucide-react";
 
 const OnlineSession: React.FC = () => {
   const [isMicOn, setIsMicOn] = useState(false);
@@ -41,8 +52,9 @@ const OnlineSession: React.FC = () => {
   return (
     <div className="h-screen flex flex-col bg-gray-900">
       {/* Header */}
-      <div className="bg-gray-800 text-white p-4 flex justify-between items-center">
-        <div>
+      <div className="bg-gray-800 text-white p-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-col gap-3">
+          <SessionBackButton tone="light" label="Quay lại" />
           <h1 className="text-xl font-bold">
             Session: Giới thiệu Python cơ bản
           </h1>
@@ -50,7 +62,7 @@ const OnlineSession: React.FC = () => {
             Tutor: TS. Nguyễn Văn A • 5 người tham gia
           </p>
         </div>
-        <div className="text-lg font-mono">10:35:42</div>
+        <div className="text-lg font-mono md:self-auto">10:35:42</div>
       </div>
 
       {/* Main Content */}
@@ -60,13 +72,16 @@ const OnlineSession: React.FC = () => {
           {/* Main Video */}
           <div className="flex-1 bg-gray-700 relative flex items-center justify-center">
             <div className="text-white text-center">
-              <div className="text-6xl mb-4">👨‍🏫</div>
+              <div className="mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-gray-800 text-white">
+                <UserRound className="h-12 w-12" />
+              </div>
               <p className="text-xl font-semibold">TS. Nguyễn Văn A</p>
               <p className="text-gray-400">Tutor</p>
             </div>
             {isScreenSharing && (
-              <div className="absolute top-4 left-4 bg-red-600 text-white px-3 py-1 rounded-lg text-sm font-semibold">
-                🔴 Đang chia sẻ màn hình
+              <div className="absolute top-4 left-4 flex items-center gap-2 bg-red-600 text-white px-3 py-1 rounded-lg text-sm font-semibold">
+                <ScreenShare className="h-4 w-4" />
+                Đang chia sẻ màn hình
               </div>
             )}
           </div>
@@ -77,9 +92,11 @@ const OnlineSession: React.FC = () => {
               {[1, 2, 3, 4].map((i) => (
                 <div
                   key={i}
-                  className="bg-gray-700 rounded-lg p-4 min-w-[120px] text-center"
+                  className="bg-gray-700 rounded-lg p-4 min-w-[120px] text-center flex flex-col items-center gap-2"
                 >
-                  <div className="text-2xl mb-1">👤</div>
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-800 text-white">
+                    <UserRound className="h-6 w-6" />
+                  </div>
                   <p className="text-white text-sm">Student {i}</p>
                 </div>
               ))}
@@ -90,36 +107,67 @@ const OnlineSession: React.FC = () => {
           <div className="bg-gray-800 p-4 flex justify-center gap-4">
             <button
               onClick={() => setIsMicOn(!isMicOn)}
-              className={`px-6 py-3 rounded-lg font-semibold transition ${
+              className={`px-6 py-3 rounded-lg font-semibold transition inline-flex items-center gap-2 ${
                 isMicOn
                   ? "bg-blue-600 text-white hover:bg-blue-700"
                   : "bg-red-600 text-white hover:bg-red-700"
               }`}
             >
-              {isMicOn ? "🎤 Tắt Mic" : "🔇 Bật Mic"}
+              {isMicOn ? (
+                <>
+                  <Mic className="h-5 w-5" />
+                  Tắt mic
+                </>
+              ) : (
+                <>
+                  <MicOff className="h-5 w-5" />
+                  Bật mic
+                </>
+              )}
             </button>
             <button
               onClick={() => setIsCameraOn(!isCameraOn)}
-              className={`px-6 py-3 rounded-lg font-semibold transition ${
+              className={`px-6 py-3 rounded-lg font-semibold transition inline-flex items-center gap-2 ${
                 isCameraOn
                   ? "bg-blue-600 text-white hover:bg-blue-700"
                   : "bg-red-600 text-white hover:bg-red-700"
               }`}
             >
-              {isCameraOn ? "📹 Tắt Camera" : "📷 Bật Camera"}
+              {isCameraOn ? (
+                <>
+                  <Video className="h-5 w-5" />
+                  Tắt camera
+                </>
+              ) : (
+                <>
+                  <VideoOff className="h-5 w-5" />
+                  Bật camera
+                </>
+              )}
             </button>
             <button
               onClick={() => setIsScreenSharing(!isScreenSharing)}
-              className={`px-6 py-3 rounded-lg font-semibold transition ${
+              className={`px-6 py-3 rounded-lg font-semibold transition inline-flex items-center gap-2 ${
                 isScreenSharing
                   ? "bg-green-600 text-white hover:bg-green-700"
                   : "bg-gray-600 text-white hover:bg-gray-700"
               }`}
             >
-              {isScreenSharing ? "⏹️ Dừng chia sẻ" : "📺 Chia sẻ màn hình"}
+              {isScreenSharing ? (
+                <>
+                  <MonitorUp className="h-5 w-5" />
+                  Dừng chia sẻ
+                </>
+              ) : (
+                <>
+                  <ScreenShare className="h-5 w-5" />
+                  Chia sẻ màn hình
+                </>
+              )}
             </button>
-            <button className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold transition">
-              📞 Rời phòng
+            <button className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-semibold transition inline-flex items-center gap-2">
+              <PhoneOff className="h-5 w-5" />
+              Rời phòng
             </button>
           </div>
         </div>
