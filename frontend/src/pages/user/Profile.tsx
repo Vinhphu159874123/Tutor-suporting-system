@@ -1,7 +1,70 @@
-import React, { useState } from "react";
-import { useAuthStore } from "../../stores/authStore.ts";
+import React, { useState, useMemo } from "react";
+import { useAuthStore } from "../../stores/authStore";
 import { toast } from "react-toastify";
-import api from "../../services/api.ts";
+import api from "../../services/api";
+import { Edit3, Save, Ban, KeyRound, LockKeyhole, ShieldCheck, ShieldAlert } from "lucide-react";
+
+// Faculty and Major data structure
+const FACULTY_STRUCTURE: Record<string, { name: string; majors: string[] }> = {
+  CSE: {
+    name: "Khoa Khoa học và Kỹ thuật Máy tính",
+    majors: [
+      "Khoa học máy tính",
+      "Kỹ thuật máy tính",
+      "Kỹ thuật phần mềm",
+      "Hệ thống thông tin",
+      "Trí tuệ nhân tạo",
+    ],
+  },
+  EE: {
+    name: "Khoa Điện - Điện tử",
+    majors: [
+      "Kỹ thuật điện",
+      "Kỹ thuật điện tử - Viễn thông",
+      "Kỹ thuật điều khiển - Tự động hóa",
+      "Kỹ thuật y sinh",
+    ],
+  },
+  ME: {
+    name: "Khoa Cơ khí",
+    majors: [
+      "Kỹ thuật cơ khí",
+      "Kỹ thuật cơ điện tử",
+      "Kỹ thuật nhiệt",
+      "Kỹ thuật ô tô",
+    ],
+  },
+  CE: {
+    name: "Khoa Xây dựng",
+    majors: [
+      "Kỹ thuật xây dựng",
+      "Kỹ thuật xây dựng công trình giao thông",
+      "Kỹ thuật tài nguyên nước",
+    ],
+  },
+  CHEM: {
+    name: "Khoa Kỹ thuật Hóa học",
+    majors: [
+      "Kỹ thuật hóa học",
+      "Công nghệ thực phẩm",
+      "Kỹ thuật môi trường",
+    ],
+  },
+};
+
+const facultyOptions = Object.entries(FACULTY_STRUCTURE).map(([id, data]) => ({
+  id,
+  label: data.name,
+}));
+
+const TRAINING_PROGRAMS = [
+  "Đại học chính quy",
+  "Đại học chất lượng cao",
+  "Đại học tiên tiến",
+  "Đại học định hướng ứng dụng",
+  "Thạc sĩ",
+  "Tiến sĩ",
+];
 
 const Profile: React.FC = () => {
   const { user, setUser } = useAuthStore();
@@ -116,8 +179,8 @@ const Profile: React.FC = () => {
                 {user?.role === "student"
                   ? "Sinh viên"
                   : user?.role === "tutor"
-                  ? "Gia sư"
-                  : "Admin"}
+                    ? "Gia sư"
+                    : "Admin"}
               </span>
             </div>
           </div>
@@ -426,9 +489,8 @@ const Profile: React.FC = () => {
           <div className="flex justify-between py-2 border-b">
             <span className="text-gray-600">Trạng thái tài khoản</span>
             <span
-              className={`font-medium ${
-                user?.is_active ? "text-green-600" : "text-red-600"
-              }`}
+              className={`font-medium ${user?.is_active ? "text-green-600" : "text-red-600"
+                }`}
             >
               {user?.is_active ? (
                 <span className="inline-flex items-center gap-1">
@@ -446,9 +508,8 @@ const Profile: React.FC = () => {
           <div className="flex justify-between py-2 border-b">
             <span className="text-gray-600">Email đã xác thực</span>
             <span
-              className={`font-medium ${
-                user?.is_verified ? "text-green-600" : "text-yellow-600"
-              }`}
+              className={`font-medium ${user?.is_verified ? "text-green-600" : "text-yellow-600"
+                }`}
             >
               {user?.is_verified ? "✅ Đã xác thực" : "⚠️ Chưa xác thực"}
             </span>

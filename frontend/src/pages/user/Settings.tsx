@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useAuthStore } from "../../stores/authStore.ts";
+import { useAuthStore } from "../../stores/authStore";
 import { toast } from "react-toastify";
 
 const Settings: React.FC = () => {

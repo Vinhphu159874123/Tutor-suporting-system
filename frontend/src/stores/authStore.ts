@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { authApi } from "../services/api.ts";
+import { authApi } from "../services/api";
 
 declare const process: { env: Record<string, string | undefined> };
 const isMockAdmin = process.env.REACT_APP_MOCK_ADMIN === "true";
