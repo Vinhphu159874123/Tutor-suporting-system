@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "../../stores/authStore.ts";
+import { useAuthStore } from "../../stores/authStore";
 
 const SessionExpired: React.FC = () => {
   const navigate = useNavigate();

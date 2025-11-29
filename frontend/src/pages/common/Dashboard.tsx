@@ -11,7 +11,7 @@ import {
   Star,
   UserRound,
 } from "lucide-react";
-import { useAuthStore } from "../../stores/authStore.ts";
+import { useAuthStore } from "../../stores/authStore";
 
 const Dashboard: React.FC = () => {
   const { user } = useAuthStore();

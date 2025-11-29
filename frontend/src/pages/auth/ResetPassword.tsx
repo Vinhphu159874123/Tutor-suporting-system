@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import api from "../../services/api.ts";
+import api from "../../services/api";
 
 const ResetPassword: React.FC = () => {
   const navigate = useNavigate();

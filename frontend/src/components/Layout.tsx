@@ -1,6 +1,6 @@
 import React, { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { useAuthStore } from "../stores/authStore.ts";
+import { useAuthStore } from "../stores/authStore";
 
 interface LayoutProps {
   children: ReactNode;
@@ -19,7 +19,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: "Notifications", href: "/notifications", icon: "🔔" },
     { name: "Settings", href: "/settings", icon: "⚙️" },
     { name: "Forum", href: "/forum", icon: "💬" },
-    { name: "Review Sessions", href: "/review-sessions", icon: "✅", roles: ["coordinator"]},
+    { name: "Review Sessions", href: "/review-sessions", icon: "✅", roles: ["coordinator"] },
     {
       name: "Reports",
       href: "/reports",
@@ -53,10 +53,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   to={item.href}
                   className={`
                     group flex items-center px-4 py-3 text-sm font-medium transition-colors
-                    ${
-                      isActive
-                        ? "bg-blue-50 text-blue-600 border-r-2 border-blue-600"
-                        : "text-gray-700 hover:bg-gray-50 hover:text-blue-600"
+                    ${isActive
+                      ? "bg-blue-50 text-blue-600 border-r-2 border-blue-600"
+                      : "text-gray-700 hover:bg-gray-50 hover:text-blue-600"
                     }
                   `}
                 >

@@ -9,56 +9,56 @@ import { QueryClient, QueryClientProvider } from "react-query";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-import { useAuthStore } from "./stores/authStore.ts";
-import Layout from "./components/Layout.tsx";
+import { useAuthStore } from "./stores/authStore";
+import Layout from "./components/Layout";
 
 // Auth pages
-import Login from "./pages/auth/Login.tsx";
-import Register from "./pages/auth/Register.tsx";
-import ForgotPassword from "./pages/auth/ForgotPassword.tsx";
-import ResetPassword from "./pages/auth/ResetPassword.tsx";
-import Landing from "./pages/auth/Landing.tsx";
-import SessionExpired from "./pages/auth/SessionExpired.tsx";
+import Login from "./pages/auth/Login";
+import Register from "./pages/auth/Register";
+import ForgotPassword from "./pages/auth/ForgotPassword";
+import ResetPassword from "./pages/auth/ResetPassword";
+import Landing from "./pages/auth/Landing";
+import SessionExpired from "./pages/auth/SessionExpired";
 
 // Common pages
-import Dashboard from "./pages/common/Dashboard.tsx";
-import Reports from "./pages/common/Reports.tsx";
-import Forum from "./pages/common/Forum.tsx";
-import ForumDetail from "./pages/common/ForumDetail.tsx";
-import CreateForum from "./pages/common/CreateForum.tsx";
-import ExportReport from "./pages/common/ExportReport.tsx";
-import StudyGroups from "./pages/common/StudyGroups.tsx";
-import StudyGroupDetail from "./pages/common/StudyGroupDetail.tsx";
+import Dashboard from "./pages/common/Dashboard";
+import Reports from "./pages/common/Reports";
+import Forum from "./pages/common/Forum";
+import ForumDetail from "./pages/common/ForumDetail";
+import CreateForum from "./pages/common/CreateForum";
+import ExportReport from "./pages/common/ExportReport";
+import StudyGroups from "./pages/common/StudyGroups";
+import StudyGroupDetail from "./pages/common/StudyGroupDetail";
 
 // User pages
-import Profile from "./pages/user/Profile.tsx";
-import Notifications from "./pages/user/Notifications.tsx";
-import Settings from "./pages/user/Settings.tsx";
+import Profile from "./pages/user/Profile";
+import Notifications from "./pages/user/Notifications";
+import Settings from "./pages/user/Settings";
 
 // Tutor pages
-import TutorList from "./pages/tutor/TutorList.tsx";
-import TutorDetail from "./pages/tutor/TutorDetail.tsx";
+import TutorList from "./pages/tutor/TutorList";
+import TutorDetail from "./pages/tutor/TutorDetail";
 
 // Session pages
-import Sessions from "./pages/session/Sessions.tsx";
-import SessionDetail from "./pages/session/SessionDetail.tsx";
-import SessionHistory from "./pages/session/SessionHistory.tsx";
-import Scheduling from "./pages/session/Scheduling.tsx";
-import UploadMaterials from "./pages/session/UploadMaterials.tsx";
-import MaterialsList from "./pages/session/MaterialsList.tsx";
-import OnlineSession from "./pages/session/OnlineSession.tsx";
-import LearningProgress from "./pages/session/LearningProgress.tsx";
+import Sessions from "./pages/session/Sessions";
+import SessionDetail from "./pages/session/SessionDetail";
+import SessionHistory from "./pages/session/SessionHistory";
+import Scheduling from "./pages/session/Scheduling";
+import UploadMaterials from "./pages/session/UploadMaterials";
+import MaterialsList from "./pages/session/MaterialsList";
+import OnlineSession from "./pages/session/OnlineSession";
+import LearningProgress from "./pages/session/LearningProgress";
 
 // Course pages
-import MyCourses from "./pages/courses/MyCourses.tsx";
+import MyCourses from "./pages/courses/MyCourses";
 
 // Admin pages
-import Admin from "./pages/admin/Admin.tsx";
+import Admin from "./pages/admin/Admin";
 
 // Coordinator pages
-import CoordinatorDashboard from "./pages/coordinator/CoordinatorDashboard.tsx";
-import CoordinatorReview from "./pages/coordinator/CoordinatorReview.tsx";
-import CoordinatorSessions from "./pages/coordinator/CoordinatorSessions.tsx";
+import CoordinatorDashboard from "./pages/coordinator/CoordinatorDashboard";
+import CoordinatorReview from "./pages/coordinator/CoordinatorReview";
+import CoordinatorSessions from "./pages/coordinator/CoordinatorSessions";
 
 import "./index.css";
 
