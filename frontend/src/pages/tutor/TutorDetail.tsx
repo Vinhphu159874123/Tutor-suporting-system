@@ -1,56 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Briefcase, GraduationCap, MessageCircle, Star, UserRound } from 'lucide-react';
+import { tutorsApi } from '../../services/api';
+import { toast } from 'react-toastify';
+import { AxiosResponse } from 'axios';
 
 const TutorDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null);
+  const [tutor, setTutor] = useState<any>(null);
+  const [availability, setAvailability] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data - sẽ thay bằng API call
-  const tutor = {
-    id: Number(id),
-    full_name: 'Nguyễn Văn A',
-    email: 'student@hcmut.edu.vn',
-    faculty: 'Khoa Khoa học & Kỹ thuật Máy tính',
-    major: 'Khoa học Máy tính',
-    subjects: ['Toán cao cấp A1', 'Toán cao cấp A2', 'Cấu trúc dữ liệu', 'Giải tích'],
-    hourly_rate: 150000,
-    rating: 4.8,
-    total_sessions: 45,
-    bio: 'Sinh viên năm 4 chuyên ngành Khoa học Máy tính. Có 2 năm kinh nghiệm dạy kèm các môn Toán và Lập trình. GPA 3.7/4.0. Đam mê chia sẻ kiến thức và giúp đỡ các bạn sinh viên.',
-    experience: '2 năm kinh nghiệm dạy kèm',
-    education: 'Sinh viên năm 4 - HCMUT',
-    availability: [
-      { day: 'Thứ 2', slots: ['14:00-16:00', '18:00-20:00'] },
-      { day: 'Thứ 4', slots: ['14:00-16:00', '16:00-18:00'] },
-      { day: 'Thứ 6', slots: ['18:00-20:00'] },
-      { day: 'Thứ 7', slots: ['09:00-11:00', '14:00-16:00', '16:00-18:00'] },
-    ],
-    reviews: [
-      {
-        id: 1,
-        student_name: 'Trần Văn B',
-        rating: 5,
-        comment: 'Giảng dạy rất tốt, dễ hiểu. Nhiệt tình hỗ trợ học sinh.',
-        date: '2025-10-20',
-      },
-      {
-        id: 2,
-        student_name: 'Lê Thị C',
-        rating: 4,
-        comment: 'Kiến thức vững, giải thích chi tiết. Recommend!',
-        date: '2025-10-15',
-      },
-      {
-        id: 3,
-        student_name: 'Phạm Văn D',
-        rating: 5,
-        comment: 'Tuyệt vời! Đã giúp mình hiểu rõ môn Toán cao cấp.',
-        date: '2025-10-10',
-      },
-    ],
-  };
+  useEffect(() => {
+    const fetchTutor = async () => {
+      if (!id) return;
+      try {
+        const response = await tutorsApi.getTutor(Number(id)) as AxiosResponse<any>;
+        setTutor(response.data);
+        
+        // Fetch availability
+        try {
+          const availResponse = await tutorsApi.getTutorAvailability(Number(id)) as AxiosResponse<any>;
+          setAvailability(availResponse.data.availability || []);
+        } catch (availError) {
+          console.error('Failed to fetch availability:', availError);
+          setAvailability([]);
+        }
+      } catch (error: any) {
+        console.error('Failed to fetch tutor:', error);
+        toast.error('Không thể tải thông tin gia sư');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTutor();
+  }, [id]);
 
   const handleBookSession = () => {
     if (!selectedTimeSlot) {
@@ -60,6 +46,30 @@ const TutorDetail: React.FC = () => {
     // Navigate to booking page or open booking modal
     navigate(`/sessions/book?tutor=${id}&slot=${selectedTimeSlot}`);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Đang tải...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!tutor) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-gray-600">Không tìm thấy gia sư</p>
+          <button onClick={() => navigate(-1)} className="mt-4 text-blue-600 hover:underline">
+            Quay lại
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -91,9 +101,11 @@ const TutorDetail: React.FC = () => {
                 <div className="flex items-center gap-4 mb-4">
                   <div className="flex items-center">
                     <Star className="w-5 h-5 text-yellow-500 mr-1" />
-                    <span className="font-semibold text-gray-900">{tutor.rating.toFixed(1)}</span>
+                    <span className="font-semibold text-gray-900">
+                      {typeof tutor.rating === 'number' ? tutor.rating.toFixed(1) : '0.0'}
+                    </span>
                     <span className="text-sm text-gray-600 ml-1">
-                      ({tutor.total_sessions} phiên)
+                      ({tutor.total_sessions || 0} phiên)
                     </span>
                   </div>
                 </div>
@@ -141,7 +153,7 @@ const TutorDetail: React.FC = () => {
           <div className="card">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Môn học dạy</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {tutor.subjects.map(subject => (
+              {(tutor.subjects || []).map((subject: string) => (
                 <div key={subject} className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                   <p className="text-blue-700 font-medium">{subject}</p>
                 </div>
@@ -152,10 +164,10 @@ const TutorDetail: React.FC = () => {
           {/* Reviews */}
           <div className="card">
             <h2 className="text-xl font-bold text-gray-900 mb-4">
-              Đánh giá từ học viên ({tutor.reviews.length})
+              Đánh giá từ học viên ({(tutor.reviews || []).length})
             </h2>
             <div className="space-y-4">
-              {tutor.reviews.map(review => (
+              {(tutor.reviews || []).map((review: any) => (
                 <div key={review.id} className="p-4 bg-gray-50 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center">
@@ -190,14 +202,19 @@ const TutorDetail: React.FC = () => {
               Chọn khung giờ phù hợp để đặt lịch học
             </p>
 
-            <div className="space-y-4">
-              {tutor.availability.map((schedule) => (
-                <div key={schedule.day}>
-                  <h3 className="font-semibold text-gray-900 mb-2">
-                    {schedule.day}
-                  </h3>
-                  <div className="space-y-2">
-                    {schedule.slots.map((slot) => {
+            {availability.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>Gia sư chưa cập nhật lịch trống</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {availability.map((schedule: any) => (
+                  <div key={schedule.day}>
+                    <h3 className="font-semibold text-gray-900 mb-2">
+                      {schedule.day}
+                    </h3>
+                    <div className="space-y-2">
+                      {(schedule.slots || []).map((slot: string) => {
                       const slotKey = `${schedule.day}-${slot}`;
                       const isSelected = selectedTimeSlot === slotKey;
                       
@@ -218,7 +235,8 @@ const TutorDetail: React.FC = () => {
                   </div>
                 </div>
               ))}
-            </div>
+              </div>
+            )}
 
             {selectedTimeSlot && (
               <div className="mt-6 p-4 bg-blue-50 rounded-lg">

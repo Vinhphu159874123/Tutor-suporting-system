@@ -1,71 +1,56 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle, Star } from 'lucide-react';
+import { tutorsApi } from '../../services/api';
+import { toast } from 'react-toastify';
+import { AxiosResponse } from 'axios';
 
 interface Tutor {
-  id: number;
+  tutor_id: number;
   user_id: number;
   full_name: string;
-  faculty: string;
+  faculty?: string;
   subjects: string[];
   hourly_rate: number;
   rating: number;
   total_sessions: number;
   bio: string;
-  avatar?: string;
+  avatar_url?: string;
 }
 
 const TutorList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [minRating, setMinRating] = useState(0);
+  const [tutors, setTutors] = useState<Tutor[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data - sẽ thay bằng API call
-  const tutors: Tutor[] = [
-    {
-      id: 1,
-      user_id: 1,
-      full_name: 'Nguyễn Văn A',
-      faculty: 'Khoa KHMT',
-      subjects: ['Toán cao cấp', 'Cấu trúc dữ liệu', 'Giải tích'],
-      hourly_rate: 150000,
-      rating: 4.8,
-      total_sessions: 45,
-      bio: 'Sinh viên năm 4, có kinh nghiệm dạy kèm 2 năm',
-    },
-    {
-      id: 2,
-      user_id: 2,
-      full_name: 'Trần Thị B',
-      faculty: 'Khoa Cơ khí',
-      subjects: ['Vật lý đại cương', 'Cơ học kỹ thuật'],
-      hourly_rate: 120000,
-      rating: 4.5,
-      total_sessions: 30,
-      bio: 'Có nhiều kinh nghiệm giảng dạy vật lý',
-    },
-    {
-      id: 3,
-      user_id: 3,
-      full_name: 'Lê Văn C',
-      faculty: 'Khoa Điện - Điện tử',
-      subjects: ['Mạch điện', 'Điện tử số', 'Vi xử lý'],
-      hourly_rate: 180000,
-      rating: 4.9,
-      total_sessions: 60,
-      bio: 'Giảng viên thỉnh giảng, 5 năm kinh nghiệm',
-    },
-  ];
+  useEffect(() => {
+    const fetchTutors = async () => {
+      try {
+        const response = await tutorsApi.getTutors({
+          subject: selectedSubject !== 'all' ? selectedSubject : undefined,
+          min_rating: minRating > 0 ? minRating : undefined 
+        }) as AxiosResponse<any>;
+        setTutors(response.data);
+      } catch (error: any) {
+        toast.error('Không thể tải danh sách gia sư');
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const allSubjects = Array.from(new Set(tutors.flatMap(t => t.subjects)));
+    fetchTutors();
+  }, [selectedSubject, minRating]);
+
+  const allSubjects = Array.from(new Set(tutors.flatMap(t => t.subjects || [])));
 
   const filteredTutors = tutors.filter(tutor => {
     const matchesSearch = tutor.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         tutor.subjects.some(s => s.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesSubject = selectedSubject === 'all' || tutor.subjects.includes(selectedSubject);
-    const matchesRating = tutor.rating >= minRating;
+                         (tutor.subjects || []).some(s => s.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    return matchesSearch && matchesSubject && matchesRating;
+    return matchesSearch;
   });
 
   return (
@@ -77,6 +62,13 @@ const TutorList: React.FC = () => {
           Tìm kiếm gia sư phù hợp với nhu cầu học tập của bạn
         </p>
       </div>
+
+      {loading && (
+        <div className="text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="mt-2 text-gray-600">Đang tải danh sách gia sư...</p>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="card">
@@ -140,7 +132,7 @@ const TutorList: React.FC = () => {
       {/* Tutor Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredTutors.map(tutor => (
-          <div key={tutor.id} className="card hover:shadow-lg transition-shadow">
+          <div key={tutor.tutor_id} className="card hover:shadow-lg transition-shadow">
             {/* Avatar */}
             <div className="flex items-center mb-4">
               <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
@@ -155,9 +147,11 @@ const TutorList: React.FC = () => {
             {/* Rating */}
             <div className="flex items-center mb-3">
               <Star className="w-5 h-5 text-yellow-500" />
-              <span className="ml-1 font-semibold text-gray-900">{tutor.rating.toFixed(1)}</span>
+              <span className="ml-1 font-semibold text-gray-900">
+                {typeof tutor.rating === 'number' ? tutor.rating.toFixed(1) : '0.0'}
+              </span>
               <span className="ml-2 text-sm text-gray-600">
-                ({tutor.total_sessions} phiên)
+                ({tutor.total_sessions || 0} phiên)
               </span>
             </div>
 
@@ -165,12 +159,12 @@ const TutorList: React.FC = () => {
             <div className="mb-3">
               <p className="text-sm font-medium text-gray-700 mb-2">Môn dạy:</p>
               <div className="flex flex-wrap gap-2">
-                {tutor.subjects.slice(0, 3).map(subject => (
+                {(tutor.subjects || []).slice(0, 3).map(subject => (
                   <span key={subject} className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
                     {subject}
                   </span>
                 ))}
-                {tutor.subjects.length > 3 && (
+                {(tutor.subjects || []).length > 3 && (
                   <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
                     +{tutor.subjects.length - 3}
                   </span>
@@ -186,7 +180,7 @@ const TutorList: React.FC = () => {
             {/* Actions */}
             <div className="flex gap-2">
               <Link
-                to={`/tutors/${tutor.id}`}
+                to={`/tutors/${tutor.tutor_id}`}
                 className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg text-center font-medium hover:bg-blue-700 transition-colors"
               >
                 Xem chi tiết
