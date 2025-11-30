@@ -1,5 +1,7 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import apiClient from "../../services/api";
 import {
   ArrowLeft,
   ArrowLeftRight,
@@ -14,29 +16,45 @@ import {
 const StudyGroupDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [group, setGroup] = useState<any>(null);
+  const [members, setMembers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const group = {
-    id: id || "1",
-    name: "Nhóm học Python cơ bản",
-    course: "CO3001 - Lập trình Python",
-    members: 5,
-    maxMembers: 10,
-    description:
-      "Nhóm học Python từ cơ bản đến nâng cao, tập trung vào thực hành và làm project thực tế",
-    createdBy: "Nguyễn Văn A",
-    schedule: "T2, T4 - 18:00-20:00",
-    location: "Online - Google Meet",
-    status: "open",
-    createdAt: "2025-11-10",
-  };
-
-  const members = [
-    { id: "1", name: "Nguyễn Văn A", role: "Trưởng nhóm", joinedAt: "2025-11-10" },
-    { id: "2", name: "Trần Thị B", role: "Thành viên", joinedAt: "2025-11-11" },
-    { id: "3", name: "Lê Văn C", role: "Thành viên", joinedAt: "2025-11-12" },
-    { id: "4", name: "Phạm Thị D", role: "Thành viên", joinedAt: "2025-11-13" },
-    { id: "5", name: "Hoàng Văn E", role: "Thành viên", joinedAt: "2025-11-14" },
-  ];
+  useEffect(() => {
+    const fetchGroupDetail = async () => {
+      try {
+        setLoading(true);
+        const response = await apiClient.get(`/api/v1/study-groups/${id}`);
+        const data = response.data;
+        
+        setGroup({
+          id: data.id,
+          name: data.name,
+          course: data.course,
+          members: data.members,
+          maxMembers: data.maxMembers,
+          description: data.description,
+          createdBy: data.createdBy,
+          schedule: data.schedule,
+          location: data.location,
+          status: data.status,
+          createdAt: data.createdAt
+        });
+        
+        setMembers(data.members_list || []);
+      } catch (error: any) {
+        console.error("Error fetching group:", error);
+        toast.error("Không thể tải thông tin nhóm");
+        navigate("/study-groups");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (id) {
+      fetchGroupDetail();
+    }
+  }, [id, navigate]);
 
   const activities = [
     {
@@ -61,6 +79,33 @@ const StudyGroupDetail: React.FC = () => {
       status: "completed",
     },
   ];
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="ml-4 text-gray-600">Đang tải thông tin nhóm...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!group) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center py-12">
+          <p className="text-gray-600">Không tìm thấy nhóm học</p>
+          <button 
+            onClick={() => navigate("/study-groups")}
+            className="mt-4 text-blue-600 hover:underline"
+          >
+            Quay lại danh sách
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
