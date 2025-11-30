@@ -149,7 +149,10 @@ const Dashboard: React.FC = () => {
             </div>
           </button>
 
-          <button className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors">
+          <button 
+            onClick={() => navigate("/tutors/register")}
+            className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors"
+          >
             <div className="text-2xl mr-3">
               <NotebookPen className="w-7 h-7 text-green-600" />
             </div>

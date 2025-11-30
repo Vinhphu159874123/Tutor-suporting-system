@@ -98,11 +98,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
               <div className="relative group">
                 <button className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <img
-                    className="h-8 w-8 rounded-full bg-gray-300"
-                    src={user?.avatar_url || "/default-avatar.png"}
-                    alt={user?.full_name}
-                  />
+                  {user?.avatar_url ? (
+                    <img
+                      className="h-8 w-8 rounded-full bg-gray-300"
+                      src={user.avatar_url}
+                      alt={user?.full_name}
+                    />
+                  ) : (
+                    <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
+                      {user?.full_name?.charAt(0).toUpperCase() || 'U'}
+                    </div>
+                  )}
                 </button>
 
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">

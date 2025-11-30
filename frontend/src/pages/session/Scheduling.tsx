@@ -39,7 +39,7 @@ const Scheduling: React.FC = () => {
   const canManageTutorSessionResponses = isTutor;
   const canManageStudentSessionResponses = isStudent;
   const canOrganizeSessions = isCoordinator || isAdmin;
-  const defaultTutorId = isTutor && user?.id ? String(user.id) : "";
+  const defaultTutorId = isTutor && user?.user_id ? String(user.user_id) : "";
   const tutorIdFromProfile = defaultTutorId;
 
   const [tutorIdInput, setTutorIdInput] = useState<string>(tutorIdFromProfile);
@@ -131,7 +131,7 @@ const Scheduling: React.FC = () => {
 
   const formattedTutorLabel = useMemo(() => {
     if (isTutor && user?.full_name) {
-      return `${user.full_name} (ID ${user.id})`;
+      return `${user.full_name} (ID ${user.user_id})`;
     }
     if (activeTutorId) {
       return `Tutor ID ${activeTutorId}`;
@@ -506,7 +506,7 @@ const Scheduling: React.FC = () => {
 
             {isTutor && (
               <div className="text-sm text-gray-600 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
-                Bạn đang cập nhật lịch của chính mình (ID {user?.id}). Mọi thay đổi sẽ áp dụng ngay.
+                Bạn đang cập nhật lịch của chính mình (ID {user?.user_id}). Mọi thay đổi sẽ áp dụng ngay.
               </div>
             )}
 

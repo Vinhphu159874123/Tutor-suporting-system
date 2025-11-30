@@ -29,6 +29,7 @@ class NotificationListener(BaseListener):
         """
         logger.info(f"[PLACEHOLDER] Sending notification: {data.get('title')}")
         
+        # For now, just log it
         # TODO: Implement push notification
         # TODO: Store notification in database
         # TODO: Send via WebSocket if user online

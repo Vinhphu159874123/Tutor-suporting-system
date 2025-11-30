@@ -182,3 +182,33 @@ class AuthService:
                 headers={"WWW-Authenticate": "Bearer"},
             )
         return user
+    
+    async def change_password(self, user_id: int, current_password: str, new_password: str):
+        """Change user password"""
+        # Get user
+        user = await self.user_repo.get_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Check if user has local password (not SSO-only)
+        if not user.hashed_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot change password for SSO-only accounts"
+            )
+        
+        # Verify current password
+        if not self.verify_password(current_password, user.hashed_password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Current password is incorrect"
+            )
+        
+        # Hash new password and update
+        new_hashed_password = self.get_password_hash(new_password)
+        await self.user_repo.update(user_id, {"hashed_password": new_hashed_password})
+        
+        return {"message": "Password changed successfully"}

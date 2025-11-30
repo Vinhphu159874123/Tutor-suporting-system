@@ -26,44 +26,74 @@ async def get_my_courses(
     db: AsyncSession = Depends(get_db)
 ) -> List[Dict[str, Any]]:
     """
-    Get courses for current user from HCMUT DataCore
-    Only available for students
+    Get courses for current user from database
+    Returns subjects the user is enrolled in (student) or teaching (tutor)
     """
     
-    if current_user.role != 'student':
-        raise HTTPException(status_code=403, detail="Only students can access courses")
+    courses = []
     
-    # Get student_code from Student table
-    result = await db.execute(
-        select(Student).where(Student.user_id == current_user.user_id)
-    )
-    student = result.scalar_one_or_none()
-    
-    if not student:
-        raise HTTPException(status_code=404, detail="Student profile not found")
-    
-    student_code = student.student_code
-    
-    # Call HCMUT DataCore API
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{DATACORE_URL}/api/students/{student_code}/courses",
-                timeout=10.0
+        if current_user.role == 'student':
+            # Get student record
+            student_result = await db.execute(
+                select(Student).where(Student.user_id == current_user.user_id)
             )
+            student = student_result.scalar_one_or_none()
             
-            if response.status_code == 404:
-                return []
+            if student:
+                # Get distinct subjects from sessions student is enrolled in
+                from app.models.database import Session, SessionParticipant
+                subjects_result = await db.execute(
+                    select(Subject)
+                    .join(Session, Subject.subject_id == Session.subject_id)
+                    .join(SessionParticipant, Session.session_id == SessionParticipant.session_id)
+                    .where(SessionParticipant.student_id == student.student_id)
+                    .distinct()
+                )
+                subjects = subjects_result.scalars().all()
+                
+                courses = [
+                    {
+                        "code": subject.subject_code or subject.subject_id,
+                        "name": subject.subject_name,
+                        "credits": subject.credits or 4
+                    }
+                    for subject in subjects
+                ]
+        
+        elif current_user.role == 'tutor':
+            # Get tutor record
+            from app.models.database import Tutor, Session
+            tutor_result = await db.execute(
+                select(Tutor).where(Tutor.user_id == current_user.user_id)
+            )
+            tutor = tutor_result.scalar_one_or_none()
             
-            response.raise_for_status()
-            data = response.json()
-            
-            return data.get('data', [])
-            
-    except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="DataCore service timeout")
-    except httpx.HTTPError as e:
-        raise HTTPException(status_code=502, detail=f"DataCore service error: {str(e)}")
+            if tutor:
+                # Get distinct subjects from sessions tutor teaches
+                subjects_result = await db.execute(
+                    select(Subject)
+                    .join(Session, Subject.subject_id == Session.subject_id)
+                    .where(Session.tutor_id == tutor.tutor_id)
+                    .distinct()
+                )
+                subjects = subjects_result.scalars().all()
+                
+                courses = [
+                    {
+                        "code": subject.subject_code or subject.subject_id,
+                        "name": subject.subject_name,
+                        "credits": subject.credits or 4
+                    }
+                    for subject in subjects
+                ]
+        
+        return courses
+        
+    except Exception as e:
+        print(f"Error fetching courses: {e}")
+        # Return empty list on error
+        return []
 
 
 @router.get("/courses/{course_code}")

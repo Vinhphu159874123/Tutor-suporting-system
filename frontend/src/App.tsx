@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -10,6 +10,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 import { useAuthStore } from "./stores/authStore";
+import { authApi } from "./services/api";
 import Layout from "./components/Layout";
 
 // Auth pages
@@ -39,6 +40,7 @@ import Settings from "./pages/user/Settings";
 // Tutor pages
 import TutorList from "./pages/tutor/TutorList";
 import TutorDetail from "./pages/tutor/TutorDetail";
+import RegisterTutor from "./pages/tutor/RegisterTutor";
 
 // Session pages
 import Sessions from "./pages/session/Sessions";
@@ -76,7 +78,23 @@ const queryClient = new QueryClient({
 });
 
 function App() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, token, setUser } = useAuthStore();
+
+  // Refresh user profile on app load if authenticated
+  useEffect(() => {
+    const refreshUserProfile = async () => {
+      if (isAuthenticated && token) {
+        try {
+          const response: any = await authApi.getProfile(token);
+          setUser(response.data);
+        } catch (error) {
+          console.error("Failed to refresh user profile:", error);
+        }
+      }
+    };
+    
+    refreshUserProfile();
+  }, []); // Only run once on mount
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -169,6 +187,7 @@ function App() {
                       <Route path="/coor/review" element={<CoordinatorReview />} />
                       <Route path="/coor/sessions" element={<CoordinatorSessions />} />
                       <Route path="/tutors" element={<TutorList />} />
+                      <Route path="/tutors/register" element={<RegisterTutor />} />
                       <Route path="/tutors/:id" element={<TutorDetail />} />
                       <Route
                         path="/notifications"

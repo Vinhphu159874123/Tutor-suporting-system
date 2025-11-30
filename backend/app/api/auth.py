@@ -5,11 +5,16 @@ Routes only handle HTTP layer, business logic in AuthService
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
+from pydantic import BaseModel
 from app.schemas.auth import Token, UserCreate, UserResponse
 from app.services.auth_service import AuthService
 from app.services.hcmut_sso import HCMUTSSOService
 from app.core.dependencies import get_auth_service, get_current_user
 from app.models.database import User
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 router = APIRouter()
 
@@ -102,3 +107,21 @@ async def refresh_access_token(
     """
     new_token = auth_service.create_access_token({"sub": current_user.email})
     return Token(access_token=new_token, token_type="bearer")
+
+
+@router.post("/change-password")
+async def change_password(
+    request: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    """
+    Change user password
+    
+    Requires: Valid JWT token and correct current password
+    """
+    return await auth_service.change_password(
+        current_user.user_id,
+        request.current_password,
+        request.new_password
+    )

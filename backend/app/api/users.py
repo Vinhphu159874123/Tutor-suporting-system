@@ -15,6 +15,9 @@ class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
+    program: Optional[str] = None
+    faculty: Optional[str] = None
+    major: Optional[str] = None
 
 class UserResponse(BaseModel):
     user_id: int
@@ -26,14 +29,46 @@ class UserResponse(BaseModel):
     is_active: bool
     is_verified: bool
     created_at: datetime
+    program: Optional[str] = None
+    faculty: Optional[str] = None
+    major: Optional[str] = None
 
     class Config:
         from_attributes = True
 
 @router.get("/profile", response_model=UserResponse)
-async def get_user_profile(current_user: User = Depends(get_current_user)):
+async def get_user_profile(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     """Get current user profile"""
-    return current_user
+    response_data = {
+        "user_id": current_user.user_id,
+        "email": current_user.email,
+        "full_name": current_user.full_name,
+        "role": current_user.role,
+        "phone": current_user.phone,
+        "avatar_url": current_user.avatar_url,
+        "is_active": current_user.is_active,
+        "is_verified": current_user.is_verified,
+        "created_at": current_user.created_at,
+        "program": None,
+        "faculty": None,
+        "major": None
+    }
+    
+    # Get student-specific fields if user is a student
+    if current_user.role == 'student':
+        result = await db.execute(select(Student).where(Student.user_id == current_user.user_id))
+        student = result.scalar_one_or_none()
+        if student:
+            response_data["faculty"] = student.faculty
+            response_data["major"] = student.major
+            # Get program from preferences
+            if student.preferences and 'program' in student.preferences:
+                response_data["program"] = student.preferences['program']
+    
+    return response_data
 
 @router.put("/profile", response_model=UserResponse)
 async def update_user_profile(
@@ -53,10 +88,55 @@ async def update_user_profile(
     
     current_user.updated_at = datetime.utcnow()
     
+    # Update student profile if user is a student and student-specific fields are provided
+    student = None
+    if current_user.role == 'student' and (user_update.program or user_update.faculty or user_update.major):
+        result = await db.execute(select(Student).where(Student.user_id == current_user.user_id))
+        student = result.scalar_one_or_none()
+        
+        if student:
+            if user_update.faculty is not None:
+                student.faculty = user_update.faculty
+            if user_update.major is not None:
+                student.major = user_update.major
+            # Store program in preferences if needed
+            if user_update.program is not None:
+                preferences = student.preferences or {}
+                preferences['program'] = user_update.program
+                student.preferences = preferences
+    
     await db.commit()
     await db.refresh(current_user)
     
-    return current_user
+    # Build response with student fields
+    response_data = {
+        "user_id": current_user.user_id,
+        "email": current_user.email,
+        "full_name": current_user.full_name,
+        "role": current_user.role,
+        "phone": current_user.phone,
+        "avatar_url": current_user.avatar_url,
+        "is_active": current_user.is_active,
+        "is_verified": current_user.is_verified,
+        "created_at": current_user.created_at,
+        "program": None,
+        "faculty": None,
+        "major": None
+    }
+    
+    # Add student-specific fields if user is a student
+    if current_user.role == 'student':
+        if not student:
+            result = await db.execute(select(Student).where(Student.user_id == current_user.user_id))
+            student = result.scalar_one_or_none()
+        
+        if student:
+            response_data["faculty"] = student.faculty
+            response_data["major"] = student.major
+            if student.preferences and 'program' in student.preferences:
+                response_data["program"] = student.preferences['program']
+    
+    return response_data
 
 @router.get("/", response_model=List[UserResponse])
 async def get_users(

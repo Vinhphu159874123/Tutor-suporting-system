@@ -6,10 +6,11 @@ declare const process: { env: Record<string, string | undefined> };
 const isMockAdmin = process.env.REACT_APP_MOCK_ADMIN === "true";
 
 export interface User {
-  id: number;
+  user_id: number;
   email: string;
   full_name: string;
   role: string;
+  program?: string;
   faculty?: string;
   major?: string;
   phone?: string;
@@ -43,7 +44,7 @@ export const useAuthStore = create<AuthState>()(
           set({
             token: "mock-token",
             user: {
-              id: 0,
+              user_id: 0,
               email,
               full_name: "Mock Admin",
               role: "admin",
