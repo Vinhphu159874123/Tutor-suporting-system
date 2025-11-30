@@ -25,9 +25,9 @@ const SessionHistory: React.FC = () => {
       try {
         const params: any = {};
         if (user?.role === 'student') {
-          params.student_id = user.id;
+          params.student_id = user.user_id;
         } else if (user?.role === 'tutor') {
-          params.tutor_id = user.id;
+          params.tutor_id = user.user_id;
         }
         if (filter !== 'all') {
           params.status = filter;

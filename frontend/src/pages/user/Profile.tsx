@@ -71,14 +71,46 @@ const Profile: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [hasPendingTutorApplication, setHasPendingTutorApplication] = useState(false);
 
   const [formData, setFormData] = useState({
     full_name: user?.full_name || "",
-    program: (user as any)?.program || "",
+    program: user?.program || "",
     faculty: user?.faculty || "",
     major: user?.major || "",
     phone: user?.phone || "",
   });
+
+  // Update formData when user data changes
+  React.useEffect(() => {
+    if (user) {
+      setFormData({
+        full_name: user.full_name || "",
+        program: user.program || "",
+        faculty: user.faculty || "",
+        major: user.major || "",
+        phone: user.phone || "",
+      });
+    }
+  }, [user]);
+
+  // Check if user has pending tutor application
+  React.useEffect(() => {
+    // Temporarily disabled - will show pending status after successful registration
+    // const checkTutorStatus = async () => {
+    //   if (user?.role === "student" && user?.user_id) {
+    //     try {
+    //       const response = await api.get("/tutors/me");
+    //       if (response.data) {
+    //         setHasPendingTutorApplication(true);
+    //       }
+    //     } catch (error) {
+    //       setHasPendingTutorApplication(false);
+    //     }
+    //   }
+    // };
+    // checkTutorStatus();
+  }, [user?.user_id, user?.role]);
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: "",
@@ -113,7 +145,7 @@ const Profile: React.FC = () => {
   const handleSaveProfile = async () => {
     setLoading(true);
     try {
-      const response = await api.put("/api/v1/users/profile", formData);
+      const response = await api.put("/users/profile", formData);
       setUser(response.data);
       toast.success("Cập nhật thông tin thành công!");
       setIsEditing(false);
@@ -137,7 +169,7 @@ const Profile: React.FC = () => {
 
     setLoading(true);
     try {
-      await api.post("/api/v1/auth/change-password", {
+      await api.post("/auth/change-password", {
         current_password: passwordData.currentPassword,
         new_password: passwordData.newPassword,
       });
@@ -349,7 +381,17 @@ const Profile: React.FC = () => {
             <label htmlFor="profile-role" className="block text-sm font-medium text-gray-700 mb-2">
               Vai trò
             </label>
-            <p className="text-gray-900 font-medium capitalize">{user?.role}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-gray-900 font-medium capitalize">{user?.role}</p>
+              {hasPendingTutorApplication && user?.role === "student" && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded-full border border-yellow-300">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                  </svg>
+                  Đơn đăng ký Tutor: Đang chờ duyệt
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
