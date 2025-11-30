@@ -28,6 +28,7 @@ import ForumDetail from "./pages/common/ForumDetail";
 import CreateForum from "./pages/common/CreateForum";
 import ExportReport from "./pages/common/ExportReport";
 import StudyGroups from "./pages/common/StudyGroups";
+import CreateStudyGroup from "./pages/common/CreateStudyGroup";
 import StudyGroupDetail from "./pages/common/StudyGroupDetail";
 
 // User pages
@@ -41,6 +42,7 @@ import TutorDetail from "./pages/tutor/TutorDetail";
 
 // Session pages
 import Sessions from "./pages/session/Sessions";
+import BookSession from "./pages/student/BookSession";
 import SessionDetail from "./pages/session/SessionDetail";
 import SessionHistory from "./pages/session/SessionHistory";
 import Scheduling from "./pages/session/Scheduling";
@@ -51,6 +53,7 @@ import LearningProgress from "./pages/session/LearningProgress";
 
 // Course pages
 import MyCourses from "./pages/courses/MyCourses";
+import CourseDetail from "./pages/courses/CourseDetail";
 
 // Admin pages
 import Admin from "./pages/admin/Admin";
@@ -143,7 +146,9 @@ function App() {
                       <Route path="/dashboard" element={<Dashboard />} />
                       <Route path="/profile" element={<Profile />} />
                       <Route path="/courses" element={<MyCourses />} />
+                      <Route path="/courses/:code" element={<CourseDetail />} />
                       <Route path="/sessions" element={<Sessions />} />
+                      <Route path="/sessions/book" element={<BookSession />} />
                       <Route path="/sessions/:id" element={<SessionDetail />} />
                       <Route path="/history" element={<SessionHistory />} />
                       <Route path="/scheduling" element={<Scheduling />} />
@@ -157,6 +162,7 @@ function App() {
                       <Route path="/forum/:id" element={<ForumDetail />} />
                       <Route path="/forum/create" element={<CreateForum />} />
                       <Route path="/study-groups" element={<StudyGroups />} />
+                      <Route path="/study-groups/create" element={<CreateStudyGroup />} />
                       <Route path="/study-groups/:id" element={<StudyGroupDetail />} />
                       <Route path="/admin" element={<Admin />} />
                       <Route path="/coor" element={<CoordinatorDashboard />} />
