@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException, status
 from typing import List, Optional
 from datetime import datetime
 
-from app.schemas.tutor import TutorCreate, TutorUpdate, TutorResponse
+from app.schemas.tutor import TutorCreate, TutorUpdate, TutorResponse, TutorRegistrationCreate, TutorRegistrationResponse
 from app.schemas.session import SessionListResponse
 from app.services.tutor_service import TutorService
 from app.core.dependencies import get_tutor_service, get_current_user
@@ -67,20 +67,46 @@ async def register_tutor(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Register as tutor for specific subjects
+    Create or update tutor profile (without subject registration)
+    
+    This creates the general tutor profile with bio, faculty, availability, etc.
+    After creating profile, use /register-subject to register for specific subjects.
     
     Request body:
-    - user_id: User ID (auto-filled with current_user)
-    - subjects: List of subject codes
     - bio: Tutor introduction
+    - faculty: Faculty name
     - hourly_rate: Hourly rate in VND
     - experience_years: Years of experience
+    - availability: Weekly availability slots
     
     Returns: Tutor profile
     """
     # Override user_id with current user for security
     tutor_data.user_id = current_user.user_id
     return await tutor_service.register_tutor(tutor_data)
+
+
+@router.post("/register-subject", response_model=TutorRegistrationResponse)
+async def register_subject(
+    registration_data: TutorRegistrationCreate,
+    tutor_service: TutorService = Depends(get_tutor_service),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Register for teaching a specific subject
+    
+    Requires existing tutor profile. Creates a TutorRegistration entry.
+    Each registration is for ONE subject and requires coordinator approval.
+    
+    Request body:
+    - subject_id: ID of the subject to teach
+    - gpa: Your GPA for this subject (optional)
+    - qualifications: Teaching qualifications for this subject (optional)
+    - availability: Weekly availability for this subject (optional)
+    
+    Returns: TutorRegistration with status 'pending'
+    """
+    return await tutor_service.register_subject(current_user.user_id, registration_data)
 
 
 # ============================================================================

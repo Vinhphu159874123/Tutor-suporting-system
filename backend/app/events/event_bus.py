@@ -82,11 +82,20 @@ class EventBus:
         Errors in listeners don't affect main flow
         """
         try:
-            await listener(data)
-            logger.debug(f"Event '{event_name}' processed by {listener.__name__}")
+            # Check if listener is a class instance with handle method
+            if hasattr(listener, 'handle'):
+                await listener.handle(data)
+                listener_name = listener.__class__.__name__
+            else:
+                # Direct callable function
+                await listener(data)
+                listener_name = getattr(listener, '__name__', str(listener))
+            
+            logger.debug(f"Event '{event_name}' processed by {listener_name}")
         except Exception as e:
+            listener_name = getattr(listener, '__class__', {}).get('__name__', str(listener))
             logger.error(
-                f"Error in listener {listener.__name__} for event '{event_name}': {e}",
+                f"Error in listener {listener_name} for event '{event_name}': {e}",
                 exc_info=True
             )
     

@@ -19,6 +19,8 @@ class TutorBase(BaseModel):
 class TutorCreate(TutorBase):
     """Data for creating tutor profile"""
     user_id: Optional[int] = None  # Will be auto-filled from current_user in endpoint
+    experience_years: Optional[int] = Field(default=0, ge=0, description="Years of teaching experience")
+    availability: Optional[Dict[str, list[str]]] = Field(default={}, description="Weekly availability slots")
 
 
 class TutorUpdate(BaseModel):
@@ -51,9 +53,10 @@ class TutorResponse(TutorBase):
 
 class TutorRegistrationCreate(BaseModel):
     """Request to register for teaching a subject"""
-    subject_id: int
-    gpa: Optional[Decimal] = Field(None, ge=0, le=4.0, description="GPA (0-4.0)")
-    qualifications: Optional[str] = Field(None, description="Teaching qualifications")
+    subject_id: int = Field(..., description="Subject ID to register for teaching")
+    gpa: Optional[Decimal] = Field(None, ge=0, le=4.0, description="GPA for this subject (0-4.0)")
+    qualifications: Optional[str] = Field(None, description="Teaching qualifications and experience for this subject")
+    availability: Optional[Dict[str, list[str]]] = Field(default={}, description="Weekly availability slots for this subject")
 
 
 class TutorRegistrationResponse(BaseModel):
