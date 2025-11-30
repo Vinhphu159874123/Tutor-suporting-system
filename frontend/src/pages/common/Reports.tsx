@@ -1,5 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import { AxiosResponse } from "axios";
+import apiClient from "../../services/api";
 import { FileText } from "lucide-react";
 
 interface CourseStat {
@@ -46,44 +49,6 @@ const facultyOptions = [
   { value: "BS", label: "Khoa Cơ khí" },
 ];
 
-const courseStats: CourseStat[] = [
-  {
-    id: "1",
-    course: "Cấu trúc dữ liệu và giải thuật",
-    faculty: "CS",
-    completion: 86,
-    averageScore: 8.2,
-    tutorHours: 48,
-    activeStudents: 120,
-  },
-  {
-    id: "2",
-    course: "Hệ điều hành",
-    faculty: "CS",
-    completion: 73,
-    averageScore: 7.4,
-    tutorHours: 36,
-    activeStudents: 92,
-  },
-  {
-    id: "3",
-    course: "Điện tử căn bản",
-    faculty: "EE",
-    completion: 68,
-    averageScore: 7.1,
-    tutorHours: 40,
-    activeStudents: 80,
-  },
-  {
-    id: "4",
-    course: "Cơ học ứng dụng",
-    faculty: "BS",
-    completion: 62,
-    averageScore: 6.9,
-    tutorHours: 28,
-    activeStudents: 54,
-  },
-];
 
 const satisfactionByRole = [
   { role: "Student", score: 4.6 },
@@ -116,11 +81,26 @@ const Reports: React.FC = () => {
   const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState("quarter");
   const [faculty, setFaculty] = useState("all");
+  const [courseStats, setCourseStats] = useState<CourseStat[]>([]);
+
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        const response = await apiClient.get("/api/v1/reports/courses") as AxiosResponse<any>;
+        setCourseStats(response.data || []);
+      } catch (error: any) {
+        console.error("Error fetching reports:", error);
+        toast.error("Không thể tải báo cáo");
+      }
+    };
+    
+    fetchReports();
+  }, []);
 
   const filteredCourses = useMemo(() => {
     if (faculty === "all") return courseStats;
     return courseStats.filter((course) => course.faculty === faculty);
-  }, [faculty]);
+  }, [faculty, courseStats]);
 
   const formatDate = (value: string) =>
     new Date(value).toLocaleDateString("vi-VN", {

@@ -1,18 +1,43 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom"; 
 import { useAuthStore } from "../../stores/authStore";
+import { CheckSquare, UserCheck, Clock, Star } from "lucide-react";
+import { usersApi } from "../../services/api";
+import { AxiosResponse } from "axios";
 
 
 const CoordinatorDashboard: React.FC = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [statsData, setStatsData] = useState({
+    total_sessions: 0,
+    pending_tutors: 0,
+    pending_sessions: 0,
+    average_rating: 0
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await usersApi.getCoordinatorStats() as AxiosResponse<any>;
+        setStatsData(response.data);
+      } catch (error: any) {
+        console.error('Failed to fetch coordinator stats:', error);
+        toast.error('Không thể tải thống kê');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
 
   const stats = [
-    { name: "Tổng số phiên học", value: "240", icon: "✅" },
-    { name: "Số Tutor chờ duyệt", value: "2", icon: "👩‍🏫" },
-    { name: "Số phiên học chờ duyệt", value: "14", icon: "⏰" },
-    { name: "Đánh giá trung bình", value: "4.8/5", icon: "⭐" },
+    { name: "Tổng số phiên học", value: loading ? "..." : String(statsData.total_sessions), icon: <CheckSquare size={32} className="text-green-500" /> },
+    { name: "Số Tutor chờ duyệt", value: loading ? "..." : String(statsData.pending_tutors), icon: <UserCheck size={32} className="text-blue-500" /> },
+    { name: "Số phiên học chờ duyệt", value: loading ? "..." : String(statsData.pending_sessions), icon: <Clock size={32} className="text-yellow-500" /> },
+    { name: "Đánh giá trung bình", value: loading ? "..." : `${statsData.average_rating}/5`, icon: <Star size={32} className="text-orange-400" /> },
   ];
     return (
     <div className="space-y-6">
