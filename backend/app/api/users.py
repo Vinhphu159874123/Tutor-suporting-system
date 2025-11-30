@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func, and_
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 from app.core.database import get_db
-from app.models.database import User
+from app.models.database import User, Session, SessionParticipant, SessionFeedback, Student, Tutor
 from app.api.auth import get_current_user
 
 router = APIRouter()
@@ -140,3 +140,174 @@ async def delete_user(
     await db.commit()
     
     return {"message": "User deleted successfully"}
+
+@router.get("/stats/dashboard")
+async def get_user_dashboard_stats(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """Get dashboard statistics for current user"""
+    
+    stats = {
+        "total_sessions": 0,
+        "completed_sessions": 0,
+        "upcoming_sessions": 0,
+        "average_rating": 0.0
+    }
+    
+    try:
+        if current_user.role == 'student':
+            # Get student record
+            student_result = await db.execute(
+                select(Student).where(Student.user_id == current_user.user_id)
+            )
+            student = student_result.scalar_one_or_none()
+            
+            if student:
+                # Count total sessions via SessionParticipant
+                total_result = await db.execute(
+                    select(func.count(SessionParticipant.participant_id))
+                    .where(SessionParticipant.student_id == student.student_id)
+                )
+                stats["total_sessions"] = total_result.scalar() or 0
+                
+                # Count completed sessions
+                completed_result = await db.execute(
+                    select(func.count(SessionParticipant.participant_id))
+                    .select_from(SessionParticipant)
+                    .join(Session)
+                    .where(
+                        and_(
+                            SessionParticipant.student_id == student.student_id,
+                            Session.status == 'completed'
+                        )
+                    )
+                )
+                stats["completed_sessions"] = completed_result.scalar() or 0
+                
+                # Count upcoming sessions (confirmed, ongoing, published)
+                upcoming_result = await db.execute(
+                    select(func.count(SessionParticipant.participant_id))
+                    .select_from(SessionParticipant)
+                    .join(Session)
+                    .where(
+                        and_(
+                            SessionParticipant.student_id == student.student_id,
+                            Session.status.in_(['confirmed', 'ongoing', 'published'])
+                        )
+                    )
+                )
+                stats["upcoming_sessions"] = upcoming_result.scalar() or 0
+                
+                # Average rating given by this student
+                rating_result = await db.execute(
+                    select(func.avg(SessionFeedback.rating))
+                    .where(SessionFeedback.student_id == student.student_id)
+                )
+                avg_rating = rating_result.scalar()
+                stats["average_rating"] = round(float(avg_rating), 1) if avg_rating else 0.0
+        
+        elif current_user.role == 'tutor':
+            # Get tutor record
+            tutor_result = await db.execute(
+                select(Tutor).where(Tutor.user_id == current_user.user_id)
+            )
+            tutor = tutor_result.scalar_one_or_none()
+            
+            if tutor:
+                # Count total sessions
+                total_result = await db.execute(
+                    select(func.count(Session.session_id))
+                    .where(Session.tutor_id == tutor.tutor_id)
+                )
+                stats["total_sessions"] = total_result.scalar() or 0
+                
+                # Count completed
+                completed_result = await db.execute(
+                    select(func.count(Session.session_id))
+                    .where(
+                        and_(
+                            Session.tutor_id == tutor.tutor_id,
+                            Session.status == 'completed'
+                        )
+                    )
+                )
+                stats["completed_sessions"] = completed_result.scalar() or 0
+                
+                # Count upcoming
+                upcoming_result = await db.execute(
+                    select(func.count(Session.session_id))
+                    .where(
+                        and_(
+                            Session.tutor_id == tutor.tutor_id,
+                            Session.status.in_(['confirmed', 'ongoing', 'published'])
+                        )
+                    )
+                )
+                stats["upcoming_sessions"] = upcoming_result.scalar() or 0
+                
+                # Average rating received by this tutor
+                rating_result = await db.execute(
+                    select(func.avg(SessionFeedback.rating))
+                    .select_from(SessionFeedback)
+                    .join(Session)
+                    .where(Session.tutor_id == tutor.tutor_id)
+                )
+                avg_rating = rating_result.scalar()
+                stats["average_rating"] = round(float(avg_rating), 1) if avg_rating else 0.0
+        
+        return stats
+        
+    except Exception as e:
+        # Return default stats on error
+        return stats
+
+@router.get("/stats/coordinator")
+async def get_coordinator_dashboard_stats(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """Get coordinator dashboard statistics"""
+    
+    if current_user.role not in ['coordinator', 'admin']:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions"
+        )
+    
+    stats = {
+        "total_sessions": 0,
+        "pending_tutors": 0,
+        "pending_sessions": 0,
+        "average_rating": 0.0
+    }
+    
+    try:
+        # Total sessions
+        total_result = await db.execute(select(func.count(Session.session_id)))
+        stats["total_sessions"] = total_result.scalar() or 0
+        
+        # Pending tutor registrations
+        from app.models.database import TutorRegistration
+        pending_tutors_result = await db.execute(
+            select(func.count(TutorRegistration.registration_id))
+            .where(TutorRegistration.status == 'pending')
+        )
+        stats["pending_tutors"] = pending_tutors_result.scalar() or 0
+        
+        # Pending sessions (need approval)
+        pending_sessions_result = await db.execute(
+            select(func.count(Session.session_id))
+            .where(Session.status.in_(['draft', 'published', 'pending_assignment']))
+        )
+        stats["pending_sessions"] = pending_sessions_result.scalar() or 0
+        
+        # Average rating
+        rating_result = await db.execute(select(func.avg(SessionFeedback.rating)))
+        avg_rating = rating_result.scalar()
+        stats["average_rating"] = round(float(avg_rating), 1) if avg_rating else 0.0
+        
+        return stats
+        
+    except Exception as e:
+        return stats

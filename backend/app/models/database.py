@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, Foreign
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, ARRAY
 import enum
 from datetime import datetime
 
@@ -689,7 +689,7 @@ class ProgressTracking(Base):
     session_id = Column(Integer, ForeignKey("tutor_system.session.session_id"), nullable=False, unique=True)
     student_id = Column(Integer, ForeignKey("tutor_system.student.student_id"), nullable=False)
     subject_id = Column(Integer, ForeignKey("tutor_system.subject.subject_id"), nullable=False)
-    topics_covered = Column(JSONB, default=[])  # Array in PostgreSQL
+    topics_covered = Column(ARRAY(Text))  # text[] in PostgreSQL
     understanding_level = Column(Integer, CheckConstraint('understanding_level >= 1 AND understanding_level <= 5'))
     strengths = Column(Text)
     weaknesses = Column(Text)
