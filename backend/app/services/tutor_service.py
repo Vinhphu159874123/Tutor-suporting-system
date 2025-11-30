@@ -94,6 +94,54 @@ class TutorService:
         
         return responses
     
+    async def get_tutor_availability(self, tutor_id: int) -> dict:
+        """Get tutor's available time slots from database"""
+        from sqlalchemy import select, and_
+        from app.models.database import TutorAvailability
+        from datetime import datetime, timedelta
+        
+        # Get tutor
+        tutor = await self.tutor_repo.get_by_id(tutor_id)
+        if not tutor:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Tutor not found"
+            )
+        
+        # Query availability from database
+        query = select(TutorAvailability).where(
+            TutorAvailability.tutor_id == tutor_id
+        ).order_by(TutorAvailability.day_of_week, TutorAvailability.start_time)
+        
+        result = await self.tutor_repo.db.execute(query)
+        availabilities = result.scalars().all()
+        
+        # Group by day
+        days_map = {
+            0: "Thứ 2", 1: "Thứ 3", 2: "Thứ 4", 
+            3: "Thứ 5", 4: "Thứ 6", 5: "Thứ 7", 6: "Chủ nhật"
+        }
+        
+        grouped = {}
+        for avail in availabilities:
+            day_name = days_map.get(avail.day_of_week, f"Day {avail.day_of_week}")
+            if day_name not in grouped:
+                grouped[day_name] = []
+            
+            # Format time slot
+            start_str = avail.start_time.strftime("%H:%M") if hasattr(avail.start_time, 'strftime') else str(avail.start_time)[:5]
+            end_str = avail.end_time.strftime("%H:%M") if hasattr(avail.end_time, 'strftime') else str(avail.end_time)[:5]
+            slot = f"{start_str} - {end_str}"
+            grouped[day_name].append(slot)
+        
+        # Convert to array format
+        availability_list = [
+            {"day": day, "slots": slots}
+            for day, slots in grouped.items()
+        ]
+        
+        return {"availability": availability_list}
+    
     async def register_tutor(self, tutor_data: TutorCreate) -> TutorResponse:
         """Register new tutor profile"""
         # Validate user exists
