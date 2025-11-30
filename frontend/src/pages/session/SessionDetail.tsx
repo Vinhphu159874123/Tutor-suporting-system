@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import SessionBackButton from './SessionBackButton';
@@ -15,6 +15,8 @@ import {
   Star,
   Download,
 } from 'lucide-react';
+import { sessionsApi } from '../../services/api';
+import { AxiosResponse } from 'axios';
 
 const SessionDetail: React.FC = () => {
   const { id } = useParams();
@@ -22,26 +24,24 @@ const SessionDetail: React.FC = () => {
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [rating, setRating] = useState(5);
   const [feedback, setFeedback] = useState('');
+  const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data - sẽ thay bằng API call
-  const session = {
-    id: Number(id),
-    subject: 'Toán cao cấp A1',
-    tutor_name: 'Nguyễn Văn A',
-    student_name: 'Trần Văn B',
-    date: '2025-11-05',
-    time: '14:00 - 16:00',
-    duration: 2,
-    location: 'Phòng H1-101',
-    status: 'scheduled', // scheduled, completed, cancelled
-    price: 150000,
-    notes: 'Ôn tập chương 3: Tích phân và ứng dụng. Mang theo sách giáo trình.',
-    materials: [
-      { name: 'Bài giảng chương 3.pdf', size: '2.5 MB' },
-      { name: 'Bài tập thực hành.pdf', size: '1.2 MB' },
-    ],
-    created_at: '2025-10-28',
-  };
+  useEffect(() => {
+    const fetchSession = async () => {
+      if (!id) return;
+      try {
+        const response = await sessionsApi.getSession(Number(id)) as AxiosResponse<any>;
+        setSession(response.data);
+      } catch (error: any) {
+        console.error('Failed to fetch session:', error);
+        toast.error('Không thể tải thông tin phiên học');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSession();
+  }, [id]);
 
   const handleCancelSession = () => {
     if (window.confirm('Bạn có chắc muốn hủy phiên học này?')) {
@@ -75,6 +75,22 @@ const SessionDetail: React.FC = () => {
     );
   };
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-600">Không tìm thấy phiên học</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <SessionBackButton className="w-fit" />
@@ -87,9 +103,9 @@ const SessionDetail: React.FC = () => {
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                  {session.subject}
+                  {session.title || session.subject}
                 </h1>
-                <p className="text-gray-600">Phiên học #{session.id}</p>
+                <p className="text-gray-600">Phiên học #{session.session_id}</p>
               </div>
               {getStatusBadge(session.status)}
             </div>
@@ -185,7 +201,7 @@ const SessionDetail: React.FC = () => {
               Tài liệu học tập
             </h2>
             <div className="space-y-3">
-              {session.materials.map((material, index) => (
+              {session.materials.map((material: any, index: number) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center">
                     <span className="mr-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
