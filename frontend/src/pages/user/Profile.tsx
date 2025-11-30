@@ -113,7 +113,7 @@ const Profile: React.FC = () => {
   const handleSaveProfile = async () => {
     setLoading(true);
     try {
-      const response = await api.put("/users/profile", formData);
+      const response = await api.put("/api/v1/users/profile", formData);
       setUser(response.data);
       toast.success("Cập nhật thông tin thành công!");
       setIsEditing(false);
@@ -137,7 +137,7 @@ const Profile: React.FC = () => {
 
     setLoading(true);
     try {
-      await api.post("/auth/change-password", {
+      await api.post("/api/v1/auth/change-password", {
         current_password: passwordData.currentPassword,
         new_password: passwordData.newPassword,
       });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import SessionBackButton from './SessionBackButton';
 import {
   BookOpen,
@@ -8,85 +8,67 @@ import {
   FileBarChart2,
   CalendarX2,
 } from 'lucide-react';
+import { sessionsApi } from '../../services/api';
+import { toast } from 'react-toastify';
+import { useAuthStore } from '../../stores/authStore';
+import { AxiosResponse } from 'axios';
 
 const SessionHistory: React.FC = () => {
+  const { user } = useAuthStore();
   const [filter, setFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data - sẽ thay bằng API call
-  const sessions = [
-    {
-      id: 1,
-      subject: 'Toán cao cấp A1',
-      tutor_name: 'Nguyễn Văn A',
-      date: '2025-10-25',
-      time: '14:00 - 16:00',
-      duration: 2,
-      price: 300000,
-      status: 'completed',
-      rating: 5,
-      feedback: 'Rất hài lòng với phiên học',
-    },
-    {
-      id: 2,
-      subject: 'Vật lý đại cương',
-      tutor_name: 'Trần Thị B',
-      date: '2025-10-20',
-      time: '09:00 - 11:00',
-      duration: 2,
-      price: 240000,
-      status: 'completed',
-      rating: 4,
-      feedback: 'Giảng dễ hiểu',
-    },
-    {
-      id: 3,
-      subject: 'Cấu trúc dữ liệu',
-      tutor_name: 'Lê Văn C',
-      date: '2025-10-15',
-      time: '16:00 - 18:00',
-      duration: 2,
-      price: 360000,
-      status: 'completed',
-      rating: 5,
-      feedback: 'Excellent!',
-    },
-    {
-      id: 4,
-      subject: 'Toán cao cấp A2',
-      tutor_name: 'Nguyễn Văn A',
-      date: '2025-10-10',
-      time: '14:00 - 16:00',
-      duration: 2,
-      price: 300000,
-      status: 'cancelled',
-      rating: null,
-      feedback: null,
-    },
-  ];
+  useEffect(() => {
+    const fetchSessions = async () => {
+      try {
+        const params: any = {};
+        if (user?.role === 'student') {
+          params.student_id = user.id;
+        } else if (user?.role === 'tutor') {
+          params.tutor_id = user.id;
+        }
+        if (filter !== 'all') {
+          params.status = filter;
+        }
+        
+        const response = await sessionsApi.getSessions(params) as AxiosResponse<any>;
+        setSessions(response.data);
+      } catch (error: any) {
+        toast.error('Không thể tải lịch sử phiên học');
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSessions();
+  }, [filter, user]);
 
   const filteredSessions = sessions.filter(session => {
-    const matchesFilter = filter === 'all' || session.status === filter;
     const matchesSearch = 
-      session.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      session.tutor_name.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesFilter && matchesSearch;
+      (session.subject || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (session.tutor_name || session.tutor?.full_name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch;
   });
 
   const stats = {
     total: sessions.length,
-    completed: sessions.filter(s => s.status === 'completed').length,
-    cancelled: sessions.filter(s => s.status === 'cancelled').length,
+    completed: sessions.filter((s: any) => s.status === 'completed').length,
+    cancelled: sessions.filter((s: any) => s.status === 'cancelled').length,
     totalHours: sessions
-      .filter(s => s.status === 'completed')
-      .reduce((sum, s) => sum + s.duration, 0),
+      .filter((s: any) => s.status === 'completed')
+      .reduce((sum: number, s: any) => sum + (s.duration || 0), 0),
     totalSpent: sessions
-      .filter(s => s.status === 'completed')
-      .reduce((sum, s) => sum + s.price, 0),
-    avgRating: sessions
-      .filter(s => s.rating)
-      .reduce((sum, s, _, arr) => sum + (s.rating || 0) / arr.length, 0)
-      .toFixed(1),
+      .filter((s: any) => s.status === 'completed')
+      .reduce((sum: number, s: any) => sum + (s.price || 0), 0),
+    avgRating: sessions.length > 0 
+      ? sessions
+          .filter((s: any) => s.rating)
+          .reduce((sum: number, s: any, _: any, arr: any[]) => sum + (s.rating || 0) / arr.length, 0)
+          .toFixed(1)
+      : '0.0',
   };
 
   const exportHistory = () => {
@@ -98,6 +80,13 @@ const SessionHistory: React.FC = () => {
     <div className="space-y-6">
       <SessionBackButton />
       {/* Header */}
+      
+      {loading && (
+        <div className="text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="mt-2 text-gray-600">Đang tải lịch sử...</p>
+        </div>
+      )}
       <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg p-6 text-white">
         <h1 className="text-3xl font-bold mb-2">Lịch sử học tập</h1>
         <p className="text-purple-100">
