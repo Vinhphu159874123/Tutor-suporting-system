@@ -1,5 +1,7 @@
-import React, { useState } from "react";
-import logoBK from "../../png/logobk.png";
+import React, { useState, useEffect } from "react";
+import { toast } from "react-toastify";
+import { AxiosResponse } from "axios";
+import { coursesApi } from "../../services/api";
 
 interface Course {
   id: string;
@@ -14,66 +16,37 @@ const MyCourses: React.FC = () => {
   const [sortBy, setSortBy] = useState("short_name");
   const [viewMode, setViewMode] = useState("card");
   const [filter, setFilter] = useState("all");
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data - thay bằng dữ liệu thật từ API
-  const courses: Course[] = [
-    {
-      id: "1",
-      code: "79748_CO1007_003778_CLC",
-      name: "Discrete Structures for Computing (CO1007)_Trần Tuấn Anh",
-      instructor: "Trần Tuấn",
-      color: "bg-purple-400",
-    },
-    {
-      id: "2",
-      code: "79748_CO1007_010190_CLC",
-      name: "Discrete Structures for Computing (CO1007)_NGUYỄN Văn Minh Mẫn",
-      instructor: "NGUYỄN",
-      color: "bg-blue-500",
-    },
-    {
-      id: "3",
-      code: "79748_CO2013_003183_CLC",
-      name: "Database Systems (CO2013)_NGUYỄN THỊ ÁI THẢO ...",
-      instructor: "NGUYỄN THỊ AI THẢO",
-      color: "bg-gray-400",
-    },
-    {
-      id: "4",
-      code: "79748_CO2014_010865_CLC",
-      name: "Database Systems (Lab) (CO2014)_LÊ ĐỨC HOÀNG NAM ...",
-      instructor: "LÊ ĐỨC HOÀNG NAM",
-      color: "bg-blue-300",
-    },
-    {
-      id: "5",
-      code: "79748_CO3001_004282_CLC",
-      name: "Software Engineering (CO3001)_Trần Trương Tuấn Phát ...",
-      instructor: "Trần Trường Tuấn Phát",
-      color: "bg-green-500",
-    },
-    {
-      id: "6",
-      code: "79748_CO3093_002921_CLC",
-      name: "Computer Networks (CO3093)_NGUYỄN LÊ DUY LAI ...",
-      instructor: "NGUYỄN LÊ DUY LAI",
-      color: "bg-purple-600",
-    },
-    {
-      id: "7",
-      code: "79748_CO3094_010360_CLC",
-      name: "Computer Networks (Lab) (CO3094)_NGUYỄN THÀNH NHÂN",
-      instructor: "NGUYỄN THÀNH NHÂN",
-      color: "bg-gray-300",
-    },
-    {
-      id: "8",
-      code: "79748_CO3103_004206_CLC",
-      name: "Programming Integration Project (CO3103)_Phan Trung Hiếu.",
-      instructor: "Phan Trung",
-      color: "bg-gray-200",
-    },
-  ];
+  // Fetch courses from API
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const response = await coursesApi.getMyCourses() as AxiosResponse<any>;
+        const apiCourses = response.data || [];
+        
+        // Transform API data to match Course interface
+        const colors = ["bg-purple-400", "bg-blue-500", "bg-gray-400", "bg-blue-300", "bg-green-500", "bg-purple-600"];
+        const transformedCourses = apiCourses.map((course: any, index: number) => ({
+          id: course.code,
+          code: course.code,
+          name: `${course.name} (${course.code})`,
+          instructor: "",
+          color: colors[index % colors.length]
+        }));
+        
+        setCourses(transformedCourses);
+      } catch (error: any) {
+        console.error("Error fetching courses:", error);
+        toast.error("Không thể tải danh sách môn học");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchCourses();
+  }, []);
 
   const filteredCourses = courses.filter((course) =>
     course.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -153,11 +126,21 @@ const MyCourses: React.FC = () => {
               </button>
             </div>
 
-            {/* Course Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {filteredCourses.map((course) => (
+            {/* Loading State */}
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <p className="mt-2 text-gray-600">Đang tải môn học...</p>
+              </div>
+            ) : filteredCourses.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                Không tìm thấy môn học nào
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">{filteredCourses.map((course) => (
                 <div
                   key={course.id}
+                  onClick={() => window.location.href = `/courses/${course.code}`}
                   className="bg-white rounded border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer overflow-hidden"
                 >
                   {/* Course Header with Pattern/Color */}
@@ -203,6 +186,7 @@ const MyCourses: React.FC = () => {
                 </div>
               ))}
             </div>
+            )}
           </div>
         </div>
 
