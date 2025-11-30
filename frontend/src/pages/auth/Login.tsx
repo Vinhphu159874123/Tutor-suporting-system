@@ -1,9 +1,11 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 import { toast } from "react-toastify";
 import logoBK from "../../png/logobk.png";
 
 const Login: React.FC = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
@@ -20,6 +22,27 @@ const Login: React.FC = () => {
     try {
       await login(email, password);
       toast.success("Đăng nhập thành công!");
+      
+      // Get user from store to determine redirect
+      const user = useAuthStore.getState().user;
+      
+      // Redirect based on role
+      switch (user?.role) {
+        case 'admin':
+          navigate('/admin');
+          break;
+        case 'coordinator':
+          navigate('/coordinator/dashboard');
+          break;
+        case 'tutor':
+          navigate('/dashboard'); // Can create separate tutor dashboard later
+          break;
+        case 'student':
+          navigate('/dashboard');
+          break;
+        default:
+          navigate('/dashboard');
+      }
     } catch (error: any) {
       toast.error(error?.response?.data?.detail || "Đăng nhập thất bại");
     }

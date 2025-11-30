@@ -1,13 +1,17 @@
-import React, { useState } from "react";
-import {Pencil, Trash2, User, Users, Calendar, Star} from "lucide-react";
+import React, { useState, useEffect } from "react";
+import {Pencil, Trash2, User as UserIcon, Users, Calendar, Star} from "lucide-react";
+import { adminApi } from "../../services/api";
+import { toast } from "react-toastify";
+import { AxiosResponse } from "axios";
 
 interface User {
-  id: string;
-  name: string;
+  user_id: number;
   email: string;
+  full_name: string;
   role: "student" | "tutor" | "coordinator" | "admin" | "department_chair";
-  studentId?: string;
-  department?: string;
+  is_active: boolean;
+  is_verified: boolean;
+  created_at: string;
 }
 
 interface SyncService {
@@ -21,26 +25,46 @@ interface SyncService {
 
 const Admin: React.FC = () => {
   const [activeTab, setActiveTab] = useState("overview");
+  const [loading, setLoading] = useState(true);
+  const [statsData, setStatsData] = useState({
+    total_users: 0,
+    total_students: 0,
+    total_tutors: 0,
+    total_sessions: 0,
+    average_rating: 0
+  });
+  const [users, setUsers] = useState<User[]>([]);
+
+  useEffect(() => {
+    const fetchAdminData = async () => {
+      try {
+        const [statsRes, usersRes] = await Promise.all([
+          adminApi.getAdminStats() as Promise<AxiosResponse<any>>,
+          adminApi.getAllUsers() as Promise<AxiosResponse<any>>
+        ]);
+        setStatsData(statsRes.data);
+        setUsers(usersRes.data);
+      } catch (error: any) {
+        console.error('Failed to fetch admin data:', error);
+        toast.error('Không thể tải dữ liệu quản trị');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAdminData();
+  }, []);
 
   const stats = [
-    { name: "Tổng số sinh viên", value: "1004", icon: <User size={24} className="text-blue-500" />},
-    { name: "Tổng số tutor", value: "18", icon: <Users size={24} className="text-green-500" /> },
-    { name: "Tổng số phiên học", value: "120", icon: <Calendar size={24} className="text-yellow-500" /> },
-    { name: "Đánh giá trung bình", value: "4.8/5", icon: <Star size={24} className="text-orange-400" /> },
+    { name: "Tổng số người dùng", value: loading ? "..." : String(statsData.total_users), icon: <UserIcon size={24} className="text-blue-500" />},
+    { name: "Tổng số tutor", value: loading ? "..." : String(statsData.total_tutors), icon: <Users size={24} className="text-green-500" /> },
+    { name: "Tổng số phiên học", value: loading ? "..." : String(statsData.total_sessions), icon: <Calendar size={24} className="text-yellow-500" /> },
+    { name: "Đánh giá trung bình", value: loading ? "..." : `${statsData.average_rating}/5`, icon: <Star size={24} className="text-orange-400" /> },
   ];
 
   const tabs = [
     { id: "overview", label: "Tổng quan" },
     { id: "users", label: "Quản lý người dùng" },
     { id: "sync", label: "Trạng thái đồng bộ" },
-  ];
-
-  const mockUsers: User[] = [
-    { id: "u1", name: "Nguyễn Văn A", email: "a@hcmut.edu.vn", role: "student", studentId: "2021001", department: "Computer Science" },
-    { id: "u2", name: "Trần Thị B", email: "b@hcmut.edu.vn", role: "tutor", department: "Software Engineering" },
-    { id: "u3", name: "Lê Văn C", email: "c@hcmut.edu.vn", role: "coordinator", department: "Chemistry" },
-    { id: "u4", name: "Phạm Thị D", email: "d@hcmut.edu.vn", role: "admin" },
-    { id: "u5", name: "Ngô Văn E", email: "e@hcmut.edu.vn", role: "student", studentId: "2351111", department: "Computer Science" },
   ];
 
   const services: SyncService[] = [
@@ -121,19 +145,28 @@ const Admin: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {mockUsers.map((user) => (
-                    <tr key={user.id}>
-                      <td className="px-4 py-2 text-sm text-gray-900">{user.name}</td>
+                  {users.map((user) => (
+                    <tr key={user.user_id}>
+                      <td className="px-4 py-2 text-sm text-gray-900">{user.full_name}</td>
                       <td className="px-4 py-2 text-sm text-gray-900">{user.email}</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{user.role}</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{user.department || "-"}</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{user.studentId || "-"}</td>
+                      <td className="px-4 py-2 text-sm text-gray-900">
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          user.role === 'admin' ? 'bg-red-100 text-red-700' :
+                          user.role === 'tutor' ? 'bg-blue-100 text-blue-700' :
+                          user.role === 'coordinator' ? 'bg-purple-100 text-purple-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {user.role}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-sm text-gray-900">-</td>
+                      <td className="px-4 py-2 text-sm text-gray-900">-</td>
                       <td className="px-4 py-2 text-sm text-gray-900 flex gap-4">
                         <button className="hover:text-blue-800" title="Edit">
-                         < Pencil size={18} />
+                         <Pencil size={18} />
                         </button>
                         <button className="hover:text-red-800" title="Delete">
-                        < Trash2 size={18} />
+                        <Trash2 size={18} />
                         </button>
                       </td>
                     </tr>
