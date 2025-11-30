@@ -29,11 +29,18 @@ async def login(
     1. Try HCMUT SSO authentication first
     2. If SSO fails, fallback to local authentication
     3. Return JWT access token
+    
+    Note: Auto-appends @hcmut.edu.vn if username doesn't contain @
     """
+    # Auto-append @hcmut.edu.vn if not present
+    username = form_data.username
+    if '@' not in username:
+        username = f"{username}@hcmut.edu.vn"
+    
     # Try SSO first
     sso_service = HCMUTSSOService()
     try:
-        sso_user = await sso_service.authenticate(form_data.username, form_data.password)
+        sso_user = await sso_service.authenticate(username, form_data.password)
         if sso_user:
             # Let AuthService handle SSO login
             return await auth_service.login_with_sso(sso_user)
@@ -42,7 +49,7 @@ async def login(
         print(f"🔄 Falling back to local authentication...")
     
     # Fallback to local authentication
-    token = await auth_service.login(form_data.username, form_data.password)
+    token = await auth_service.login(username, form_data.password)
     return token
 
 
