@@ -5,7 +5,7 @@ import uvicorn
 import os
 from dotenv import load_dotenv
 
-from app.api import auth, users, tutors, students, sessions, scheduling, reports, admin, forum
+from app.api import auth, users, tutors, students, sessions, scheduling, reports, admin, forum, notifications, courses, coordinator, study_groups
 from app.core.database import engine, create_tables
 from app.core.config import settings
 from app.events import register_all_listeners
@@ -43,7 +43,11 @@ app.include_router(sessions.router, prefix="/api/v1/sessions", tags=["sessions"]
 app.include_router(scheduling.router, prefix="/api/v1/scheduling", tags=["scheduling"])
 app.include_router(reports.router, prefix="/api/v1/reports", tags=["reports"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["admin"])
+app.include_router(coordinator.router, prefix="/api/v1/coordinator", tags=["coordinator"])
 app.include_router(forum.router, prefix="/api/v1/forum", tags=["forum"])
+app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["notifications"])
+app.include_router(courses.router, prefix="/api/v1/courses", tags=["courses"])
+app.include_router(study_groups.router, prefix="/api/v1/study-groups", tags=["study-groups"])
 
 @app.on_event("startup")
 async def startup_event():
