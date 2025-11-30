@@ -22,6 +22,7 @@ class EventTypes:
     TUTOR_REGISTERED = "tutor.registered"
     TUTOR_UPDATED = "tutor.updated"
     TUTOR_AVAILABILITY_SET = "tutor.availability_set"
+    TUTOR_SUBJECT_REGISTERED = "tutor.subject_registered"  # New subject registration
     
     # Admin Events
     USER_ROLE_CHANGED = "admin.user_role_changed"

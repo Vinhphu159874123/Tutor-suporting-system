@@ -47,6 +47,7 @@ async def get_notifications(
             "type": n.type,
             "title": n.title,
             "message": n.message,
+            "data": n.data,  # Add data field
             "is_read": n.is_read,
             "created_at": n.created_at.isoformat() if n.created_at else None,
             "link": None  # Can be enhanced based on type
