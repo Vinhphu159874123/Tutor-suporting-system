@@ -140,6 +140,15 @@ async def get_tutor(
     return await tutor_service.get_tutor(tutor_id)
 
 
+@router.get("/{tutor_id}/availability")
+async def get_tutor_availability(
+    tutor_id: int,
+    tutor_service: TutorService = Depends(get_tutor_service)
+):
+    """Get tutor's available time slots"""
+    return await tutor_service.get_tutor_availability(tutor_id)
+
+
 @router.put("/{tutor_id}", response_model=TutorResponse)
 async def update_tutor(
     tutor_id: int,
