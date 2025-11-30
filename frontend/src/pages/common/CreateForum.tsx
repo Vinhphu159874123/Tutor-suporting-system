@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
+import apiClient from "../../services/api";
 
 const CreateForum: React.FC = () => {
   const navigate = useNavigate();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     category: "",
@@ -13,14 +15,34 @@ const CreateForum: React.FC = () => {
     allowComments: true,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (!formData.title || !formData.category || !formData.content) {
       toast.error("Vui lòng điền đầy đủ thông tin");
       return;
     }
-    toast.success("Tạo diễn đàn thành công!");
-    navigate("/forum");
+
+    setIsSubmitting(true);
+    
+    try {
+      const response = await apiClient.post("/api/v1/forum/posts", {
+        title: formData.title,
+        content: formData.content,
+        category: formData.category,
+        is_pinned: formData.isPinned,
+        forum_id: 1  // Default forum
+      });
+      
+      console.log("Post created:", response.data);
+      toast.success("Tạo bài viết thành công!");
+      navigate("/forum");
+    } catch (error: any) {
+      console.error("Error creating post:", error);
+      toast.error(error?.response?.data?.detail || "Không thể tạo bài viết");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -125,14 +147,16 @@ const CreateForum: React.FC = () => {
         <div className="flex gap-4">
           <button
             type="submit"
-            className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition font-semibold"
+            disabled={isSubmitting}
+            className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Đăng bài
+            {isSubmitting ? "Đang đăng..." : "Đăng bài"}
           </button>
           <button
             type="button"
             onClick={() => navigate("/forum")}
-            className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition font-semibold"
+            disabled={isSubmitting}
+            className="flex-1 bg-gray-200 text-gray-700 py-3 rounded-lg hover:bg-gray-300 transition font-semibold disabled:opacity-50"
           >
             Hủy
           </button>

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   BookOpen,
@@ -12,16 +12,41 @@ import {
   UserRound,
 } from "lucide-react";
 import { useAuthStore } from "../../stores/authStore";
+import { usersApi } from "../../services/api";
+import { toast } from "react-toastify";
+import { AxiosResponse } from "axios";
 
 const Dashboard: React.FC = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [statsData, setStatsData] = useState({
+    total_sessions: 0,
+    completed_sessions: 0,
+    upcoming_sessions: 0,
+    average_rating: 0
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await usersApi.getDashboardStats() as AxiosResponse<any>;
+        setStatsData(response.data);
+      } catch (error: any) {
+        console.error('Failed to fetch stats:', error);
+        toast.error('Không thể tải thống kê');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
 
   const stats = [
-    { name: "Tổng số phiên học", value: "24", icon: BookOpen },
-    { name: "Phiên hoàn thành", value: "18", icon: CheckCircle2 },
-    { name: "Phiên sắp tới", value: "6", icon: Clock3 },
-    { name: "Đánh giá trung bình", value: "4.8/5", icon: Star },
+    { name: "Tổng số phiên học", value: loading ? "..." : String(statsData.total_sessions), icon: BookOpen },
+    { name: "Phiên hoàn thành", value: loading ? "..." : String(statsData.completed_sessions), icon: CheckCircle2 },
+    { name: "Phiên sắp tới", value: loading ? "..." : String(statsData.upcoming_sessions), icon: Clock3 },
+    { name: "Đánh giá trung bình", value: loading ? "..." : `${statsData.average_rating}/5`, icon: Star },
   ];
 
   return (

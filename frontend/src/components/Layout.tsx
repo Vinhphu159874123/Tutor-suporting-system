@@ -1,6 +1,19 @@
 import React, { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuthStore } from "../stores/authStore";
+import { 
+  LayoutDashboard, 
+  BookOpen, 
+  Calendar, 
+  Clock, 
+  GraduationCap, 
+  Bell, 
+  Settings as SettingsIcon, 
+  MessageSquare, 
+  CheckSquare, 
+  BarChart3, 
+  Shield 
+} from "lucide-react";
 
 interface LayoutProps {
   children: ReactNode;
@@ -11,22 +24,22 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
 
   const navigation = [
-    { name: "Dashboard", href: "/dashboard" },
-    { name: "Các khóa học của tôi", href: "/courses" },
-    { name: "Sessions", href: "/sessions", icon: "📅" },
-    { name: "Scheduling", href: "/scheduling", icon: "⏰" },
-    { name: "Tutors", href: "/tutors", icon: "🎓" },
-    { name: "Notifications", href: "/notifications", icon: "🔔" },
-    { name: "Settings", href: "/settings", icon: "⚙️" },
-    { name: "Forum", href: "/forum", icon: "💬" },
-    { name: "Review Sessions", href: "/review-sessions", icon: "✅", roles: ["coordinator"] },
+    { name: "Dashboard", href: "/dashboard", icon: <LayoutDashboard size={20} /> },
+    { name: "Các khóa học của tôi", href: "/courses", icon: <BookOpen size={20} /> },
+    { name: "Sessions", href: "/sessions", icon: <Calendar size={20} /> },
+    { name: "Scheduling", href: "/scheduling", icon: <Clock size={20} /> },
+    { name: "Tutors", href: "/tutors", icon: <GraduationCap size={20} /> },
+    { name: "Notifications", href: "/notifications", icon: <Bell size={20} /> },
+    { name: "Settings", href: "/settings", icon: <SettingsIcon size={20} /> },
+    { name: "Forum", href: "/forum", icon: <MessageSquare size={20} /> },
+    { name: "Review Sessions", href: "/review-sessions", icon: <CheckSquare size={20} />, roles: ["coordinator"] },
     {
       name: "Reports",
       href: "/reports",
-      icon: "📊",
+      icon: <BarChart3 size={20} />,
       roles: ["admin", "coordinator", "department_chair"],
     },
-    { name: "Admin", href: "/admin", icon: "⚙️", roles: ["admin"] },
+    { name: "Admin", href: "/admin", icon: <Shield size={20} />, roles: ["admin"] },
   ];
 
   const filteredNavigation = navigation.filter(
@@ -59,7 +72,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     }
                   `}
                 >
-                  <span className="mr-3 text-lg">{item.icon}</span>
+                  <span className="mr-3">{item.icon}</span>
                   {item.name}
                 </Link>
               );
