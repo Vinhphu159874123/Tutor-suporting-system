@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import apiClient from "../../services/api";
 import { ArrowLeft, CalendarDays, UserRound, Users } from "lucide-react";
 
 interface StudyGroup {
@@ -16,44 +18,27 @@ interface StudyGroup {
 
 const StudyGroups: React.FC = () => {
   const navigate = useNavigate();
-  const [groups] = useState<StudyGroup[]>([
-    {
-      id: "1",
-      name: "Nhóm học Python cơ bản",
-      course: "CO3001 - Lập trình Python",
-      members: 5,
-      maxMembers: 10,
-      description: "Nhóm học Python từ cơ bản đến nâng cao, tập trung vào thực hành",
-      createdBy: "Nguyễn Văn A",
-      schedule: "T2, T4 - 18:00-20:00",
-      status: "open",
-    },
-    {
-      id: "2",
-      name: "Study Group DSA",
-      course: "CO3005 - Cấu trúc dữ liệu",
-      members: 8,
-      maxMembers: 8,
-      description: "Luyện giải thuật và cấu trúc dữ liệu cho kỳ thi giữa kỳ",
-      createdBy: "Trần Thị B",
-      schedule: "T3, T6 - 19:00-21:00",
-      status: "full",
-    },
-    {
-      id: "3",
-      name: "Web Development Team",
-      course: "CO3012 - Phát triển Web",
-      members: 6,
-      maxMembers: 12,
-      description: "Học và thực hành phát triển web fullstack với React và Node.js",
-      createdBy: "Lê Văn C",
-      schedule: "T5, T7 - 17:00-19:00",
-      status: "open",
-    },
-  ]);
-
+  const [groups, setGroups] = useState<StudyGroup[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "open" | "full">("all");
   const [searchTerm, setSearchTerm] = useState("");
+
+  useEffect(() => {
+    const fetchGroups = async () => {
+      try {
+        setLoading(true);
+        const response = await apiClient.get("/api/v1/study-groups/");
+        setGroups(response.data || []);
+      } catch (error: any) {
+        console.error("Error fetching study groups:", error);
+        toast.error("Không thể tải danh sách nhóm học");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchGroups();
+  }, []);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -89,9 +74,19 @@ const StudyGroups: React.FC = () => {
     return matchesSearch && matchesFilter;
   });
 
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="ml-4 text-gray-600">Đang tải danh sách nhóm học...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6">
+    <div className="container mx-auto px-4 py-8">\n      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6">
         <div>
           <p className="text-sm uppercase tracking-wide text-blue-600 font-semibold">
             Cộng đồng học tập
