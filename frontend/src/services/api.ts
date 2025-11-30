@@ -2,8 +2,8 @@ import axios from "axios";
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
 
-// 🔴 MOCK MODE - Backend disabled for UI testing
-const MOCK_MODE = true;
+// 🟢 REAL MODE - Connect to backend API
+const MOCK_MODE = false;
 
 // Create axios instance
 const apiClient = axios.create({
@@ -172,11 +172,35 @@ export const usersApi = {
     }
     return apiClient.delete(`/api/v1/users/${userId}`);
   },
+
+  getDashboardStats: () => {
+    if (MOCK_MODE) {
+      return mockResponse({
+        total_sessions: 24,
+        completed_sessions: 18,
+        upcoming_sessions: 6,
+        average_rating: 4.8
+      });
+    }
+    return apiClient.get("/api/v1/users/stats/dashboard");
+  },
+
+  getCoordinatorStats: () => {
+    if (MOCK_MODE) {
+      return mockResponse({
+        total_sessions: 240,
+        pending_tutors: 2,
+        pending_sessions: 14,
+        average_rating: 4.8
+      });
+    }
+    return apiClient.get("/api/v1/users/stats/coordinator");
+  },
 };
 
 // Tutors API
 export const tutorsApi = {
-  getTutors: () => {
+  getTutors: (params?: any) => {
     if (MOCK_MODE) {
       return mockResponse([
         {
@@ -193,7 +217,19 @@ export const tutorsApi = {
         },
       ]);
     }
-    return apiClient.get("/api/v1/tutors");
+    return apiClient.get("/api/v1/tutors", { params });
+  },
+
+  getTutor: (tutorId: number) => {
+    return apiClient.get(`/api/v1/tutors/${tutorId}`);
+  },
+
+  getTutorAvailability: (tutorId: number) => {
+    return apiClient.get(`/api/v1/tutors/${tutorId}/availability`);
+  },
+
+  getMyTutorProfile: () => {
+    return apiClient.get("/api/v1/tutors/me");
   },
 
   registerTutor: (data: any) => {
@@ -203,7 +239,11 @@ export const tutorsApi = {
     return apiClient.post("/api/v1/tutors/register", data);
   },
 
-  getTutorSessions: () => {
+  updateTutor: (tutorId: number, data: any) => {
+    return apiClient.put(`/api/v1/tutors/${tutorId}`, data);
+  },
+
+  getTutorSessions: (params?: any) => {
     if (MOCK_MODE) {
       return mockResponse([
         {
@@ -214,7 +254,7 @@ export const tutorsApi = {
         },
       ]);
     }
-    return apiClient.get("/api/v1/tutors/sessions");
+    return apiClient.get("/api/v1/tutors/sessions", { params });
   },
 
   setAvailability: (data: any) => {
@@ -328,11 +368,33 @@ export const sessionsApi = {
     return apiClient.put(`/api/v1/sessions/${sessionId}`, data);
   },
 
-  uploadMaterials: (sessionId: number, data: any) => {
+  completeSession: (sessionId: number) => {
+    return apiClient.post(`/api/v1/sessions/${sessionId}/complete`);
+  },
+
+  publishSession: (sessionId: number) => {
+    return apiClient.post(`/api/v1/sessions/${sessionId}/publish`);
+  },
+
+  joinSession: (sessionId: number, data: any) => {
+    return apiClient.post(`/api/v1/sessions/${sessionId}/join`, data);
+  },
+
+  acceptParticipant: (sessionId: number, participantId: number) => {
+    return apiClient.post(`/api/v1/sessions/${sessionId}/participants/${participantId}/accept`);
+  },
+
+  rejectParticipant: (sessionId: number, participantId: number, data: any) => {
+    return apiClient.post(`/api/v1/sessions/${sessionId}/participants/${participantId}/reject`, data);
+  },
+
+  uploadMaterials: (sessionId: number, formData: FormData) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Materials uploaded" });
     }
-    return apiClient.post(`/api/v1/sessions/${sessionId}/materials`, data);
+    return apiClient.post(`/api/v1/sessions/${sessionId}/materials`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
   },
 };
 
@@ -473,6 +535,19 @@ export const adminApi = {
     return apiClient.get("/api/v1/admin/users", { params });
   },
 
+  getAdminStats: () => {
+    if (MOCK_MODE) {
+      return mockResponse({
+        total_users: 1004,
+        total_students: 986,
+        total_tutors: 18,
+        total_sessions: 120,
+        average_rating: 4.8
+      });
+    }
+    return apiClient.get("/api/v1/admin/stats");
+  },
+
   updateUserRole: (userId: number, data: any) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Role updated" });
@@ -494,6 +569,39 @@ export const adminApi = {
     return apiClient.put(
       `/api/v1/admin/registrations/${registrationId}/approve`
     );
+  },
+};
+
+// Notifications API
+export const notificationsApi = {
+  getNotifications: (params?: any) => {
+    if (MOCK_MODE) {
+      return mockResponse([
+        {
+          id: 1,
+          type: 'session',
+          title: 'Phiên học sắp diễn ra',
+          message: 'Bạn có phiên học vào ngày mai',
+          time: '2 giờ trước',
+          read: false
+        }
+      ]);
+    }
+    return apiClient.get("/api/v1/notifications", { params });
+  },
+
+  getUnreadCount: () => {
+    if (MOCK_MODE) {
+      return mockResponse({ unread_count: 5 });
+    }
+    return apiClient.get("/api/v1/notifications/unread-count");
+  },
+
+  markAsRead: (notificationId: number) => {
+    if (MOCK_MODE) {
+      return mockResponse({ message: "Marked as read" });
+    }
+    return apiClient.put(`/api/v1/notifications/${notificationId}/read`);
   },
 };
 
@@ -532,6 +640,70 @@ export const forumApi = {
       return mockResponse({ message: "Study group created" });
     }
     return apiClient.post("/api/v1/forum/study-groups", data);
+  },
+};
+
+// Courses API
+export const coursesApi = {
+  getMyCourses: () => {
+    if (MOCK_MODE) {
+      return mockResponse([
+        {
+          code: "CO3001",
+          name: "Software Engineering",
+          credits: 4
+        }
+      ]);
+    }
+    return apiClient.get("/api/v1/courses/my-courses");
+  },
+
+  getCourseInfo: (courseCode: string) => {
+    if (MOCK_MODE) {
+      return mockResponse({
+        code: courseCode,
+        name: "Mock Course",
+        credits: 4
+      });
+    }
+    return apiClient.get(`/api/v1/courses/courses/${courseCode}`);
+  },
+};
+
+// Coordinator API
+export const coordinatorApi = {
+  // Tutor Registration Approval
+  getTutorRegistrations: (status: string = "pending", skip: number = 0, limit: number = 50) => {
+    return apiClient.get("/api/v1/coordinator/tutor-registrations", {
+      params: { status_filter: status, skip, limit }
+    });
+  },
+
+  approveTutorRegistration: (registrationId: number) => {
+    return apiClient.put(`/api/v1/coordinator/tutor-registrations/${registrationId}/approve`);
+  },
+
+  rejectTutorRegistration: (registrationId: number, reason: string) => {
+    return apiClient.put(`/api/v1/coordinator/tutor-registrations/${registrationId}/reject`, null, {
+      params: { reason }
+    });
+  },
+
+  // Session Approval
+  getPendingSessions: (skip: number = 0, limit: number = 50) => {
+    return apiClient.get("/api/v1/coordinator/sessions/pending", {
+      params: { skip, limit }
+    });
+  },
+
+  approveSession: (sessionId: number) => {
+    return apiClient.put(`/api/v1/coordinator/sessions/${sessionId}/approve`);
+  },
+
+  rejectSession: (sessionId: number, reason: string) => {
+    return apiClient.put(`/api/v1/coordinator/sessions/${sessionId}/reject`, null, {
+      params: { reason }
+    });
   },
 };
 
