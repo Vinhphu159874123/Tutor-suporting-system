@@ -166,6 +166,17 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
     
+    # Load student_id or tutor_id from relationships
+    if hasattr(user, 'student') and user.student:
+        user.student_id = user.student.student_id
+    else:
+        user.student_id = None
+        
+    if hasattr(user, 'tutor') and user.tutor:
+        user.tutor_id = user.tutor.tutor_id
+    else:
+        user.tutor_id = None
+    
     return user
 
 async def get_current_active_user(

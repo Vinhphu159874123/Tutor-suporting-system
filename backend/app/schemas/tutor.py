@@ -47,6 +47,9 @@ class TutorResponse(TutorBase):
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
     
+    # Subjects taught (list of subject names)
+    subjects: list[str] = Field(default_factory=list, description="List of subjects this tutor teaches")
+    
     class Config:
         from_attributes = True
 

@@ -9,7 +9,8 @@ from typing import List, Dict
 from datetime import datetime
 
 from app.core.dependencies import get_current_user, get_db
-from app.models.database import User, TutorRegistration, Tutor, Subject, Session as SessionModel, Student
+from app.models.database import User, TutorRegistration, Tutor, Subject, Session as SessionModel, Student, Notifications
+from app.events import event_bus
 
 router = APIRouter()
 
@@ -59,8 +60,8 @@ async def get_pending_tutor_registrations(
             "tutor_name": user.full_name,
             "tutor_email": user.email,
             "subject_id": reg.subject_id,
-            "subject_name": subject.name,
-            "subject_code": subject.code,
+            "subject_name": subject.subject_name,
+            "subject_code": subject.subject_code,
             "gpa": float(reg.gpa) if reg.gpa else None,
             "qualifications": reg.qualifications,
             "status": reg.status,
@@ -126,6 +127,38 @@ async def approve_tutor_registration(
     await db.commit()
     await db.refresh(registration)
     
+    # Get tutor user_id to send notification
+    tutor_query = select(Tutor).where(Tutor.tutor_id == registration.tutor_id)
+    tutor_result = await db.execute(tutor_query)
+    tutor = tutor_result.scalar_one_or_none()
+    
+    if tutor:
+        # Get subject name for notification
+        subject_query = select(Subject).where(Subject.subject_id == registration.subject_id)
+        subject_result = await db.execute(subject_query)
+        subject = subject_result.scalar_one_or_none()
+        
+        subject_name = subject.subject_name if subject else "môn học"
+        
+        # Create notification
+        notification = Notifications(
+            user_id=tutor.user_id,
+            type='registration_approved',
+            title='Đơn đăng ký môn học được phê duyệt',
+            message=f'Chúc mừng! Đơn đăng ký dạy môn {subject_name} của bạn đã được phê duyệt.',
+            is_read=False,
+            created_at=datetime.utcnow()
+        )
+        db.add(notification)
+        await db.commit()
+        
+        # Emit event for real-time notification
+        await event_bus.emit('registration_approved', {
+            'user_id': tutor.user_id,
+            'registration_id': registration.registration_id,
+            'subject_name': subject_name
+        })
+    
     return {
         "message": "Registration approved successfully",
         "registration_id": registration.registration_id,
@@ -188,6 +221,39 @@ async def reject_tutor_registration(
     
     await db.commit()
     await db.refresh(registration)
+    
+    # Get tutor user_id to send notification
+    tutor_query = select(Tutor).where(Tutor.tutor_id == registration.tutor_id)
+    tutor_result = await db.execute(tutor_query)
+    tutor = tutor_result.scalar_one_or_none()
+    
+    if tutor:
+        # Get subject name for notification
+        subject_query = select(Subject).where(Subject.subject_id == registration.subject_id)
+        subject_result = await db.execute(subject_query)
+        subject = subject_result.scalar_one_or_none()
+        
+        subject_name = subject.subject_name if subject else "môn học"
+        
+        # Create notification
+        notification = Notifications(
+            user_id=tutor.user_id,
+            type='registration_rejected',
+            title='Đơn đăng ký môn học bị từ chối',
+            message=f'Đơn đăng ký dạy môn {subject_name} của bạn đã bị từ chối. Lý do: {reason}',
+            is_read=False,
+            created_at=datetime.utcnow()
+        )
+        db.add(notification)
+        await db.commit()
+        
+        # Emit event for real-time notification
+        await event_bus.emit('registration_rejected', {
+            'user_id': tutor.user_id,
+            'registration_id': registration.registration_id,
+            'subject_name': subject_name,
+            'reason': reason
+        })
     
     return {
         "message": "Registration rejected",

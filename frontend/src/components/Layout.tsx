@@ -1,6 +1,7 @@
-import React, { ReactNode } from "react";
+import React, { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuthStore } from "../stores/authStore";
+import { notificationsApi } from "../services/api";
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -10,7 +11,6 @@ import {
   Bell, 
   Settings as SettingsIcon, 
   MessageSquare, 
-  CheckSquare, 
   BarChart3, 
   Shield 
 } from "lucide-react";
@@ -22,8 +22,47 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { user, logout } = useAuthStore();
   const location = useLocation();
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  const navigation = [
+  // Fetch unread notifications count
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const response: any = await notificationsApi.getUnreadCount();
+        setUnreadCount(response.data?.unread_count || 0);
+      } catch (error) {
+        console.error("Failed to fetch unread notifications:", error);
+      }
+    };
+
+    if (user) {
+      fetchUnreadCount();
+      // Poll every 30 seconds
+      const interval = setInterval(fetchUnreadCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  // Navigation for Coordinator
+  const coordinatorNavigation = [
+    { name: "Dashboard", href: "/coor", icon: <LayoutDashboard size={20} /> },
+    { name: "Duyệt Tutor", href: "/coor/review", icon: <GraduationCap size={20} /> },
+    { name: "Quản lý Buổi học", href: "/coor/sessions", icon: <Calendar size={20} /> },
+    { name: "Báo cáo", href: "/reports", icon: <BarChart3 size={20} /> },
+    { name: "Thông báo", href: "/notifications", icon: <Bell size={20} /> },
+    { name: "Cài đặt", href: "/settings", icon: <SettingsIcon size={20} /> },
+  ];
+
+  // Navigation for Admin
+  const adminNavigation = [
+    { name: "Dashboard", href: "/admin", icon: <Shield size={20} /> },
+    { name: "Quản lý người dùng", href: "/admin/users", icon: <GraduationCap size={20} /> },
+    { name: "Báo cáo", href: "/reports", icon: <BarChart3 size={20} /> },
+    { name: "Cài đặt", href: "/settings", icon: <SettingsIcon size={20} /> },
+  ];
+
+  // Navigation for Students and Tutors (default)
+  const defaultNavigation = [
     { name: "Dashboard", href: "/dashboard", icon: <LayoutDashboard size={20} /> },
     { name: "Các khóa học của tôi", href: "/courses", icon: <BookOpen size={20} /> },
     { name: "Sessions", href: "/sessions", icon: <Calendar size={20} /> },
@@ -32,19 +71,28 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: "Notifications", href: "/notifications", icon: <Bell size={20} /> },
     { name: "Settings", href: "/settings", icon: <SettingsIcon size={20} /> },
     { name: "Forum", href: "/forum", icon: <MessageSquare size={20} /> },
-    { name: "Review Sessions", href: "/review-sessions", icon: <CheckSquare size={20} />, roles: ["coordinator"] },
-    {
-      name: "Reports",
-      href: "/reports",
-      icon: <BarChart3 size={20} />,
-      roles: ["admin", "coordinator", "department_chair"],
-    },
-    { name: "Admin", href: "/admin", icon: <Shield size={20} />, roles: ["admin"] },
   ];
 
-  const filteredNavigation = navigation.filter(
-    (item) => !item.roles || item.roles.includes(user?.role || "")
-  );
+  // Navigation for Tutors (with session requests)
+  const tutorNavigation = [
+    { name: "Dashboard", href: "/dashboard", icon: <LayoutDashboard size={20} /> },
+    { name: "Yêu cầu đặt lịch", href: "/tutors/requests", icon: <Calendar size={20} /> },
+    { name: "Sessions", href: "/sessions", icon: <Calendar size={20} /> },
+    { name: "Scheduling", href: "/scheduling", icon: <Clock size={20} /> },
+    { name: "Notifications", href: "/notifications", icon: <Bell size={20} /> },
+    { name: "Settings", href: "/settings", icon: <SettingsIcon size={20} /> },
+    { name: "Forum", href: "/forum", icon: <MessageSquare size={20} /> },
+  ];
+
+  // Select navigation based on role
+  let navigation = defaultNavigation;
+  if (user?.role === 'coordinator') {
+    navigation = coordinatorNavigation;
+  } else if (user?.role === 'admin') {
+    navigation = adminNavigation;
+  } else if (user?.role === 'tutor') {
+    navigation = tutorNavigation;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -58,8 +106,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         <nav className="mt-8">
           <div className="space-y-1">
-            {filteredNavigation.map((item) => {
+            {navigation.map((item) => {
               const isActive = location.pathname === item.href;
+              const isNotificationItem = item.href === "/notifications";
+              
               return (
                 <Link
                   key={item.name}
@@ -72,7 +122,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     }
                   `}
                 >
-                  <span className="mr-3">{item.icon}</span>
+                  <span className="mr-3 relative">
+                    {item.icon}
+                    {isNotificationItem && unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </span>
                   {item.name}
                 </Link>
               );

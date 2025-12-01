@@ -25,7 +25,13 @@ const CoordinatorDashboard: React.FC = () => {
         setStatsData(response.data);
       } catch (error: any) {
         console.error('Failed to fetch coordinator stats:', error);
-        toast.error('Không thể tải thống kê');
+        // Don't show error toast, just use default values
+        setStatsData({
+          total_sessions: 0,
+          pending_tutors: 0,
+          pending_sessions: 0,
+          average_rating: 0
+        });
       } finally {
         setLoading(false);
       }

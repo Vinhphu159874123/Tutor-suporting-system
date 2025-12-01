@@ -8,7 +8,7 @@ import {
   FileBarChart2,
   CalendarX2,
 } from 'lucide-react';
-import { sessionsApi } from '../../services/api';
+import { sessionsApi, authApi } from '../../services/api';
 import { toast } from 'react-toastify';
 import { useAuthStore } from '../../stores/authStore';
 import { AxiosResponse } from 'axios';
@@ -23,12 +23,35 @@ const SessionHistory: React.FC = () => {
   useEffect(() => {
     const fetchSessions = async () => {
       try {
-        const params: any = {};
-        if (user?.role === 'student') {
-          params.student_id = user.user_id;
-        } else if (user?.role === 'tutor') {
-          params.tutor_id = user.user_id;
+        const params: any = { limit: 100 };
+        
+        // Get tutor_id or student_id based on role
+        if (user?.role === 'student' || user?.role === 'tutor') {
+          try {
+            // Get full user profile which includes tutor_id or student_id
+            const meResponse: any = await authApi.getProfile();
+            const userData = meResponse.data;
+            
+            console.log('User data from API:', userData);
+            console.log('Current user role:', user?.role);
+            console.log('User ID:', user?.user_id);
+            
+            if (user?.role === 'student' && userData.student_id) {
+              params.student_id = userData.student_id;
+              console.log('Filtering by student_id:', userData.student_id);
+            } else if (user?.role === 'tutor' && userData.tutor_id) {
+              params.tutor_id = userData.tutor_id;
+              console.log('Filtering by tutor_id:', userData.tutor_id);
+            } else {
+              console.warn('No tutor_id or student_id found in user data');
+            }
+          } catch (err) {
+            console.error('Error fetching user profile:', err);
+          }
         }
+        
+        console.log('Final params for getSessions:', params);
+        
         if (filter !== 'all') {
           params.status = filter;
         }
@@ -217,27 +240,31 @@ const SessionHistory: React.FC = () => {
             </thead>
             <tbody>
               {filteredSessions.map((session) => (
-                <tr key={session.id} className="border-b border-gray-100 hover:bg-gray-50">
+                <tr key={session.session_id || session.id} className="border-b border-gray-100 hover:bg-gray-50">
                   <td className="py-3 px-4">
                     <div>
-                      <p className="font-medium">{session.date}</p>
-                      <p className="text-sm text-gray-600">{session.time}</p>
+                      <p className="font-medium">{session.scheduled_date || session.date || 'N/A'}</p>
+                      <p className="text-sm text-gray-600">{session.start_time?.substring(0, 5) || session.time || 'N/A'}</p>
                     </div>
                   </td>
-                  <td className="py-3 px-4 font-medium">{session.subject}</td>
-                  <td className="py-3 px-4">{session.tutor_name}</td>
-                  <td className="py-3 px-4">{session.duration}h</td>
+                  <td className="py-3 px-4 font-medium">{session.subject || session.title || 'N/A'}</td>
+                  <td className="py-3 px-4">{session.tutor_name || session.tutor?.full_name || 'N/A'}</td>
+                  <td className="py-3 px-4">{session.duration || 0}h</td>
                   <td className="py-3 px-4 font-semibold text-green-600">
-                    {session.price.toLocaleString()}đ
+                    {(session.price || 0).toLocaleString()}đ
                   </td>
                   <td className="py-3 px-4">
                     {session.status === 'completed' ? (
                       <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
                         Hoàn thành
                       </span>
-                    ) : (
+                    ) : session.status === 'cancelled' ? (
                       <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-medium">
                         Đã hủy
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-sm font-medium">
+                        {session.status || 'N/A'}
                       </span>
                     )}
                   </td>

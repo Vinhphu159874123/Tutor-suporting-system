@@ -41,6 +41,7 @@ import Settings from "./pages/user/Settings";
 import TutorList from "./pages/tutor/TutorList";
 import TutorDetail from "./pages/tutor/TutorDetail";
 import RegisterTutor from "./pages/tutor/RegisterTutor";
+import SessionRequests from "./pages/tutor/SessionRequests";
 
 // Session pages
 import Sessions from "./pages/session/Sessions";
@@ -94,6 +95,7 @@ function App() {
     };
     
     refreshUserProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
 
   return (
@@ -189,6 +191,7 @@ function App() {
                       <Route path="/tutors" element={<TutorList />} />
                       <Route path="/tutors/register" element={<RegisterTutor />} />
                       <Route path="/tutors/:id" element={<TutorDetail />} />
+                      <Route path="/tutors/requests" element={<SessionRequests />} />
                       <Route
                         path="/notifications"
                         element={<Notifications />}

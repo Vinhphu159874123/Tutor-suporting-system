@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useAuthStore } from "../../stores/authStore";
 import { toast } from "react-toastify";
-import api from "../../services/api";
+import api, { usersApi } from "../../services/api";
 import { Edit3, Save, Ban, KeyRound, LockKeyhole, ShieldCheck, ShieldAlert } from "lucide-react";
 
 // Faculty and Major data structure
@@ -145,7 +145,7 @@ const Profile: React.FC = () => {
   const handleSaveProfile = async () => {
     setLoading(true);
     try {
-      const response = await api.put("/users/profile", formData);
+      const response: any = await usersApi.updateProfile(formData);
       setUser(response.data);
       toast.success("Cập nhật thông tin thành công!");
       setIsEditing(false);
