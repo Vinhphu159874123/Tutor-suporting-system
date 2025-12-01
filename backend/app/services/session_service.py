@@ -30,6 +30,24 @@ class SessionService:
     
     def _to_response(self, session) -> SessionResponse:
         """Convert session model to response DTO"""
+        from datetime import datetime, time as time_type
+        
+        # Combine scheduled_date with start_time and end_time for better frontend display
+        start_datetime = None
+        end_datetime = None
+        
+        if session.scheduled_date and session.start_time:
+            if isinstance(session.start_time, time_type):
+                start_datetime = datetime.combine(session.scheduled_date, session.start_time)
+            else:
+                start_datetime = session.start_time
+                
+        if session.scheduled_date and session.end_time:
+            if isinstance(session.end_time, time_type):
+                end_datetime = datetime.combine(session.scheduled_date, session.end_time)
+            else:
+                end_datetime = session.end_time
+        
         # Build dict manually to avoid validation errors
         data = {
             'session_id': session.session_id,
@@ -42,13 +60,13 @@ class SessionService:
             'start_time': session.start_time,
             'end_time': session.end_time,
             'duration': session.duration,
-            'location_type': session.location_type,
+            'location_type': session.location_type or 'online',
             'meeting_link': session.meeting_link,
             'physical_address': session.physical_address,
             'max_students': session.max_students,
             'status': session.status,
-            'actual_start': session.actual_start,
-            'actual_end': session.actual_end,
+            'actual_start': session.actual_start or start_datetime,  # Use combined datetime if actual_start is None
+            'actual_end': session.actual_end or end_datetime,  # Use combined datetime if actual_end is None
             'session_notes': session.session_notes,
             'materials': [],  # Don't access materials relationship
             'created_at': session.created_at,

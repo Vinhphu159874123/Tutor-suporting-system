@@ -115,8 +115,13 @@ class TutorSubjectRegistrationListener(BaseListener):
                             "subject_code": subject_code,
                             "subject_name": subject_name,
                             "status": "pending",
+                            "bio": data.get('bio'),
                             "gpa": data.get('gpa'),
-                            "qualifications": data.get('qualifications')
+                            "qualifications": data.get('qualifications'),
+                            "availability": data.get('availability', {}),
+                            "total_sessions": data.get('total_sessions', 10),
+                            "start_date": data.get('start_date'),
+                            "end_date": data.get('end_date')
                         },
                         is_read=False
                     )
@@ -136,8 +141,13 @@ class TutorSubjectRegistrationListener(BaseListener):
                         "subject_code": subject_code,
                         "subject_name": subject_name,
                         "status": "pending",
+                        "bio": data.get('bio'),
                         "gpa": data.get('gpa'),
-                        "qualifications": data.get('qualifications')
+                        "qualifications": data.get('qualifications'),
+                        "availability": data.get('availability', {}),
+                        "total_sessions": data.get('total_sessions', 10),
+                        "start_date": data.get('start_date'),
+                        "end_date": data.get('end_date')
                     },
                     is_read=False
                 )

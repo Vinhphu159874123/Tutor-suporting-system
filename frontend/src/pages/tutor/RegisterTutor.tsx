@@ -35,6 +35,8 @@ const RegisterTutor: React.FC = () => {
     qualifications: "",
     experience_years: "",
     faculty: user?.faculty || "",
+    total_sessions: "10", // Default 10 sessions
+    start_date: "", // Start date for teaching
   });
 
   // State for availability
@@ -119,6 +121,8 @@ const RegisterTutor: React.FC = () => {
         gpa: formData.gpa ? Number(formData.gpa) : undefined,
         qualifications: formData.qualifications || undefined,
         availability: availability,
+        total_sessions: formData.total_sessions ? Number(formData.total_sessions) : 10,
+        start_date: formData.start_date || undefined,
       };
 
       await tutorsApi.registerSubject(subjectData);
@@ -214,6 +218,43 @@ const RegisterTutor: React.FC = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Ví dụ: Đã học A+, từng làm trợ giảng, có kinh nghiệm gia sư..."
             />
+          </div>
+
+          {/* Total Sessions */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Số buổi học trong khóa
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="100"
+              name="total_sessions"
+              value={formData.total_sessions}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Mặc định: 10 buổi"
+            />
+            <p className="text-sm text-gray-500 mt-1">
+              Số buổi dự kiến trong khóa học (mặc định 10 buổi)
+            </p>
+          </div>
+
+          {/* Start Date */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Ngày bắt đầu dạy (tùy chọn)
+            </label>
+            <input
+              type="date"
+              name="start_date"
+              value={formData.start_date}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-sm text-gray-500 mt-1">
+              Ngày dự kiến bắt đầu giảng dạy
+            </p>
           </div>
 
           {/* Availability Schedule */}

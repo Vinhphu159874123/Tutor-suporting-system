@@ -54,11 +54,31 @@ async def get_pending_tutor_registrations(
     
     registrations = []
     for reg, tutor, user, subject in rows:
+        # Get availability from notification data
+        notif_query = (
+            select(Notifications)
+            .where(
+                and_(
+                    Notifications.type == "subject_registration",
+                    Notifications.data['registration_id'].astext == str(reg.registration_id)
+                )
+            )
+            .order_by(Notifications.created_at.desc())
+            .limit(1)
+        )
+        notif_result = await db.execute(notif_query)
+        notification = notif_result.scalar_one_or_none()
+        
+        availability = None
+        if notification and notification.data and 'availability' in notification.data:
+            availability = notification.data['availability']
+        
         registrations.append({
             "registration_id": reg.registration_id,
             "tutor_id": reg.tutor_id,
             "tutor_name": user.full_name,
             "tutor_email": user.email,
+            "tutor_bio": tutor.bio,
             "subject_id": reg.subject_id,
             "subject_name": subject.subject_name,
             "subject_code": subject.subject_code,
@@ -67,7 +87,11 @@ async def get_pending_tutor_registrations(
             "status": reg.status,
             "registered_at": reg.registered_at,
             "responded_at": reg.responded_at,
-            "rejection_reason": reg.rejection_reason
+            "rejection_reason": reg.rejection_reason,
+            "availability": availability,
+            "total_sessions": reg.total_sessions,
+            "start_date": reg.start_date.isoformat() if reg.start_date else None,
+            "end_date": reg.end_date.isoformat() if reg.end_date else None
         })
     
     return registrations

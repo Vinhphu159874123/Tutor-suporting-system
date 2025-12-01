@@ -55,8 +55,8 @@ import OnlineSession from "./pages/session/OnlineSession";
 import LearningProgress from "./pages/session/LearningProgress";
 
 // Course pages
-import MyCourses from "./pages/courses/MyCourses";
-import CourseDetail from "./pages/courses/CourseDetail";
+import MyCourses from "./pages/course/MyCourses";
+import CourseDetail from "./pages/course/CourseDetail";
 
 // Admin pages
 import Admin from "./pages/admin/Admin";
@@ -165,8 +165,8 @@ function App() {
                     <Routes>
                       <Route path="/dashboard" element={<Dashboard />} />
                       <Route path="/profile" element={<Profile />} />
-                      <Route path="/courses" element={<MyCourses />} />
-                      <Route path="/courses/:code" element={<CourseDetail />} />
+                      <Route path="/my-courses" element={<MyCourses />} />
+                      <Route path="/my-courses/:subjectId" element={<CourseDetail />} />
                       <Route path="/sessions" element={<Sessions />} />
                       <Route path="/sessions/book" element={<BookSession />} />
                       <Route path="/sessions/:id" element={<SessionDetail />} />

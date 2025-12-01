@@ -333,6 +333,66 @@ class TutorService:
                     self.tutor_repo.db.add(avail)
         
         await self.tutor_repo.db.commit()
+
+    async def _save_session_schedule(self, tutor_id: int, subject_id: int, availability: dict, subject_name: str):
+        """Save session schedule for specific subject"""
+        from app.models.database import SessionSchedule
+        from datetime import time, date
+        from sqlalchemy import delete
+        
+        # Map day names to numbers
+        day_map = {
+            'monday': 0, 'tuesday': 1, 'wednesday': 2, 'thursday': 3,
+            'friday': 4, 'saturday': 5, 'sunday': 6
+        }
+        
+        # Delete existing schedules for this tutor + subject
+        await self.tutor_repo.db.execute(
+            delete(SessionSchedule).where(
+                SessionSchedule.tutor_id == tutor_id,
+                SessionSchedule.subject_id == subject_id
+            )
+        )
+        
+        # Insert new schedules
+        for day_name, time_slots in availability.items():
+            day_num = day_map.get(day_name.lower())
+            if day_num is None:
+                continue
+                
+            for time_slot in time_slots:
+                # Parse time slot (format: "07:00-09:00" or "7:00 - 9:00")
+                time_slot = time_slot.replace(' ', '')
+                if '-' in time_slot:
+                    start_str, end_str = time_slot.split('-')
+                    start_hour, start_min = map(int, start_str.split(':'))
+                    end_hour, end_min = map(int, end_str.split(':'))
+                    
+                    # Calculate duration in hours
+                    duration_hours = (end_hour * 60 + end_min - start_hour * 60 - start_min) // 60
+                    if duration_hours < 1:
+                        duration_hours = 1
+                    
+                    schedule = SessionSchedule(
+                        tutor_id=tutor_id,
+                        subject_id=subject_id,
+                        title=f"Tutoring Session - {subject_name}",
+                        description=f"Weekly tutoring session for {subject_name}",
+                        is_recurring=True,
+                        recurrence_pattern='weekly',
+                        day_of_week=day_num,
+                        start_time=time(start_hour, start_min),
+                        end_time=time(end_hour, end_min),
+                        duration=duration_hours,
+                        location_type='online',
+                        max_students=5,
+                        valid_from=date.today(),
+                        valid_until=None,  # No end date
+                        is_active=True
+                    )
+                    self.tutor_repo.db.add(schedule)
+        
+        await self.tutor_repo.db.commit()
     
     async def register_subject(
         self, 
@@ -385,7 +445,9 @@ class TutorService:
             subject_id=registration_data.subject_id,
             gpa=registration_data.gpa,
             qualifications=registration_data.qualifications,
-            status='pending'
+            status='pending',
+            total_sessions=registration_data.total_sessions,
+            start_date=registration_data.start_date
         )
         
         self.tutor_repo.db.add(new_registration)
@@ -395,7 +457,10 @@ class TutorService:
         # Save availability for this subject if provided
         availability_data = registration_data.availability
         if availability_data:
+            # Save to TutorAvailability (general availability)
             await self._save_tutor_availability(tutor.tutor_id, availability_data)
+            # Save to SessionSchedule (schedule for this specific subject)
+            await self._save_session_schedule(tutor.tutor_id, registration_data.subject_id, availability_data, subject.subject_name)
         
         # Get user info for event
         user = await self.user_repo.get_by_id(user_id)
@@ -410,8 +475,13 @@ class TutorService:
             "subject_code": subject.subject_code,
             "full_name": user.full_name if user else "Unknown",
             "email": user.email if user else "",
+            "bio": tutor.bio,
             "gpa": float(registration_data.gpa) if registration_data.gpa else None,
-            "qualifications": registration_data.qualifications
+            "qualifications": registration_data.qualifications,
+            "availability": availability_data if availability_data else {},
+            "total_sessions": new_registration.total_sessions,
+            "start_date": new_registration.start_date.isoformat() if new_registration.start_date else None,
+            "end_date": new_registration.end_date.isoformat() if new_registration.end_date else None
         })
         
         # Build response
@@ -426,6 +496,9 @@ class TutorService:
             rejection_reason=new_registration.rejection_reason,
             registered_at=new_registration.registered_at,
             responded_at=new_registration.responded_at,
+            total_sessions=new_registration.total_sessions,
+            start_date=new_registration.start_date,
+            end_date=new_registration.end_date,
             subject_name=subject.subject_name,
             subject_code=subject.subject_code
         )

@@ -135,6 +135,35 @@ class SessionResponse(SessionBase):
     subject_name: Optional[str] = None
     subject_code: Optional[str] = None
     
+    # Computed field for frontend display - combines date and time
+    @computed_field
+    @property
+    def start_datetime(self) -> Optional[datetime]:
+        """Combined start datetime for frontend"""
+        if self.scheduled_date and self.start_time:
+            return datetime.combine(self.scheduled_date, self.start_time)
+        return self.actual_start
+    
+    @computed_field
+    @property
+    def end_datetime(self) -> Optional[datetime]:
+        """Combined end datetime for frontend"""
+        if self.scheduled_date and self.end_time:
+            return datetime.combine(self.scheduled_date, self.end_time)
+        return self.actual_end
+    
+    # Display location - returns meeting link or physical address
+    @computed_field
+    @property
+    def location(self) -> str:
+        """Display location based on type"""
+        if self.location_type == LocationType.ONLINE:
+            return self.meeting_link or "Online"
+        elif self.location_type == LocationType.OFFLINE:
+            return self.physical_address or "TBA"
+        else:  # hybrid
+            return f"{self.physical_address or 'TBA'} / {self.meeting_link or 'Online'}"
+    
     class Config:
         from_attributes = True
 

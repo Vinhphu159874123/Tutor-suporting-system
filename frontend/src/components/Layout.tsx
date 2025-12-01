@@ -64,7 +64,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   // Navigation for Students and Tutors (default)
   const defaultNavigation = [
     { name: "Dashboard", href: "/dashboard", icon: <LayoutDashboard size={20} /> },
-    { name: "Các khóa học của tôi", href: "/courses", icon: <BookOpen size={20} /> },
+    { name: "Môn học của tôi", href: "/my-courses", icon: <BookOpen size={20} /> },
     { name: "Sessions", href: "/sessions", icon: <Calendar size={20} /> },
     { name: "Scheduling", href: "/scheduling", icon: <Clock size={20} /> },
     { name: "Tutors", href: "/tutors", icon: <GraduationCap size={20} /> },
@@ -76,6 +76,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   // Navigation for Tutors (with session requests)
   const tutorNavigation = [
     { name: "Dashboard", href: "/dashboard", icon: <LayoutDashboard size={20} /> },
+    { name: "Môn học tôi dạy", href: "/my-courses", icon: <BookOpen size={20} /> },
     { name: "Yêu cầu đặt lịch", href: "/tutors/requests", icon: <Calendar size={20} /> },
     { name: "Sessions", href: "/sessions", icon: <Calendar size={20} /> },
     { name: "Scheduling", href: "/scheduling", icon: <Clock size={20} /> },
