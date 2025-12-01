@@ -2,7 +2,13 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import apiClient from "../../services/api";
-import { ArrowLeft, Calendar, Clock, User } from "lucide-react";
+import { ArrowLeft, Calendar, Clock } from "lucide-react";
+
+interface Subject {
+  subject_id: number;
+  subject_code: string;
+  subject_name: string;
+}
 
 const BookSession: React.FC = () => {
   const navigate = useNavigate();
@@ -12,6 +18,7 @@ const BookSession: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [tutor, setTutor] = useState<any>(null);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [formData, setFormData] = useState({
     subject_id: "",
     session_date: "",
@@ -22,27 +29,42 @@ const BookSession: React.FC = () => {
   });
 
   useEffect(() => {
-    // Fetch tutor info
-    const fetchTutor = async () => {
+    // Fetch tutor info and subjects
+    const fetchData = async () => {
       if (!tutorId) return;
       try {
-        const response = await apiClient.get(`/api/v1/tutors/${tutorId}`);
-        setTutor(response.data);
+        const [tutorRes, subjectsRes] = await Promise.all([
+          apiClient.get(`/api/v1/tutors/${tutorId}`),
+          apiClient.get('/api/v1/courses/subjects')
+        ]);
+        setTutor(tutorRes.data);
+        setSubjects(subjectsRes.data);
       } catch (error) {
-        console.error("Error fetching tutor:", error);
+        console.error("Error fetching data:", error);
+        toast.error("Không thể tải thông tin");
       }
     };
-    fetchTutor();
+    fetchData();
 
     // Parse slot if provided (format: "Day-TimeRange")
     if (slot) {
-      const [day, timeRange] = slot.split("-");
-      const [start, end] = timeRange.split("-");
-      setFormData((prev) => ({
-        ...prev,
-        start_time: start || "",
-        end_time: end || "",
-      }));
+      try {
+        const decodedSlot = decodeURIComponent(slot);
+        const parts = decodedSlot.split("-");
+        if (parts.length >= 2) {
+          const timeRange = parts[parts.length - 1];
+          const times = timeRange.split(/\s*-\s*/);
+          if (times.length === 2) {
+            setFormData((prev) => ({
+              ...prev,
+              start_time: times[0].trim(),
+              end_time: times[1].trim(),
+            }));
+          }
+        }
+      } catch (error) {
+        console.error("Error parsing slot:", error);
+      }
     }
   }, [tutorId, slot]);
 
@@ -56,15 +78,29 @@ const BookSession: React.FC = () => {
 
     try {
       setLoading(true);
+      
+      // Calculate duration in hours
+      const startHour = parseInt(formData.start_time.split(':')[0]);
+      const endHour = parseInt(formData.end_time.split(':')[0]);
+      const duration = endHour - startHour;
+      
       await apiClient.post("/api/v1/sessions/", {
         tutor_id: parseInt(tutorId || "0"),
         subject_id: parseInt(formData.subject_id),
-        session_date: formData.session_date,
-        start_time: formData.start_time,
-        end_time: formData.end_time,
-        location: formData.location,
-        notes: formData.notes,
+        student_ids: [], // Backend will auto-add current user
+        title: `Buổi học ${subjects.find(s => s.subject_id === parseInt(formData.subject_id))?.subject_name || 'môn học'}`,
+        description: formData.notes,
+        scheduled_date: formData.session_date,
+        start_time: formData.start_time + ":00", // Add seconds
+        end_time: formData.end_time + ":00",
+        duration: Math.max(1, Math.min(4, duration)), // 1-4 hours
+        location_type: formData.location.toLowerCase().includes('online') ? 'online' : 'offline',
+        meeting_link: formData.location.toLowerCase().includes('online') ? formData.location : null,
+        physical_address: !formData.location.toLowerCase().includes('online') ? formData.location : null,
+        max_students: 1,
+        status: "published"
       });
+      
       toast.success("Đặt lịch học thành công!");
       navigate("/sessions");
     } catch (error: any) {
@@ -135,9 +171,9 @@ const BookSession: React.FC = () => {
                 required
               >
                 <option value="">-- Chọn môn học --</option>
-                {(tutor?.subjects || []).map((subject: string, index: number) => (
-                  <option key={index} value={index + 1}>
-                    {subject}
+                {subjects.map((subject) => (
+                  <option key={subject.subject_id} value={subject.subject_id}>
+                    {subject.subject_code} - {subject.subject_name}
                   </option>
                 ))}
               </select>

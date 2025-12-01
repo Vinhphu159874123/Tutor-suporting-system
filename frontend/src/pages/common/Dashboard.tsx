@@ -139,7 +139,10 @@ const Dashboard: React.FC = () => {
           Hành động nhanh
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors">
+          <button 
+            onClick={() => navigate("/scheduling")}
+            className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
+          >
             <div className="text-2xl mr-3">
               <PlusCircle className="w-7 h-7 text-blue-600" />
             </div>

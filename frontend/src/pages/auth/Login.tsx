@@ -32,7 +32,7 @@ const Login: React.FC = () => {
           navigate('/admin');
           break;
         case 'coordinator':
-          navigate('/coordinator/dashboard');
+          navigate('/coor');
           break;
         case 'tutor':
           navigate('/dashboard'); // Can create separate tutor dashboard later

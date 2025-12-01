@@ -66,7 +66,7 @@ export const authApi = {
     formData.append("username", email);
     formData.append("password", password);
 
-    return apiClient.post("/auth/login", formData, {
+    return apiClient.post("/api/v1/auth/login", formData, {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
@@ -77,7 +77,7 @@ export const authApi = {
     if (MOCK_MODE) {
       return mockResponse({ message: "Registration successful" });
     }
-    return apiClient.post("/auth/register", userData);
+    return apiClient.post("/api/v1/auth/register", userData);
   },
 
   getProfile: (token?: string) => {
@@ -95,21 +95,21 @@ export const authApi = {
     const config = token
       ? { headers: { Authorization: `Bearer ${token}` } }
       : {};
-    return apiClient.get("/auth/me", config);
+    return apiClient.get("/api/v1/auth/me", config);
   },
 
   logout: () => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Logged out" });
     }
-    return apiClient.post("/auth/logout");
+    return apiClient.post("/api/v1/auth/logout");
   },
 
   refreshToken: () => {
     if (MOCK_MODE) {
       return mockResponse({ access_token: "new-mock-token" });
     }
-    return apiClient.post("/auth/refresh-token");
+    return apiClient.post("/api/v1/auth/refresh-token");
   },
 };
 
@@ -124,14 +124,14 @@ export const usersApi = {
         role: "student",
       });
     }
-    return apiClient.get("/users/profile");
+    return apiClient.get("/api/v1/users/profile");
   },
 
   updateProfile: (userData: any) => {
     if (MOCK_MODE) {
       return mockResponse({ ...userData, message: "Profile updated" });
     }
-    return apiClient.put("/users/profile", userData);
+    return apiClient.put("/api/v1/users/profile", userData);
   },
 
   getUsers: (params?: any) => {
@@ -151,7 +151,7 @@ export const usersApi = {
         },
       ]);
     }
-    return apiClient.get("/users", { params });
+    return apiClient.get("/api/v1/users", { params });
   },
 
   getUser: (userId: number) => {
@@ -163,14 +163,14 @@ export const usersApi = {
         role: "student",
       });
     }
-    return apiClient.get(`/users/${userId}`);
+    return apiClient.get(`/api/v1/users/${userId}`);
   },
 
   deleteUser: (userId: number) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "User deleted" });
     }
-    return apiClient.delete(`/users/${userId}`);
+    return apiClient.delete(`/api/v1/users/${userId}`);
   },
 
   getDashboardStats: () => {
@@ -182,7 +182,7 @@ export const usersApi = {
         average_rating: 4.8
       });
     }
-    return apiClient.get("/users/stats/dashboard");
+    return apiClient.get("/api/v1/users/stats/dashboard");
   },
 
   getCoordinatorStats: () => {
@@ -194,7 +194,7 @@ export const usersApi = {
         average_rating: 4.8
       });
     }
-    return apiClient.get("/users/stats/coordinator");
+    return apiClient.get("/api/v1/users/stats/coordinator");
   },
 };
 
@@ -217,7 +217,7 @@ export const tutorsApi = {
         },
       ]);
     }
-    return apiClient.get("/tutors", { params });
+    return apiClient.get("/api/v1/tutors", { params });
   },
 
   getTutor: (tutorId: number) => {
@@ -229,14 +229,14 @@ export const tutorsApi = {
   },
 
   getMyTutorProfile: () => {
-    return apiClient.get("/tutors/me");
+    return apiClient.get("/api/v1/tutors/me");
   },
 
   registerTutor: (data: any) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Tutor registered" });
     }
-    return apiClient.post("/tutors/register", data);
+    return apiClient.post("/api/v1/tutors/register", data);
   },
 
   updateTutor: (tutorId: number, data: any) => {
@@ -254,14 +254,14 @@ export const tutorsApi = {
         },
       ]);
     }
-    return apiClient.get("/tutors/sessions", { params });
+    return apiClient.get("/api/v1/tutors/sessions", { params });
   },
 
   setAvailability: (data: any) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Availability set" });
     }
-    return apiClient.post("/tutors/availability", data);
+    return apiClient.post("/api/v1/tutors/availability", data);
   },
 
   registerSubject: (data: any) => {
@@ -272,7 +272,7 @@ export const tutorsApi = {
         message: "Subject registration submitted" 
       });
     }
-    return apiClient.post("/tutors/register-subject", data);
+    return apiClient.post("/api/v1/tutors/register-subject", data);
   },
 };
 
@@ -288,14 +288,14 @@ export const studentsApi = {
         },
       ]);
     }
-    return apiClient.get("/students");
+    return apiClient.get("/api/v1/students");
   },
 
   registerStudent: (data: any) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Student registered" });
     }
-    return apiClient.post("/students/register", data);
+    return apiClient.post("/api/v1/students/register", data);
   },
 
   getStudentSessions: () => {
@@ -309,14 +309,14 @@ export const studentsApi = {
         },
       ]);
     }
-    return apiClient.get("/students/sessions");
+    return apiClient.get("/api/v1/students/sessions");
   },
 
   submitFeedback: (data: any) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Feedback submitted" });
     }
-    return apiClient.post("/students/feedback", data);
+    return apiClient.post("/api/v1/students/feedback", data);
   },
 };
 
@@ -341,7 +341,7 @@ export const sessionsApi = {
         },
       ]);
     }
-    return apiClient.get("/sessions", { params });
+    return apiClient.get("/api/v1/sessions", { params });
   },
 
   createSession: (data: any) => {
@@ -352,7 +352,7 @@ export const sessionsApi = {
         message: "Session created",
       });
     }
-    return apiClient.post("/sessions", data);
+    return apiClient.post("/api/v1/sessions", data);
   },
 
   getSession: (sessionId: number) => {
@@ -442,7 +442,7 @@ export const schedulingApi = {
         ...data,
       });
     }
-    return apiClient.post("/scheduling/availability", data);
+    return apiClient.post("/api/v1/scheduling/availability", data);
   },
 
   updateAvailability: (availabilityId: number, data: any) => {
@@ -471,7 +471,7 @@ export const schedulingApi = {
         ],
       });
     }
-    return apiClient.post("/scheduling/find-slots", data);
+    return apiClient.post("/api/v1/scheduling/find-slots", data);
   },
 
   scheduleSession: (data: any) => {
@@ -482,7 +482,7 @@ export const schedulingApi = {
         message: "Session scheduled",
       });
     }
-    return apiClient.post("/scheduling/sessions", data);
+    return apiClient.post("/api/v1/scheduling/sessions", data);
   },
 
   rescheduleSession: (sessionId: number, data: any) => {
@@ -509,28 +509,28 @@ export const reportsApi = {
     if (MOCK_MODE) {
       return mockResponse({ reports: [] });
     }
-    return apiClient.get("/reports/courses", { params });
+    return apiClient.get("/api/v1/reports/courses", { params });
   },
 
   getAcademicReports: (params?: any) => {
     if (MOCK_MODE) {
       return mockResponse({ reports: [] });
     }
-    return apiClient.get("/reports/academic", { params });
+    return apiClient.get("/api/v1/reports/academic", { params });
   },
 
   getTutorActivityReports: (params?: any) => {
     if (MOCK_MODE) {
       return mockResponse({ reports: [] });
     }
-    return apiClient.get("/reports/tutor-activities", { params });
+    return apiClient.get("/api/v1/reports/tutor-activities", { params });
   },
 
   generateReport: (data: any) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Report generated" });
     }
-    return apiClient.post("/reports/generate", data);
+    return apiClient.post("/api/v1/reports/generate", data);
   },
 };
 
@@ -543,7 +543,7 @@ export const adminApi = {
         { user_id: 2, email: "user2@example.com", role: "tutor" },
       ]);
     }
-    return apiClient.get("/admin/users", { params });
+    return apiClient.get("/api/v1/admin/users", { params });
   },
 
   getAdminStats: () => {
@@ -556,7 +556,7 @@ export const adminApi = {
         average_rating: 4.8
       });
     }
-    return apiClient.get("/admin/stats");
+    return apiClient.get("/api/v1/admin/stats");
   },
 
   updateUserRole: (userId: number, data: any) => {
@@ -570,7 +570,7 @@ export const adminApi = {
     if (MOCK_MODE) {
       return mockResponse([]);
     }
-    return apiClient.get("/admin/registrations");
+    return apiClient.get("/api/v1/admin/registrations");
   },
 
   approveRegistration: (registrationId: number) => {
@@ -598,21 +598,21 @@ export const notificationsApi = {
         }
       ]);
     }
-    return apiClient.get("/notifications", { params });
+    return apiClient.get("/api/v1/notifications", { params });
   },
 
   getUnreadCount: () => {
     if (MOCK_MODE) {
       return mockResponse({ unread_count: 5 });
     }
-    return apiClient.get("/notifications/unread-count");
+    return apiClient.get("/api/v1/notifications/unread-count");
   },
 
   markAsRead: (notificationId: number) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Marked as read" });
     }
-    return apiClient.put(`/notifications/${notificationId}/read`);
+    return apiClient.put(`/api/v1/notifications/${notificationId}/read`);
   },
 };
 
@@ -622,14 +622,14 @@ export const forumApi = {
     if (MOCK_MODE) {
       return mockResponse([]);
     }
-    return apiClient.get("/forum");
+    return apiClient.get("/api/v1/forum");
   },
 
   createForum: (data: any) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Forum created" });
     }
-    return apiClient.post("/forum", data);
+    return apiClient.post("/api/v1/forum", data);
   },
 
   getForumPosts: (forumId: number) => {
@@ -650,7 +650,7 @@ export const forumApi = {
     if (MOCK_MODE) {
       return mockResponse({ message: "Study group created" });
     }
-    return apiClient.post("/forum/study-groups", data);
+    return apiClient.post("/api/v1/forum/study-groups", data);
   },
 };
 
@@ -666,7 +666,7 @@ export const coursesApi = {
         }
       ]);
     }
-    return apiClient.get("/courses/my-courses");
+    return apiClient.get("/api/v1/courses/my-courses");
   },
 
   getCourseInfo: (courseCode: string) => {
@@ -677,7 +677,7 @@ export const coursesApi = {
         credits: 4
       });
     }
-    return apiClient.get(`/courses/${courseCode}`);
+    return apiClient.get(`/api/v1/courses/${courseCode}`);
   },
 
   getAllSubjects: () => {
@@ -688,7 +688,7 @@ export const coursesApi = {
         { subject_id: 3, subject_code: "CO1001", subject_name: "Nhập môn lập trình", department: "KHMT", credits: 4 },
       ]);
     }
-    return apiClient.get("/courses/subjects");
+    return apiClient.get("/api/v1/courses/subjects");
   },
 };
 
@@ -696,7 +696,7 @@ export const coursesApi = {
 export const coordinatorApi = {
   // Tutor Registration Approval
   getTutorRegistrations: (status: string = "pending", skip: number = 0, limit: number = 50) => {
-    return apiClient.get("/coordinator/tutor-registrations", {
+    return apiClient.get("/api/v1/coordinator/tutor-registrations", {
       params: { status_filter: status, skip, limit }
     });
   },
@@ -713,7 +713,7 @@ export const coordinatorApi = {
 
   // Session Approval
   getPendingSessions: (skip: number = 0, limit: number = 50) => {
-    return apiClient.get("/coordinator/sessions/pending", {
+    return apiClient.get("/api/v1/coordinator/sessions/pending", {
       params: { skip, limit }
     });
   },

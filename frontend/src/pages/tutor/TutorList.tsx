@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle, Star } from 'lucide-react';
-import { tutorsApi } from '../../services/api';
+import { tutorsApi, coursesApi } from '../../services/api';
 import { toast } from 'react-toastify';
 import { AxiosResponse } from 'axios';
 
@@ -18,21 +18,32 @@ interface Tutor {
   avatar_url?: string;
 }
 
+interface Subject {
+  subject_id: number;
+  subject_code: string;
+  subject_name: string;
+}
+
 const TutorList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [minRating, setMinRating] = useState(0);
   const [tutors, setTutors] = useState<Tutor[]>([]);
+  const [allTutors, setAllTutors] = useState<Tutor[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchTutors = async () => {
+    const fetchData = async () => {
       try {
-        const response = await tutorsApi.getTutors({
-          subject: selectedSubject !== 'all' ? selectedSubject : undefined,
-          min_rating: minRating > 0 ? minRating : undefined 
-        }) as AxiosResponse<any>;
-        setTutors(response.data);
+        // Fetch subjects
+        const subjectsResponse = await coursesApi.getAllSubjects() as AxiosResponse<any>;
+        setSubjects(subjectsResponse.data || []);
+
+        // Fetch all tutors
+        const tutorsResponse = await tutorsApi.getTutors({}) as AxiosResponse<any>;
+        setAllTutors(tutorsResponse.data || []);
+        setTutors(tutorsResponse.data || []);
       } catch (error: any) {
         toast.error('Không thể tải danh sách gia sư');
         console.error(error);
@@ -41,17 +52,35 @@ const TutorList: React.FC = () => {
       }
     };
 
-    fetchTutors();
-  }, [selectedSubject, minRating]);
+    fetchData();
+  }, []);
 
-  const allSubjects = Array.from(new Set(tutors.flatMap(t => t.subjects || [])));
+  // Apply filters whenever filter values change
+  useEffect(() => {
+    let filtered = [...allTutors];
 
-  const filteredTutors = tutors.filter(tutor => {
-    const matchesSearch = tutor.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (tutor.subjects || []).some(s => s.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    return matchesSearch;
-  });
+    // Filter by subject
+    if (selectedSubject !== 'all') {
+      filtered = filtered.filter(tutor => 
+        (tutor.subjects || []).includes(selectedSubject)
+      );
+    }
+
+    // Filter by rating
+    if (minRating > 0) {
+      filtered = filtered.filter(tutor => tutor.rating >= minRating);
+    }
+
+    // Filter by search term
+    if (searchTerm.trim()) {
+      filtered = filtered.filter(tutor => 
+        tutor.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (tutor.subjects || []).some(s => s.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+
+    setTutors(filtered);
+  }, [selectedSubject, minRating, searchTerm, allTutors]);
 
   return (
     <div className="space-y-6">
@@ -100,8 +129,10 @@ const TutorList: React.FC = () => {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">Tất cả môn học</option>
-              {allSubjects.map(subject => (
-                <option key={subject} value={subject}>{subject}</option>
+              {subjects.map((subject: Subject) => (
+                <option key={subject.subject_id} value={subject.subject_name}>
+                  {subject.subject_code} - {subject.subject_name}
+                </option>
               ))}
             </select>
           </div>
@@ -125,13 +156,13 @@ const TutorList: React.FC = () => {
         </div>
 
         <div className="mt-4 text-sm text-gray-600">
-          Tìm thấy <span className="font-semibold text-blue-600">{filteredTutors.length}</span> gia sư
+          Tìm thấy <span className="font-semibold text-blue-600">{tutors.length}</span> gia sư
         </div>
       </div>
 
       {/* Tutor Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredTutors.map(tutor => (
+        {tutors.map((tutor: Tutor) => (
           <div key={tutor.tutor_id} className="card hover:shadow-lg transition-shadow">
             {/* Avatar */}
             <div className="flex items-center mb-4">
@@ -159,8 +190,8 @@ const TutorList: React.FC = () => {
             <div className="mb-3">
               <p className="text-sm font-medium text-gray-700 mb-2">Môn dạy:</p>
               <div className="flex flex-wrap gap-2">
-                {(tutor.subjects || []).slice(0, 3).map(subject => (
-                  <span key={subject} className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+                {(tutor.subjects || []).slice(0, 3).map((subject: string, idx: number) => (
+                  <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
                     {subject}
                   </span>
                 ))}
@@ -195,7 +226,7 @@ const TutorList: React.FC = () => {
       </div>
 
       {/* Empty State */}
-      {filteredTutors.length === 0 && (
+      {tutors.length === 0 && !loading && (
         <div className="card text-center py-12">
           <div className="text-6xl mb-4">🔍</div>
           <h3 className="text-xl font-bold text-gray-900 mb-2">

@@ -4,6 +4,7 @@ Database operations for User model
 """
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete
+from sqlalchemy.orm import joinedload
 from typing import Optional, List
 from app.models.database import User
 
@@ -21,11 +22,13 @@ class UserRepository:
         return result.scalar_one_or_none()
     
     async def get_by_email(self, email: str) -> Optional[User]:
-        """Get user by email"""
+        """Get user by email with student and tutor relationships loaded"""
         result = await self.db.execute(
-            select(User).where(User.email == email)
+            select(User)
+            .options(joinedload(User.student), joinedload(User.tutor))
+            .where(User.email == email)
         )
-        return result.scalar_one_or_none()
+        return result.unique().scalar_one_or_none()
     
     async def get_all(
         self, 

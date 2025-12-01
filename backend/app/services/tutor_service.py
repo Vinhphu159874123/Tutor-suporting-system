@@ -72,7 +72,12 @@ class TutorService:
         subject: Optional[str] = None,
         min_rating: Optional[float] = None
     ) -> List[TutorResponse]:
-        """Get all tutors with filters - PLACEHOLDER"""
+        """Get all tutors with filters - Optimized with JOINs"""
+        from sqlalchemy import select, and_
+        from sqlalchemy.orm import selectinload
+        from app.models.database import TutorRegistration, Subject, User, Tutor
+        
+        # Get tutors first
         tutors = await self.tutor_repo.get_all(
             skip=skip,
             limit=limit,
@@ -80,16 +85,55 @@ class TutorService:
             min_rating=min_rating
         )
         
-        # Convert to response DTOs with user data
+        if not tutors:
+            return []
+        
+        # Get tutor IDs and user IDs
+        tutor_ids = [t.tutor_id for t in tutors]
+        user_ids = [t.user_id for t in tutors]
+        
+        # Batch fetch users
+        users_query = select(User).where(User.user_id.in_(user_ids))
+        users_result = await self.tutor_repo.db.execute(users_query)
+        users = users_result.scalars().all()
+        user_map = {u.user_id: u for u in users}
+        
+        # Batch fetch tutor registrations with subjects using JOIN
+        registrations_query = select(
+            TutorRegistration, Subject
+        ).join(
+            Subject, TutorRegistration.subject_id == Subject.subject_id
+        ).where(
+            and_(
+                TutorRegistration.tutor_id.in_(tutor_ids),
+                TutorRegistration.status == 'approved'
+            )
+        )
+        registrations_result = await self.tutor_repo.db.execute(registrations_query)
+        registrations = registrations_result.all()
+        
+        # Group subjects by tutor_id
+        tutor_subjects_map = {}
+        for reg, subject in registrations:
+            if reg.tutor_id not in tutor_subjects_map:
+                tutor_subjects_map[reg.tutor_id] = []
+            tutor_subjects_map[reg.tutor_id].append(subject.subject_name)
+        
+        # Build responses
         responses = []
         for tutor in tutors:
-            user = await self.user_repo.get_by_id(tutor.user_id)
             response = TutorResponse.model_validate(tutor)
+            
+            # Add user data
+            user = user_map.get(tutor.user_id)
             if user:
                 response.full_name = user.full_name
                 response.email = user.email
                 response.phone = user.phone
                 response.avatar_url = user.avatar_url
+            
+            # Add subjects
+            response.subjects = tutor_subjects_map.get(tutor.tutor_id, [])
             responses.append(response)
         
         return responses

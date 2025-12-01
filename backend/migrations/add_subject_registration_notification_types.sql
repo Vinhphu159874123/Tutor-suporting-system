@@ -1,5 +1,5 @@
--- Add new notification types for subject registration
--- Run this migration to add subject_registration and subject_registration_submitted types
+-- Add new notification types for subject registration and session booking
+-- Run this migration to add new notification types
 
 -- Drop the existing check constraint
 ALTER TABLE tutor_system.notifications 
@@ -12,6 +12,9 @@ CHECK (type::text = ANY (ARRAY[
     'session_created'::character varying,
     'session_updated'::character varying,
     'session_cancelled'::character varying,
+    'session_booked'::character varying,
+    'session_confirmed'::character varying,
+    'session_rejected'::character varying,
     'registration_approved'::character varying,
     'registration_rejected'::character varying,
     'feedback_received'::character varying,
