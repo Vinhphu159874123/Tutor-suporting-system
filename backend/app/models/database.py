@@ -364,6 +364,10 @@ class TutorRegistration(Base):
     rejection_reason = Column(Text, nullable=True)
     registered_at = Column(DateTime(timezone=True), server_default=func.now())
     responded_at = Column(DateTime(timezone=True), nullable=True)
+    # Course schedule fields
+    total_sessions = Column(Integer, default=10, nullable=False)  # Số buổi học (mặc định 10)
+    start_date = Column(Date, nullable=True)  # Ngày bắt đầu dạy
+    end_date = Column(Date, nullable=True)  # Ngày kết thúc dự kiến
     
     # Relationships
     tutor = relationship("Tutor", back_populates="registrations")

@@ -54,8 +54,10 @@ async def get_my_courses(
                 
                 courses = [
                     {
-                        "code": subject.subject_code or subject.subject_id,
-                        "name": subject.subject_name,
+                        "subject_id": subject.subject_id,
+                        "subject_code": subject.subject_code,
+                        "subject_name": subject.subject_name,
+                        "department": subject.department,
                         "credits": subject.credits or 4
                     }
                     for subject in subjects
@@ -63,29 +65,53 @@ async def get_my_courses(
         
         elif current_user.role == 'tutor':
             # Get tutor record
-            from app.models.database import Tutor, Session
+            from app.models.database import Tutor, Session, TutorRegistration
             tutor_result = await db.execute(
                 select(Tutor).where(Tutor.user_id == current_user.user_id)
             )
             tutor = tutor_result.scalar_one_or_none()
             
             if tutor:
-                # Get distinct subjects from sessions tutor teaches
-                subjects_result = await db.execute(
+                # Get subjects from both:
+                # 1. Approved registrations (subjects tutor is approved to teach)
+                # 2. Active sessions (subjects tutor is currently teaching)
+                
+                # Get subjects from approved registrations
+                registered_subjects_result = await db.execute(
+                    select(Subject)
+                    .join(TutorRegistration, Subject.subject_id == TutorRegistration.subject_id)
+                    .where(
+                        TutorRegistration.tutor_id == tutor.tutor_id,
+                        TutorRegistration.status == 'approved'
+                    )
+                    .distinct()
+                )
+                registered_subjects = registered_subjects_result.scalars().all()
+                
+                # Get subjects from active sessions
+                session_subjects_result = await db.execute(
                     select(Subject)
                     .join(Session, Subject.subject_id == Session.subject_id)
                     .where(Session.tutor_id == tutor.tutor_id)
                     .distinct()
                 )
-                subjects = subjects_result.scalars().all()
+                session_subjects = session_subjects_result.scalars().all()
+                
+                # Merge both lists (remove duplicates by subject_id)
+                subject_dict = {}
+                for subject in registered_subjects + session_subjects:
+                    if subject.subject_id not in subject_dict:
+                        subject_dict[subject.subject_id] = subject
                 
                 courses = [
                     {
-                        "code": subject.subject_code or subject.subject_id,
-                        "name": subject.subject_name,
+                        "subject_id": subject.subject_id,
+                        "subject_code": subject.subject_code,
+                        "subject_name": subject.subject_name,
+                        "department": subject.department,
                         "credits": subject.credits or 4
                     }
-                    for subject in subjects
+                    for subject in subject_dict.values()
                 ]
         
         return courses
@@ -146,4 +172,38 @@ async def get_subjects(
         }
         for subject in subjects
     ]
+
+
+@router.get("/subjects/{subject_id}")
+async def get_subject_by_id(
+    subject_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """Get subject details by ID"""
+    
+    result = await db.execute(
+        select(Subject).where(Subject.subject_id == subject_id)
+    )
+    subject = result.scalar_one_or_none()
+    
+    if not subject:
+        raise HTTPException(status_code=404, detail="Subject not found")
+    
+    # Count sessions for this subject
+    from app.models.database import Session
+    session_count_result = await db.execute(
+        select(Session).where(Session.subject_id == subject_id)
+    )
+    sessions = session_count_result.scalars().all()
+    
+    return {
+        "subject_id": subject.subject_id,
+        "subject_code": subject.subject_code,
+        "subject_name": subject.subject_name,
+        "department": subject.department,
+        "credits": subject.credits,
+        "description": subject.description,
+        "session_count": len(sessions)
+    }
 

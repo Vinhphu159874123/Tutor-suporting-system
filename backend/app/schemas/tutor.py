@@ -3,7 +3,7 @@ Tutor Schemas - Request/Response DTOs
 """
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal
 
 
@@ -60,6 +60,8 @@ class TutorRegistrationCreate(BaseModel):
     gpa: Optional[Decimal] = Field(None, ge=0, le=4.0, description="GPA for this subject (0-4.0)")
     qualifications: Optional[str] = Field(None, description="Teaching qualifications and experience for this subject")
     availability: Optional[Dict[str, list[str]]] = Field(default={}, description="Weekly availability slots for this subject")
+    total_sessions: int = Field(default=10, ge=1, le=100, description="Total number of sessions (default 10)")
+    start_date: Optional[date] = Field(None, description="Start date for teaching")
 
 
 class TutorRegistrationResponse(BaseModel):
@@ -74,6 +76,9 @@ class TutorRegistrationResponse(BaseModel):
     rejection_reason: Optional[str]
     registered_at: datetime
     responded_at: Optional[datetime]
+    total_sessions: int = 10
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
     
     # Joined data
     subject_name: Optional[str] = None

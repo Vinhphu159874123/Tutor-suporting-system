@@ -102,3 +102,58 @@ async def mark_notification_as_read(
     await db.commit()
     
     return {"message": "Marked as read"}
+
+
+@router.put("/mark-all-read")
+async def mark_all_as_read(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Mark all notifications as read"""
+    
+    # Update all unread notifications
+    result = await db.execute(
+        select(Notifications).where(
+            and_(
+                Notifications.user_id == current_user.user_id,
+                Notifications.is_read == False
+            )
+        )
+    )
+    notifications = result.scalars().all()
+    
+    for notification in notifications:
+        notification.is_read = True
+    
+    await db.commit()
+    
+    return {"message": f"Marked {len(notifications)} notifications as read"}
+
+
+@router.delete("/delete-read")
+async def delete_read_notifications(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete all read notifications"""
+    
+    # Get all read notifications
+    result = await db.execute(
+        select(Notifications).where(
+            and_(
+                Notifications.user_id == current_user.user_id,
+                Notifications.is_read == True
+            )
+        )
+    )
+    notifications = result.scalars().all()
+    
+    count = len(notifications)
+    
+    # Delete them
+    for notification in notifications:
+        await db.delete(notification)
+    
+    await db.commit()
+    
+    return {"message": f"Deleted {count} read notifications"}

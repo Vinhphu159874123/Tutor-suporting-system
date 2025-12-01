@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
+import { Clock } from "lucide-react";
 import { coordinatorApi } from "../../services/api";
 
 interface RegistrationRequest {
@@ -8,6 +9,7 @@ interface RegistrationRequest {
   tutor_id: number;
   tutor_name: string;
   tutor_email: string;
+  tutor_bio?: string | null;
   subject_id: number;
   subject_name: string;
   subject_code: string;
@@ -17,6 +19,12 @@ interface RegistrationRequest {
   registered_at: string;
   responded_at: string | null;
   rejection_reason: string | null;
+  availability?: {
+    [day: string]: string[];
+  };
+  total_sessions?: number;
+  start_date?: string | null;
+  end_date?: string | null;
 }
 
 const CoordinatorReview: React.FC = () => {
@@ -219,12 +227,79 @@ const CoordinatorReview: React.FC = () => {
                 </div>
               </div>
 
+              {request.tutor_bio && (
+                <div className="mb-4">
+                  <p className="text-sm text-gray-500">Giới thiệu bản thân</p>
+                  <p className="text-gray-700">{request.tutor_bio}</p>
+                </div>
+              )}
+
               {request.qualifications && (
                 <div className="mb-4">
                   <p className="text-sm text-gray-500">Trình độ/Kinh nghiệm</p>
                   <p className="text-gray-700">{request.qualifications}</p>
                 </div>
               )}
+
+              {request.availability && Object.keys(request.availability).some(day => 
+                Array.isArray(request.availability![day]) && request.availability![day].length > 0
+              ) && (
+                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Clock className="h-5 w-5 text-blue-600" />
+                    <p className="text-sm font-semibold text-blue-900">Lịch rảnh đăng ký</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {Object.entries(request.availability).map(([day, times]: [string, string[]]) => {
+                      if (!Array.isArray(times) || times.length === 0) return null;
+                      const dayNames: { [key: string]: string } = {
+                        monday: 'Thứ Hai',
+                        tuesday: 'Thứ Ba',
+                        wednesday: 'Thứ Tư',
+                        thursday: 'Thứ Năm',
+                        friday: 'Thứ Sáu',
+                        saturday: 'Thứ Bảy',
+                        sunday: 'Chủ Nhật'
+                      };
+                      return (
+                        <div key={day} className="flex items-center gap-2 text-sm">
+                          <span className="font-medium text-blue-700 min-w-[90px]">{dayNames[day]}:</span>
+                          <span className="text-gray-900">{times.join(', ')}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Course Schedule Information */}
+              <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-sm font-semibold text-green-900 mb-2">Thông tin khóa học</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <span className="text-gray-600">Số buổi học:</span>
+                    <span className="ml-2 font-medium text-gray-900">
+                      {request.total_sessions || 10} buổi
+                    </span>
+                  </div>
+                  {request.start_date && (
+                    <div>
+                      <span className="text-gray-600">Ngày bắt đầu:</span>
+                      <span className="ml-2 font-medium text-gray-900">
+                        {new Date(request.start_date).toLocaleDateString("vi-VN")}
+                      </span>
+                    </div>
+                  )}
+                  {request.end_date && (
+                    <div>
+                      <span className="text-gray-600">Ngày kết thúc:</span>
+                      <span className="ml-2 font-medium text-gray-900">
+                        {new Date(request.end_date).toLocaleDateString("vi-VN")}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
 
               <p className="text-sm text-gray-500 mb-4">
                 Ngày nộp: {new Date(request.registered_at).toLocaleString("vi-VN")}

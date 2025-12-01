@@ -76,9 +76,16 @@ const Notifications: React.FC = () => {
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
-  const markAllAsRead = () => {
-    // Call API to mark all as read
-    console.log('Mark all as read');
+  const markAllAsRead = async () => {
+    try {
+      await notificationsApi.markAllAsRead();
+      // Update all notifications to read
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      toast.success('Đã đánh dấu tất cả là đã đọc');
+    } catch (error) {
+      console.error('Failed to mark all as read:', error);
+      toast.error('Không thể đánh dấu tất cả là đã đọc');
+    }
   };
 
   const markAsRead = async (id: number) => {
@@ -194,14 +201,35 @@ const Notifications: React.FC = () => {
             </button>
           </div>
 
-          {unreadCount > 0 && (
-            <button
-              onClick={markAllAsRead}
-              className="text-blue-600 hover:text-blue-700 font-medium"
-            >
-              Đánh dấu tất cả đã đọc
-            </button>
-          )}
+          <div className="flex gap-3">
+            {unreadCount > 0 && (
+              <button
+                onClick={markAllAsRead}
+                className="text-blue-600 hover:text-blue-700 font-medium"
+              >
+                Đánh dấu tất cả đã đọc
+              </button>
+            )}
+            {notifications.some(n => n.is_read) && (
+              <button
+                onClick={async () => {
+                  if (window.confirm('Bạn có chắc muốn xóa tất cả thông báo đã đọc?')) {
+                    try {
+                      await notificationsApi.deleteReadNotifications();
+                      setNotifications(prev => prev.filter(n => !n.is_read));
+                      toast.success('Đã xóa tất cả thông báo đã đọc');
+                    } catch (error) {
+                      console.error('Failed to delete read notifications:', error);
+                      toast.error('Không thể xóa thông báo');
+                    }
+                  }
+                }}
+                className="text-red-600 hover:text-red-700 font-medium"
+              >
+                Xóa thông báo đã đọc
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Notifications List */}
@@ -378,6 +406,16 @@ const Notifications: React.FC = () => {
                       </div>
                     )}
 
+                    {data.bio && (
+                      <div className="flex items-start gap-3">
+                        <FileText className="h-5 w-5 text-gray-500 mt-0.5" />
+                        <div>
+                          <p className="text-sm text-gray-600">Giới thiệu bản thân</p>
+                          <p className="font-medium text-gray-900">{data.bio}</p>
+                        </div>
+                      </div>
+                    )}
+
                     {data.qualifications && (
                       <div className="flex items-start gap-3">
                         <FileText className="h-5 w-5 text-gray-500 mt-0.5" />
@@ -406,6 +444,70 @@ const Notifications: React.FC = () => {
                         <div>
                           <p className="text-sm text-gray-600">Mã đăng ký</p>
                           <p className="font-mono text-sm text-gray-900">#{data.registration_id}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Course Schedule Information */}
+                    {(data.total_sessions || data.start_date || data.end_date) && (
+                      <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <p className="text-sm font-semibold text-green-900 mb-2">Thông tin khóa học</p>
+                        <div className="space-y-1 text-sm">
+                          {data.total_sessions && (
+                            <div>
+                              <span className="text-gray-600">Số buổi học:</span>
+                              <span className="ml-2 font-medium text-gray-900">
+                                {data.total_sessions} buổi
+                              </span>
+                            </div>
+                          )}
+                          {data.start_date && (
+                            <div>
+                              <span className="text-gray-600">Ngày bắt đầu:</span>
+                              <span className="ml-2 font-medium text-gray-900">
+                                {new Date(data.start_date).toLocaleDateString("vi-VN")}
+                              </span>
+                            </div>
+                          )}
+                          {data.end_date && (
+                            <div>
+                              <span className="text-gray-600">Ngày kết thúc:</span>
+                              <span className="ml-2 font-medium text-gray-900">
+                                {new Date(data.end_date).toLocaleDateString("vi-VN")}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {data.availability && Object.keys(data.availability).some(day => 
+                      Array.isArray(data.availability[day]) && data.availability[day].length > 0
+                    ) && (
+                      <div className="flex items-start gap-3">
+                        <Clock className="h-5 w-5 text-gray-500 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-600 mb-2">Lịch rảnh đăng ký</p>
+                          <div className="space-y-1">
+                            {Object.entries(data.availability).map(([day, times]: [string, any]) => {
+                              if (!Array.isArray(times) || times.length === 0) return null;
+                              const dayNames: { [key: string]: string } = {
+                                monday: 'Thứ Hai',
+                                tuesday: 'Thứ Ba',
+                                wednesday: 'Thứ Tư',
+                                thursday: 'Thứ Năm',
+                                friday: 'Thứ Sáu',
+                                saturday: 'Thứ Bảy',
+                                sunday: 'Chủ Nhật'
+                              };
+                              return (
+                                <div key={day} className="flex items-center gap-2 text-sm">
+                                  <span className="font-medium text-gray-700 min-w-[80px]">{dayNames[day]}:</span>
+                                  <span className="text-gray-900">{times.join(', ')}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
                     )}
@@ -439,12 +541,25 @@ const Notifications: React.FC = () => {
 
             {/* Modal Footer */}
             <div className="border-t px-6 py-4 bg-gray-50">
-              <button
-                onClick={() => setShowModal(false)}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-              >
-                Đóng
-              </button>
+              <div className="flex gap-3">
+                {!selectedNotification.is_read && (
+                  <button
+                    onClick={async () => {
+                      await markAsRead(selectedNotification.notification_id);
+                      setSelectedNotification({ ...selectedNotification, is_read: true });
+                    }}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                  >
+                    Đánh dấu đã đọc
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowModal(false)}
+                  className={`${selectedNotification.is_read ? 'w-full' : 'flex-1'} px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium`}
+                >
+                  Đóng
+                </button>
+              </div>
             </div>
           </div>
         </div>
