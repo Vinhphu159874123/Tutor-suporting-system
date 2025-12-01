@@ -23,6 +23,7 @@ async def get_sessions(
     limit: int = Query(100, le=100),
     tutor_id: Optional[int] = Query(None),
     student_id: Optional[int] = Query(None),
+    subject_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
     session_service: SessionService = Depends(get_session_service)
 ):
@@ -31,6 +32,7 @@ async def get_sessions(
         skip=skip, limit=limit,
         tutor_id=tutor_id,
         student_id=student_id,
+        subject_id=subject_id,
         status=status
     )
 
@@ -172,3 +174,103 @@ async def get_session_participants(
 ):
     """Get all participants of a session"""
     return await session_service.get_session_participants(session_id)
+
+
+@router.post("/bulk-save-for-subject")
+async def bulk_save_sessions_for_subject(
+    subject_id: int,
+    sessions_data: List[dict],
+    current_user: User = Depends(get_current_user),
+    session_service: SessionService = Depends(get_session_service)
+):
+    """
+    Bulk create/update sessions for a subject
+    Used by tutor to save generated weekly sessions
+    """
+    from app.models.database import Tutor, Session
+    from sqlalchemy import select, delete
+    from datetime import datetime, time
+    
+    # Get tutor ID
+    tutor_result = await session_service.session_repo.db.execute(
+        select(Tutor).where(Tutor.user_id == current_user.user_id)
+    )
+    tutor = tutor_result.scalar_one_or_none()
+    
+    if not tutor:
+        raise HTTPException(status_code=404, detail="Tutor profile not found")
+    
+    # Delete existing sessions for this subject by this tutor
+    await session_service.session_repo.db.execute(
+        delete(Session).where(
+            Session.subject_id == subject_id,
+            Session.tutor_id == tutor.tutor_id
+        )
+    )
+    
+    # Create new sessions
+    created_sessions = []
+    try:
+        for session_data in sessions_data:
+            try:
+                # Parse date and time
+                session_date = datetime.fromisoformat(session_data['date']).date()
+                time_slots = session_data['time_slots']
+                
+                # Handle time slots format - could be "HH:MM-HH:MM" or "HH:MM:SS-HH:MM:SS"
+                if time_slots and len(time_slots) > 0:
+                    time_parts = time_slots[0].split('-')
+                    start_time_str = time_parts[0].strip()
+                    end_time_str = time_parts[1].strip()
+                    
+                    # Try parsing with seconds first, then without
+                    try:
+                        start_time = datetime.strptime(start_time_str, "%H:%M:%S").time()
+                    except ValueError:
+                        start_time = datetime.strptime(start_time_str, "%H:%M").time()
+                    
+                    try:
+                        end_time = datetime.strptime(end_time_str, "%H:%M:%S").time()
+                    except ValueError:
+                        end_time = datetime.strptime(end_time_str, "%H:%M").time()
+                else:
+                    start_time = datetime.strptime("07:00", "%H:%M").time()
+                    end_time = datetime.strptime("09:00", "%H:%M").time()
+                
+                new_session = Session(
+                    tutor_id=tutor.tutor_id,
+                    subject_id=subject_id,
+                    title=f"Session {session_data['session_number']}",
+                    description=session_data.get('description', ''),
+                    scheduled_date=session_date,
+                    start_time=start_time,
+                    end_time=end_time,
+                    location_type='online' if session_data.get('location') == 'Online' else 'physical',
+                    meeting_link=session_data.get('meeting_link', ''),
+                    physical_address=session_data.get('location', '') if session_data.get('location') != 'Online' else None,
+                    materials=session_data.get('materials', []),
+                    status='draft'
+                )
+                
+                session_service.session_repo.db.add(new_session)
+                created_sessions.append(new_session)
+                
+            except Exception as e:
+                print(f"Error creating session {session_data.get('session_number')}: {e}")
+                print(f"Session data: {session_data}")
+                raise HTTPException(status_code=400, detail=f"Invalid session data: {str(e)}")
+        
+        await session_service.session_repo.db.commit()
+        
+    except HTTPException:
+        await session_service.session_repo.db.rollback()
+        raise
+    except Exception as e:
+        await session_service.session_repo.db.rollback()
+        print(f"Error saving sessions: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to save sessions: {str(e)}")
+    
+    return {
+        "message": f"Successfully saved {len(created_sessions)} sessions",
+        "sessions_count": len(created_sessions)
+    }

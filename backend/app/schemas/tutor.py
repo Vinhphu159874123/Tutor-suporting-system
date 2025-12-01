@@ -62,6 +62,7 @@ class TutorRegistrationCreate(BaseModel):
     availability: Optional[Dict[str, list[str]]] = Field(default={}, description="Weekly availability slots for this subject")
     total_sessions: int = Field(default=10, ge=1, le=100, description="Total number of sessions (default 10)")
     start_date: Optional[date] = Field(None, description="Start date for teaching")
+    max_students: int = Field(default=25, ge=1, le=35, description="Maximum students per session (1-35, default 25)")
 
 
 class TutorRegistrationResponse(BaseModel):
@@ -79,6 +80,7 @@ class TutorRegistrationResponse(BaseModel):
     total_sessions: int = 10
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    max_students: int = 25
     
     # Joined data
     subject_name: Optional[str] = None

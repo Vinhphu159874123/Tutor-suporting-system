@@ -274,6 +274,22 @@ export const tutorsApi = {
     }
     return apiClient.post("/tutors/register-subject", data);
   },
+
+  getMyRegistrations: (status?: string) => {
+    return apiClient.get("/tutors/my-registrations", {
+      params: { status }
+    });
+  },
+
+  // Get available courses for students to browse
+  getAvailableCourses: () => {
+    return apiClient.get("/tutors/available-courses");
+  },
+
+  // Request to join a course
+  requestJoinCourse: (registrationId: number) => {
+    return apiClient.post(`/tutors/courses/${registrationId}/request-join`);
+  },
 };
 
 // Students API
@@ -406,6 +422,10 @@ export const sessionsApi = {
     return apiClient.post(`/api/v1/sessions/${sessionId}/materials`, formData, {
       headers: { "Content-Type": "multipart/form-data" },
     });
+  },
+
+  bulkSaveForSubject: (subjectId: number, sessionsData: any[]) => {
+    return apiClient.post(`/sessions/bulk-save-for-subject?subject_id=${subjectId}`, sessionsData);
   },
 };
 

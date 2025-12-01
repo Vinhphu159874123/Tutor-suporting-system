@@ -306,6 +306,7 @@ class Session(Base):
     
     session_notes = Column(Text, nullable=True)
     max_students = Column(Integer, default=1)
+    materials = Column(JSONB, nullable=True, default=list)  # List of material file names
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -316,7 +317,7 @@ class Session(Base):
     subject = relationship("Subject", back_populates="sessions")
     coordinator = relationship("Coordinator", back_populates="coordinated_sessions")
     participants = relationship("SessionParticipant", back_populates="session", cascade="all, delete-orphan")
-    materials = relationship("SessionMaterial", back_populates="session", cascade="all, delete-orphan")
+    session_materials = relationship("SessionMaterial", back_populates="session", cascade="all, delete-orphan")
     feedbacks = relationship("SessionFeedback", back_populates="session")
     responses = relationship("SessionResponse", back_populates="session")
     attendance_records = relationship("Attendance", back_populates="session")
@@ -368,6 +369,8 @@ class TutorRegistration(Base):
     total_sessions = Column(Integer, default=10, nullable=False)  # Số buổi học (mặc định 10)
     start_date = Column(Date, nullable=True)  # Ngày bắt đầu dạy
     end_date = Column(Date, nullable=True)  # Ngày kết thúc dự kiến
+    availability = Column(JSONB, nullable=True)  # Lịch rảnh theo tuần (JSONB format)
+    max_students = Column(Integer, default=25, nullable=False)  # Số sinh viên tối đa mỗi buổi (1-35)
     
     # Relationships
     tutor = relationship("Tutor", back_populates="registrations")
@@ -412,7 +415,7 @@ class SessionMaterial(Base):
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
-    session = relationship("Session", back_populates="materials")
+    session = relationship("Session", back_populates="session_materials")
     uploader = relationship("User", back_populates="uploaded_materials")
 
 class SessionFeedback(Base):

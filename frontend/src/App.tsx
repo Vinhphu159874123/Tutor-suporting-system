@@ -58,6 +58,9 @@ import LearningProgress from "./pages/session/LearningProgress";
 import MyCourses from "./pages/course/MyCourses";
 import CourseDetail from "./pages/course/CourseDetail";
 
+// Student pages
+import BrowseCourses from "./pages/student/BrowseCourses";
+
 // Admin pages
 import Admin from "./pages/admin/Admin";
 
@@ -192,6 +195,7 @@ function App() {
                       <Route path="/tutors/register" element={<RegisterTutor />} />
                       <Route path="/tutors/:id" element={<TutorDetail />} />
                       <Route path="/tutors/requests" element={<SessionRequests />} />
+                      <Route path="/browse-courses" element={<BrowseCourses />} />
                       <Route
                         path="/notifications"
                         element={<Notifications />}

@@ -37,6 +37,7 @@ const RegisterTutor: React.FC = () => {
     faculty: user?.faculty || "",
     total_sessions: "10", // Default 10 sessions
     start_date: "", // Start date for teaching
+    max_students: "25", // Default 25 students
   });
 
   // State for availability
@@ -123,6 +124,7 @@ const RegisterTutor: React.FC = () => {
         availability: availability,
         total_sessions: formData.total_sessions ? Number(formData.total_sessions) : 10,
         start_date: formData.start_date || undefined,
+        max_students: formData.max_students ? Number(formData.max_students) : 25,
       };
 
       await tutorsApi.registerSubject(subjectData);
@@ -254,6 +256,26 @@ const RegisterTutor: React.FC = () => {
             />
             <p className="text-sm text-gray-500 mt-1">
               Ngày dự kiến bắt đầu giảng dạy
+            </p>
+          </div>
+
+          {/* Maximum Students */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Số sinh viên tối đa mỗi buổi
+            </label>
+            <input
+              type="number"
+              min="1"
+              max="35"
+              name="max_students"
+              value={formData.max_students}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Mặc định: 25 sinh viên"
+            />
+            <p className="text-sm text-gray-500 mt-1">
+              Số sinh viên tối đa trong mỗi buổi học (từ 1-35, mặc định 25)
             </p>
           </div>
 

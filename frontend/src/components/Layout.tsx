@@ -64,6 +64,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   // Navigation for Students and Tutors (default)
   const defaultNavigation = [
     { name: "Dashboard", href: "/dashboard", icon: <LayoutDashboard size={20} /> },
+    { name: "Tìm kiếm khóa học", href: "/browse-courses", icon: <BookOpen size={20} /> },
     { name: "Môn học của tôi", href: "/my-courses", icon: <BookOpen size={20} /> },
     { name: "Sessions", href: "/sessions", icon: <Calendar size={20} /> },
     { name: "Scheduling", href: "/scheduling", icon: <Clock size={20} /> },

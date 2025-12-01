@@ -25,6 +25,7 @@ interface RegistrationRequest {
   total_sessions?: number;
   start_date?: string | null;
   end_date?: string | null;
+  max_students?: number;
 }
 
 const CoordinatorReview: React.FC = () => {
@@ -287,6 +288,14 @@ const CoordinatorReview: React.FC = () => {
                       <span className="text-gray-600">Ngày bắt đầu:</span>
                       <span className="ml-2 font-medium text-gray-900">
                         {new Date(request.start_date).toLocaleDateString("vi-VN")}
+                      </span>
+                    </div>
+                  )}
+                  {request.max_students && (
+                    <div>
+                      <span className="text-gray-600">Số sinh viên tối đa:</span>
+                      <span className="ml-2 font-medium text-gray-900">
+                        {request.max_students} sinh viên/buổi
                       </span>
                     </div>
                   )}
