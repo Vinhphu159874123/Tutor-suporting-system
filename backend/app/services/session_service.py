@@ -68,7 +68,7 @@ class SessionService:
             'actual_start': session.actual_start or start_datetime,  # Use combined datetime if actual_start is None
             'actual_end': session.actual_end or end_datetime,  # Use combined datetime if actual_end is None
             'session_notes': session.session_notes,
-            'materials': [],  # Don't access materials relationship
+            'materials': session.materials or [],  # Get materials from JSONB column
             'created_at': session.created_at,
             'updated_at': session.updated_at,
             'students': [],
@@ -114,6 +114,7 @@ class SessionService:
         limit: int = 100,
         tutor_id: Optional[int] = None,
         student_id: Optional[int] = None,
+        subject_id: Optional[int] = None,
         status: Optional[str] = None
     ) -> List[SessionResponse]:
         """Get all sessions with filters"""
@@ -121,6 +122,7 @@ class SessionService:
             skip=skip, limit=limit,
             tutor_id=tutor_id,
             student_id=student_id,
+            subject_id=subject_id,
             status=status
         )
         # Convert each session - relationships already eager loaded

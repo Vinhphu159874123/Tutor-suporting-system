@@ -449,7 +449,7 @@ const Notifications: React.FC = () => {
                     )}
 
                     {/* Course Schedule Information */}
-                    {(data.total_sessions || data.start_date || data.end_date) && (
+                    {(data.total_sessions || data.start_date || data.end_date || data.max_students) && (
                       <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                         <p className="text-sm font-semibold text-green-900 mb-2">Thông tin khóa học</p>
                         <div className="space-y-1 text-sm">
@@ -466,6 +466,14 @@ const Notifications: React.FC = () => {
                               <span className="text-gray-600">Ngày bắt đầu:</span>
                               <span className="ml-2 font-medium text-gray-900">
                                 {new Date(data.start_date).toLocaleDateString("vi-VN")}
+                              </span>
+                            </div>
+                          )}
+                          {data.max_students && (
+                            <div>
+                              <span className="text-gray-600">Số sinh viên tối đa:</span>
+                              <span className="ml-2 font-medium text-gray-900">
+                                {data.max_students} sinh viên/buổi
                               </span>
                             </div>
                           )}

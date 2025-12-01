@@ -447,7 +447,9 @@ class TutorService:
             qualifications=registration_data.qualifications,
             status='pending',
             total_sessions=registration_data.total_sessions,
-            start_date=registration_data.start_date
+            start_date=registration_data.start_date,
+            availability=registration_data.availability,  # Save availability to registration
+            max_students=registration_data.max_students
         )
         
         self.tutor_repo.db.add(new_registration)
@@ -481,7 +483,8 @@ class TutorService:
             "availability": availability_data if availability_data else {},
             "total_sessions": new_registration.total_sessions,
             "start_date": new_registration.start_date.isoformat() if new_registration.start_date else None,
-            "end_date": new_registration.end_date.isoformat() if new_registration.end_date else None
+            "end_date": new_registration.end_date.isoformat() if new_registration.end_date else None,
+            "max_students": new_registration.max_students
         })
         
         # Build response

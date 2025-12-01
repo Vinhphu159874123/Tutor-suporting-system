@@ -39,6 +39,7 @@ class SessionRepository:
         limit: int = 100,
         tutor_id: Optional[int] = None,
         student_id: Optional[int] = None,
+        subject_id: Optional[int] = None,
         status: Optional[str] = None
     ) -> List[SessionModel]:
         """Get all sessions with filters and eager loading"""
@@ -51,6 +52,8 @@ class SessionRepository:
             query = query.where(SessionModel.tutor_id == tutor_id)
         if student_id:
             query = query.where(SessionModel.student_id == student_id)
+        if subject_id:
+            query = query.where(SessionModel.subject_id == subject_id)
         if status:
             query = query.where(SessionModel.status == status)
         

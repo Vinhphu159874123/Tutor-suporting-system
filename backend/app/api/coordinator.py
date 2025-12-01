@@ -91,7 +91,8 @@ async def get_pending_tutor_registrations(
             "availability": availability,
             "total_sessions": reg.total_sessions,
             "start_date": reg.start_date.isoformat() if reg.start_date else None,
-            "end_date": reg.end_date.isoformat() if reg.end_date else None
+            "end_date": reg.end_date.isoformat() if reg.end_date else None,
+            "max_students": reg.max_students
         })
     
     return registrations
@@ -151,36 +152,31 @@ async def approve_tutor_registration(
     await db.commit()
     await db.refresh(registration)
     
-    # Get tutor user_id to send notification
+    # Get tutor user_id for event emission
     tutor_query = select(Tutor).where(Tutor.tutor_id == registration.tutor_id)
     tutor_result = await db.execute(tutor_query)
     tutor = tutor_result.scalar_one_or_none()
     
     if tutor:
-        # Get subject name for notification
+        # Get subject name for event
         subject_query = select(Subject).where(Subject.subject_id == registration.subject_id)
         subject_result = await db.execute(subject_query)
         subject = subject_result.scalar_one_or_none()
         
         subject_name = subject.subject_name if subject else "môn học"
         
-        # Create notification
-        notification = Notifications(
-            user_id=tutor.user_id,
-            type='registration_approved',
-            title='Đơn đăng ký môn học được phê duyệt',
-            message=f'Chúc mừng! Đơn đăng ký dạy môn {subject_name} của bạn đã được phê duyệt.',
-            is_read=False,
-            created_at=datetime.utcnow()
-        )
-        db.add(notification)
-        await db.commit()
-        
-        # Emit event for real-time notification
-        await event_bus.emit('registration_approved', {
+        # Emit event for real-time notification (listener will create notification and generate sessions)
+        from app.events import EventTypes
+        await event_bus.emit(EventTypes.REGISTRATION_APPROVED, {
             'user_id': tutor.user_id,
             'registration_id': registration.registration_id,
-            'subject_name': subject_name
+            'tutor_id': registration.tutor_id,
+            'subject_id': registration.subject_id,
+            'subject_name': subject_name,
+            'status': 'approved',
+            'total_sessions': registration.total_sessions,
+            'start_date': registration.start_date.isoformat() if registration.start_date else None,
+            'max_students': registration.max_students
         })
     
     return {
@@ -246,37 +242,27 @@ async def reject_tutor_registration(
     await db.commit()
     await db.refresh(registration)
     
-    # Get tutor user_id to send notification
+    # Get tutor user_id for event emission
     tutor_query = select(Tutor).where(Tutor.tutor_id == registration.tutor_id)
     tutor_result = await db.execute(tutor_query)
     tutor = tutor_result.scalar_one_or_none()
     
     if tutor:
-        # Get subject name for notification
+        # Get subject name for event
         subject_query = select(Subject).where(Subject.subject_id == registration.subject_id)
         subject_result = await db.execute(subject_query)
         subject = subject_result.scalar_one_or_none()
         
         subject_name = subject.subject_name if subject else "môn học"
         
-        # Create notification
-        notification = Notifications(
-            user_id=tutor.user_id,
-            type='registration_rejected',
-            title='Đơn đăng ký môn học bị từ chối',
-            message=f'Đơn đăng ký dạy môn {subject_name} của bạn đã bị từ chối. Lý do: {reason}',
-            is_read=False,
-            created_at=datetime.utcnow()
-        )
-        db.add(notification)
-        await db.commit()
-        
-        # Emit event for real-time notification
-        await event_bus.emit('registration_rejected', {
+        # Emit event for real-time notification (listener will create notification)
+        from app.events import EventTypes
+        await event_bus.emit(EventTypes.REGISTRATION_REJECTED, {
             'user_id': tutor.user_id,
             'registration_id': registration.registration_id,
             'subject_name': subject_name,
-            'reason': reason
+            'reason': reason,
+            'status': 'rejected'
         })
     
     return {
