@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_
 from typing import List, Dict, Optional
 from datetime import datetime
+from pydantic import BaseModel
 import io
 import csv
 
@@ -76,6 +77,47 @@ async def get_pending_tutor_registrations(
         if notification and notification.data and 'availability' in notification.data:
             availability = notification.data['availability']
         
+        # Get selected schedule info for approved registrations
+        selected_schedule = None
+        if reg.status == "approved":
+            from app.models.database import SessionSchedule, Session
+            # Try to find schedule from first session
+            session_query = (
+                select(Session)
+                .where(
+                    Session.tutor_id == reg.tutor_id,
+                    Session.subject_id == reg.subject_id
+                )
+                .limit(1)
+            )
+            session_result = await db.execute(session_query)
+            first_session = session_result.scalar_one_or_none()
+            
+            if first_session:
+                # Match schedule by day, time
+                schedule_query = (
+                    select(SessionSchedule)
+                    .where(
+                        SessionSchedule.tutor_id == reg.tutor_id,
+                        SessionSchedule.subject_id == reg.subject_id,
+                        SessionSchedule.start_time == first_session.start_time,
+                        SessionSchedule.end_time == first_session.end_time
+                    )
+                )
+                schedule_result = await db.execute(schedule_query)
+                schedule = schedule_result.scalar_one_or_none()
+                
+                if schedule:
+                    day_names = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"]
+                    selected_schedule = {
+                        "schedule_id": schedule.schedule_id,
+                        "day_of_week": schedule.day_of_week,
+                        "day_name": day_names[schedule.day_of_week],
+                        "start_time": str(schedule.start_time),
+                        "end_time": str(schedule.end_time),
+                        "location_type": schedule.location_type
+                    }
+        
         registrations.append({
             "registration_id": reg.registration_id,
             "tutor_id": reg.tutor_id,
@@ -95,15 +137,76 @@ async def get_pending_tutor_registrations(
             "total_sessions": reg.total_sessions,
             "start_date": reg.start_date.isoformat() if reg.start_date else None,
             "end_date": reg.end_date.isoformat() if reg.end_date else None,
-            "max_students": reg.max_students
+            "max_students": reg.max_students,
+            "selected_schedule": selected_schedule
         })
     
     return registrations
 
 
+@router.get("/tutor-registrations/{registration_id}/schedules")
+async def get_registration_schedules(
+    registration_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get all schedules for a tutor registration
+    Returns list of schedules the coordinator can choose from
+    """
+    if current_user.role not in ['coordinator', 'admin']:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only coordinators can view schedules"
+        )
+    
+    # Get the registration
+    from app.models.database import SessionSchedule
+    
+    reg_query = select(TutorRegistration).where(TutorRegistration.registration_id == registration_id)
+    reg_result = await db.execute(reg_query)
+    registration = reg_result.scalar_one_or_none()
+    
+    if not registration:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Registration not found"
+        )
+    
+    # Get all active schedules for this registration
+    schedules_query = select(SessionSchedule).where(
+        SessionSchedule.tutor_id == registration.tutor_id,
+        SessionSchedule.subject_id == registration.subject_id,
+        SessionSchedule.is_active == True
+    )
+    schedules_result = await db.execute(schedules_query)
+    schedules = schedules_result.scalars().all()
+    
+    # Format schedule data
+    day_names = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"]
+    
+    return [
+        {
+            "schedule_id": schedule.schedule_id,
+            "day_of_week": schedule.day_of_week,
+            "day_name": day_names[schedule.day_of_week],
+            "start_time": str(schedule.start_time),
+            "end_time": str(schedule.end_time),
+            "duration": schedule.duration,
+            "location_type": schedule.location_type,
+            "description": schedule.description
+        }
+        for schedule in schedules
+    ]
+
+
+class ApprovalRequest(BaseModel):
+    schedule_id: Optional[int] = None
+
 @router.put("/tutor-registrations/{registration_id}/approve")
 async def approve_tutor_registration(
     registration_id: int,
+    approval_data: ApprovalRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -111,6 +214,7 @@ async def approve_tutor_registration(
     Approve a tutor registration
     
     Requires: Coordinator role
+    Body: { schedule_id?: number } - Optional schedule to use for session generation
     """
     if current_user.role not in ['coordinator', 'admin']:
         raise HTTPException(
@@ -179,7 +283,8 @@ async def approve_tutor_registration(
             'status': 'approved',
             'total_sessions': registration.total_sessions,
             'start_date': registration.start_date.isoformat() if registration.start_date else None,
-            'max_students': registration.max_students
+            'max_students': registration.max_students,
+            'schedule_id': approval_data.schedule_id
         })
     
     return {

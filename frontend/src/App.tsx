@@ -57,6 +57,7 @@ import LearningProgress from "./pages/session/LearningProgress";
 // Course pages
 import MyCourses from "./pages/course/MyCourses";
 import CourseDetail from "./pages/course/CourseDetail";
+import CourseProgress from "./pages/course/CourseProgress";
 
 // Coordinator pages
 import TutorsList from "./pages/coordinator/TutorsList";
@@ -175,6 +176,7 @@ function App() {
                       <Route path="/profile" element={<Profile />} />
                       <Route path="/my-courses" element={<MyCourses />} />
                       <Route path="/my-courses/:subjectId" element={<CourseDetail />} />
+                      <Route path="/courses/:subjectId/progress" element={<CourseProgress />} />
                       <Route path="/sessions" element={<Sessions />} />
                       <Route path="/sessions/book" element={<BookSession />} />
                       <Route path="/sessions/:id" element={<SessionDetail />} />

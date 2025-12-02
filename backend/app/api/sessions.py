@@ -3,6 +3,7 @@ from fastapi.responses import FileResponse
 from typing import List, Optional
 import os
 from pathlib import Path
+from sqlalchemy import and_
 
 from app.schemas.session import SessionCreate, SessionUpdate, SessionResponse
 from app.schemas.session_participant import (
@@ -233,10 +234,11 @@ async def delete_material(
 async def download_material(
     session_id: int,
     material_identifier: str,
+    inline: bool = Query(False, description="Display inline in browser instead of download"),
     session_service: SessionService = Depends(get_session_service)
     # Remove auth requirement for direct browser access
 ):
-    """Download a session material file - accepts material_id (int) or filename (str) - PUBLIC"""
+    """Download or preview a session material file - accepts material_id (int) or filename (str) - PUBLIC"""
     from app.models.database import SessionMaterial
     from sqlalchemy import select
     
@@ -282,12 +284,26 @@ async def download_material(
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found on server")
     
-    # Return file for download
-    return FileResponse(
-        path=str(file_path),
-        filename=material.file_name,
-        media_type='application/octet-stream'
-    )
+    # Determine media type and content disposition
+    if inline:
+        # For inline display (preview in browser)
+        media_type = 'application/pdf' if material.file_name.lower().endswith('.pdf') else 'application/octet-stream'
+        from fastapi.responses import FileResponse
+        response = FileResponse(
+            path=str(file_path),
+            media_type=media_type,
+            filename=material.file_name
+        )
+        # Set Content-Disposition to inline for browser preview
+        response.headers["Content-Disposition"] = f'inline; filename="{material.file_name}"'
+        return response
+    else:
+        # For download
+        return FileResponse(
+            path=str(file_path),
+            filename=material.file_name,
+            media_type='application/octet-stream'
+        )
 
 
 # ============================================================================
@@ -340,6 +356,123 @@ async def leave_session(
 ):
     """Student leaves a session"""
     return await session_service.leave_session(session_id, current_user.user_id)
+
+
+@router.delete("/remove-student-from-subject")
+async def remove_student_from_subject(
+    subject_id: int = Query(..., description="Subject ID"),
+    student_id: int = Query(..., description="Student user ID to remove"),
+    tutor_id: int = Query(..., description="Tutor user ID"),
+    current_user: User = Depends(get_current_user),
+    session_service: SessionService = Depends(get_session_service)
+):
+    """Tutor removes a student from all sessions of a specific subject"""
+    # Verify current user is a tutor and owns this course
+    from app.models.database import Session, SessionParticipant, TutorRegistration
+    from sqlalchemy import select, delete
+    
+    # Check if current user is the tutor who registered this subject
+    tutor_reg_result = await session_service.session_repo.db.execute(
+        select(TutorRegistration).where(
+            TutorRegistration.subject_id == subject_id,
+            TutorRegistration.tutor_id == tutor_id
+        )
+    )
+    tutor_registration = tutor_reg_result.scalar_one_or_none()
+    
+    if not tutor_registration:
+        raise HTTPException(
+            status_code=404,
+            detail="Tutor registration not found for this subject"
+        )
+    
+    # Verify the tutor_id belongs to current user
+    from app.models.database import Tutor
+    tutor_result = await session_service.session_repo.db.execute(
+        select(Tutor).where(Tutor.tutor_id == tutor_id)
+    )
+    tutor = tutor_result.scalar_one_or_none()
+    
+    if not tutor or tutor.user_id != current_user.user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="Only the tutor can remove students from their sessions"
+        )
+    
+    # Get all sessions for this subject and tutor
+    
+    # Get session IDs
+    sessions_result = await session_service.session_repo.db.execute(
+        select(Session.session_id).where(
+            Session.subject_id == subject_id,
+            Session.tutor_id == tutor_id
+        )
+    )
+    session_ids = [row[0] for row in sessions_result.fetchall()]
+    
+    if not session_ids:
+        raise HTTPException(
+            status_code=404,
+            detail="No sessions found for this tutor and subject"
+        )
+    
+    # Get student info and subject info before deletion
+    from app.models.database import User, Subject
+    student_result = await session_service.session_repo.db.execute(
+        select(User).where(User.user_id == student_id)
+    )
+    student = student_result.scalar_one_or_none()
+    
+    subject_result = await session_service.session_repo.db.execute(
+        select(Subject).where(Subject.subject_id == subject_id)
+    )
+    subject = subject_result.scalar_one_or_none()
+    
+    # Delete all participant records for this student in these sessions
+    delete_stmt = delete(SessionParticipant).where(
+        SessionParticipant.session_id.in_(session_ids),
+        SessionParticipant.user_id == student_id,
+        SessionParticipant.role == 'student'
+    )
+    
+    result = await session_service.session_repo.db.execute(delete_stmt)
+    await session_service.session_repo.db.commit()
+    
+    removed_count = result.rowcount
+    
+    # Send notification to student if they were removed
+    if removed_count > 0 and student and subject:
+        from app.models.database import Notifications
+        from datetime import datetime, timezone, timedelta
+        
+        # Convert to Vietnam timezone (UTC+7)
+        vietnam_tz = timezone(timedelta(hours=7))
+        vietnam_time = datetime.now(vietnam_tz)
+        
+        notification = Notifications(
+            user_id=student_id,
+            type="removed_from_course",
+            title="Bạn đã bị xóa khỏi khóa học",
+            message=f"Giáo viên đã xóa bạn khỏi khóa học {subject.subject_name} ({subject.subject_code}). Bạn đã bị xóa khỏi {removed_count} phiên học.",
+            related_entity_type="subject",
+            related_entity_id=subject_id,
+            is_read=False,
+            created_at=vietnam_time
+        )
+        
+        session_service.session_repo.db.add(notification)
+        await session_service.session_repo.db.commit()
+        
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"✅ Notification sent to student {student_id} for removal from course {subject_id}")
+    
+    return {
+        "message": f"Student removed from {removed_count} sessions",
+        "sessions_affected": removed_count,
+        "student_id": student_id,
+        "subject_id": subject_id
+    }
 
 
 @router.get("/{session_id}/participants", response_model=List[SessionParticipantResponse])
@@ -435,24 +568,46 @@ async def bulk_save_sessions_for_subject(
                         session_id = None
                 
                 if not session_id:
-                    # CREATE new session
-                    new_session = Session(
-                        tutor_id=tutor.tutor_id,
-                        subject_id=subject_id,
-                        title=f"Session {session_data['session_number']}",
-                        description=session_data.get('description', ''),
-                        scheduled_date=session_date,
-                        start_time=start_time,
-                        end_time=end_time,
-                        location_type='online' if session_data.get('location') == 'Online' else 'physical',
-                        meeting_link=session_data.get('meeting_link', ''),
-                        physical_address=session_data.get('location', '') if session_data.get('location') != 'Online' else None,
-                        materials=session_data.get('materials', []),
-                        status='draft'
+                    # Check if session already exists for this date/time/subject/tutor
+                    check_result = await session_service.session_repo.db.execute(
+                        select(Session).where(
+                            Session.tutor_id == tutor.tutor_id,
+                            Session.subject_id == subject_id,
+                            Session.scheduled_date == session_date,
+                            Session.start_time == start_time,
+                            Session.end_time == end_time
+                        )
                     )
+                    existing_duplicate = check_result.scalar_one_or_none()
                     
-                    session_service.session_repo.db.add(new_session)
-                    created_sessions.append(new_session)
+                    if existing_duplicate:
+                        # Update existing session instead of creating duplicate
+                        existing_duplicate.description = session_data.get('description', '')
+                        existing_duplicate.location_type = 'online' if session_data.get('location') == 'Online' else 'physical'
+                        existing_duplicate.meeting_link = session_data.get('meeting_link', '')
+                        existing_duplicate.physical_address = session_data.get('location', '') if session_data.get('location') != 'Online' else None
+                        existing_duplicate.materials = session_data.get('materials', [])
+                        existing_duplicate.updated_at = datetime.utcnow()
+                        updated_sessions.append(existing_duplicate)
+                    else:
+                        # CREATE new session
+                        new_session = Session(
+                            tutor_id=tutor.tutor_id,
+                            subject_id=subject_id,
+                            title=f"Session {session_data['session_number']}",
+                            description=session_data.get('description', ''),
+                            scheduled_date=session_date,
+                            start_time=start_time,
+                            end_time=end_time,
+                            location_type='online' if session_data.get('location') == 'Online' else 'physical',
+                            meeting_link=session_data.get('meeting_link', ''),
+                            physical_address=session_data.get('location', '') if session_data.get('location') != 'Online' else None,
+                            materials=session_data.get('materials', []),
+                            status='draft'
+                        )
+                        
+                        session_service.session_repo.db.add(new_session)
+                        created_sessions.append(new_session)
                 
             except Exception as e:
                 print(f"Error processing session {session_data.get('session_number')}: {e}")
@@ -637,8 +792,9 @@ async def get_session_participants(
     session_service: SessionService = Depends(get_session_service)
 ):
     """Get list of students enrolled in a session (for attendance)"""
-    from app.models.database import SessionParticipant, User as DBUser
+    from app.models.database import SessionParticipant, User as DBUser, Student, Attendance
     from sqlalchemy import select
+    from sqlalchemy.orm import outerjoin
     
     # Verify session exists and user is the tutor
     session = await session_service.get_session(session_id)
@@ -649,16 +805,25 @@ async def get_session_participants(
     if current_user.role != 'tutor':
         raise HTTPException(status_code=403, detail="Only tutors can view participants")
     
-    # Get all student participants
+    # Get all student participants with their attendance status
     result = await session_service.session_repo.db.execute(
-        select(SessionParticipant, DBUser)
+        select(SessionParticipant, DBUser, Student, Attendance)
         .join(DBUser, SessionParticipant.user_id == DBUser.user_id)
+        .join(Student, DBUser.user_id == Student.user_id)
+        .outerjoin(Attendance, and_(
+            Attendance.session_id == session_id,
+            Attendance.student_id == Student.student_id
+        ))
         .where(
             SessionParticipant.session_id == session_id,
             SessionParticipant.role == 'student'
         )
     )
     participants_data = result.all()
+    
+    # Debug log
+    for participant, user, student, attendance in participants_data:
+        print(f"🔍 User: {user.full_name}, Student ID: {student.student_id}, Attendance: {attendance}, Status: {attendance.status if attendance else 'NO RECORD'}")
     
     return [
         {
@@ -667,22 +832,24 @@ async def get_session_participants(
             "email": user.email,
             "status": participant.status,
             "attended": participant.attended,
+            "attendance_status": attendance.status if attendance else None,  # 'present' or 'absent'
             "joined_at": participant.joined_at.isoformat() if participant.joined_at else None
         }
-        for participant, user in participants_data
+        for participant, user, student, attendance in participants_data
     ]
 
 
 @router.post("/{session_id}/attendance")
 async def mark_attendance(
     session_id: int,
-    attendance_data: dict,  # {"user_id": true/false, ...}
+    attendance_data: List[dict],  # [{"user_id": int, "is_present": bool, "is_late": bool, "is_excused": bool}, ...]
     current_user: User = Depends(get_current_user),
     session_service: SessionService = Depends(get_session_service)
 ):
     """Tutor marks attendance for students in a session"""
-    from app.models.database import SessionParticipant
+    from app.models.database import SessionParticipant, Student, Attendance
     from sqlalchemy import select
+    from datetime import datetime, timezone, timedelta
     
     # Verify session exists and user is the tutor
     session = await session_service.get_session(session_id)
@@ -692,25 +859,91 @@ async def mark_attendance(
     if current_user.role != 'tutor':
         raise HTTPException(status_code=403, detail="Only tutors can mark attendance")
     
+    vietnam_tz = timezone(timedelta(hours=7))
+    now = datetime.now(vietnam_tz)
+    
     # Update attendance for each student
     updated_count = 0
-    for user_id, attended in attendance_data.items():
+    skipped_count = 0
+    
+    for record in attendance_data:
+        user_id = record.get('user_id')
+        is_present = record.get('is_present', False)
+        is_late = record.get('is_late', False)
+        is_excused = record.get('is_excused', False)
+        
+        # Determine status
+        if is_present:
+            status = 'present'
+        elif is_late:
+            status = 'late'
+        elif is_excused:
+            status = 'excused'
+        else:
+            status = 'absent'
+        
+        # Get participant
         result = await session_service.session_repo.db.execute(
             select(SessionParticipant).where(
                 SessionParticipant.session_id == session_id,
-                SessionParticipant.user_id == int(user_id),
+                SessionParticipant.user_id == user_id,
                 SessionParticipant.role == 'student'
             )
         )
         participant = result.scalar_one_or_none()
         
-        if participant:
-            participant.attended = attended
+        if not participant:
+            continue
+        
+        # Get student_id from user_id
+        student_result = await session_service.session_repo.db.execute(
+            select(Student).where(Student.user_id == user_id)
+        )
+        student = student_result.scalar_one_or_none()
+        
+        if not student:
+            continue
+        
+        # Check if attendance already exists
+        existing_attendance = await session_service.session_repo.db.execute(
+            select(Attendance).where(
+                Attendance.session_id == session_id,
+                Attendance.student_id == student.student_id
+            )
+        )
+        existing = existing_attendance.scalar_one_or_none()
+        
+        if existing:
+            # Update existing attendance
+            existing.status = status
+            existing.check_in_time = now
             updated_count += 1
+        else:
+            # Create new attendance record
+            attendance = Attendance(
+                session_id=session_id,
+                student_id=student.student_id,
+                status=status,
+                check_in_time=now if status in ['present', 'late'] else None,
+                check_out_time=None,
+                duration_minutes=None,
+                notes=None
+            )
+            
+            session_service.session_repo.db.add(attendance)
+            updated_count += 1
+        
+        # Also update participant status (attended = present or late)
+        participant.attended = (status in ['present', 'late'])
     
     await session_service.session_repo.db.commit()
     
+    message = f"Attendance marked for {updated_count} students"
+    if skipped_count > 0:
+        message += f". {skipped_count} students already marked (skipped)"
+    
     return {
-        "message": f"Attendance marked for {updated_count} students",
-        "updated_count": updated_count
+        "message": message,
+        "updated_count": updated_count,
+        "skipped_count": skipped_count
     }
