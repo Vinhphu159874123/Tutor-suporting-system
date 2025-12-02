@@ -43,16 +43,8 @@ import TutorDetail from "./pages/tutor/TutorDetail";
 import RegisterTutor from "./pages/tutor/RegisterTutor";
 import SessionRequests from "./pages/tutor/SessionRequests";
 
-// Session pages
-import Sessions from "./pages/session/Sessions";
-import BookSession from "./pages/student/BookSession";
-import SessionDetail from "./pages/session/SessionDetail";
-import SessionHistory from "./pages/session/SessionHistory";
+// Scheduling page (kept for availability management)
 import Scheduling from "./pages/session/Scheduling";
-import UploadMaterials from "./pages/session/UploadMaterials";
-import MaterialsList from "./pages/session/MaterialsList";
-import OnlineSession from "./pages/session/OnlineSession";
-import LearningProgress from "./pages/session/LearningProgress";
 
 // Course pages
 import MyCourses from "./pages/course/MyCourses";
@@ -177,15 +169,7 @@ function App() {
                       <Route path="/my-courses" element={<MyCourses />} />
                       <Route path="/my-courses/:subjectId" element={<CourseDetail />} />
                       <Route path="/courses/:subjectId/progress" element={<CourseProgress />} />
-                      <Route path="/sessions" element={<Sessions />} />
-                      <Route path="/sessions/book" element={<BookSession />} />
-                      <Route path="/sessions/:id" element={<SessionDetail />} />
-                      <Route path="/history" element={<SessionHistory />} />
                       <Route path="/scheduling" element={<Scheduling />} />
-                      <Route path="/upload-materials" element={<UploadMaterials />} />
-                      <Route path="/materials" element={<MaterialsList />} />
-                      <Route path="/online-session/:id" element={<OnlineSession />} />
-                      <Route path="/learning-progress" element={<LearningProgress />} />
                       <Route path="/reports" element={<Reports />} />
                       <Route path="/export-report" element={<ExportReport />} />
                       <Route path="/forum" element={<Forum />} />

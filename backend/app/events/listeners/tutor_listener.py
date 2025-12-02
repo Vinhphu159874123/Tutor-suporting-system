@@ -214,16 +214,9 @@ class TutorApprovalListener(BaseListener):
                     db.add(notification)
                     await db.commit()
                     
-                    # Auto-generate sessions from SessionSchedule
-                    await self._generate_sessions_from_schedule(
-                        db=db,
-                        tutor_id=data.get('tutor_id'),
-                        subject_id=data.get('subject_id'),
-                        total_sessions=data.get('total_sessions', 10),
-                        start_date_str=data.get('start_date'),
-                        max_students=data.get('max_students', 5),
-                        schedule_id=data.get('schedule_id')
-                    )
+                    # NOTE: Sessions are NO LONGER auto-generated on approval
+                    # Tutor must manually generate sessions from CourseDetail page
+                    logger.info(f"✅ Registration approved. Tutor can now generate sessions manually from course detail page.")
                     
                 else:  # rejected
                     reason = data.get('reason', 'Không đáp ứng yêu cầu')

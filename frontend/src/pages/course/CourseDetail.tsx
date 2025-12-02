@@ -5,7 +5,7 @@ import {
   FileText, Edit2, Save, X, ChevronDown, ChevronUp, Upload, Trash2, Calendar as CalendarIcon,
   Star, Users, MessageSquare, CheckCircle
 } from 'lucide-react';
-import { coursesApi, tutorsApi, sessionsApi } from '../../services/api';
+import { coursesApi, tutorsApi, sessionsApi, studentsApi } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
 import { toast } from 'react-toastify';
 
@@ -58,6 +58,18 @@ const CourseDetail: React.FC = () => {
   // Enrolled students modal state
   const [showEnrolledStudentsModal, setShowEnrolledStudentsModal] = useState(false);
   const [enrolledStudents, setEnrolledStudents] = useState<any[]>([]);
+  
+  // Feedbacks summary modal state (for tutor)
+  const [showFeedbacksModal, setShowFeedbacksModal] = useState(false);
+  const [subjectFeedbacks, setSubjectFeedbacks] = useState<any>(null);
+  const [loadingFeedbacks, setLoadingFeedbacks] = useState(false);
+  
+  // Student profile modal state (for tutor)
+  const [showStudentProfileModal, setShowStudentProfileModal] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const [studentProfile, setStudentProfile] = useState<any>(null);
+  const [studentCourses, setStudentCourses] = useState<any>(null);
+  const [loadingStudentProfile, setLoadingStudentProfile] = useState(false);
   
   // PDF preview modal state
   const [showPdfPreview, setShowPdfPreview] = useState(false);
@@ -198,44 +210,14 @@ const CourseDetail: React.FC = () => {
           return; // Exit early if we have saved sessions
         }
       } catch (sessionError) {
-        console.log('No saved sessions found, will generate from availability');
+        console.log('No saved sessions found. Tutor needs to manually generate sessions.');
       }
 
-      // Step 2: If no saved sessions, try to fetch tutor's registrations and generate
-      try {
-        const registrationsResponse = await tutorsApi.getMyRegistrations('approved') as any;
-        const myRegistration = registrationsResponse.data.find((r: any) => 
-          r.subject_id === parseInt(subjectId)
-        );
-
-        if (myRegistration) {
-          generateSessionsFromAvailability(myRegistration);
-        } else {
-          // Fallback to mock data if no registration found
-          console.log('No registration found, using mock data');
-          generateSessionsFromAvailability({
-            total_sessions: 12,
-            start_date: '2025-01-06',
-            availability: {
-              monday: ['07:00-09:00', '13:00-15:00'],
-              wednesday: ['09:00-11:00'],
-              friday: ['15:00-17:00']
-            }
-          });
-        }
-      } catch (regError) {
-        console.error('Failed to fetch registrations, using mock data:', regError);
-        // Fallback to mock data if API fails
-        generateSessionsFromAvailability({
-          total_sessions: 12,
-          start_date: '2025-01-06',
-          availability: {
-            monday: ['07:00-09:00', '13:00-15:00'],
-            wednesday: ['09:00-11:00'],
-            friday: ['15:00-17:00']
-          }
-        });
-      }
+      // Step 2: If no saved sessions, just show empty state
+      // Tutor must click "Generate Sessions" button to create sessions
+      console.log('✅ No sessions found - showing empty state with generate button');
+      setSessions([]);
+      setLoading(false);
     } catch (error) {
       console.error('Failed to fetch course data:', error);
       toast.error('Không thể tải thông tin môn học');
@@ -340,6 +322,28 @@ const CourseDetail: React.FC = () => {
   const handleSaveSession = (sessionNum: number) => {
     setEditingSession(null);
     toast.info('Nhớ nhấn "Lưu tất cả" để lưu thay đổi vào hệ thống');
+  };
+
+  const handleGenerateSessions = async () => {
+    if (!subjectId) return;
+    
+    try {
+      setLoading(true);
+      
+      // Call API to generate sessions
+      const response = await tutorsApi.generateSessionsForCourse(parseInt(subjectId)) as any;
+      
+      toast.success(response.data?.message || 'Đã tạo lịch học thành công!');
+      
+      // Reload course data to show newly generated sessions
+      await fetchCourseData();
+    } catch (error: any) {
+      console.error('Failed to generate sessions:', error);
+      const errorMsg = error.response?.data?.detail || 'Không thể tạo lịch học';
+      toast.error(errorMsg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSaveAllSessions = async () => {
@@ -607,6 +611,47 @@ const CourseDetail: React.FC = () => {
     }
   };
 
+  const handleViewFeedbacks = async () => {
+    if (!subjectId) return;
+    
+    try {
+      setLoadingFeedbacks(true);
+      setShowFeedbacksModal(true);
+      const response = await sessionsApi.getSubjectFeedbacks(parseInt(subjectId)) as any;
+      setSubjectFeedbacks(response.data);
+    } catch (error) {
+      console.error('Error fetching feedbacks:', error);
+      toast.error('Không thể tải đánh giá');
+      setShowFeedbacksModal(false);
+    } finally {
+      setLoadingFeedbacks(false);
+    }
+  };
+
+  const handleViewStudentProfile = async (student: any) => {
+    try {
+      setLoadingStudentProfile(true);
+      setSelectedStudent(student);
+      setShowStudentProfileModal(true);
+      
+      // Fetch student profile by user_id to get correct student_id
+      // The enrolled students list might not have student_id, only user_id
+      const profileResponse = await studentsApi.getStudentProfileByUserId(student.user_id) as any;
+      const studentId = profileResponse.data.student_id;
+      setStudentProfile(profileResponse.data);
+      
+      // Fetch enrolled courses
+      const coursesResponse = await studentsApi.getStudentEnrolledCourses(studentId) as any;
+      setStudentCourses(coursesResponse.data);
+    } catch (error) {
+      console.error('Error fetching student profile:', error);
+      toast.error('Không thể tải thông tin học sinh');
+      setShowStudentProfileModal(false);
+    } finally {
+      setLoadingStudentProfile(false);
+    }
+  };
+
   // Kick student handler
   const handleKickStudent = async (studentId: number, studentName: string) => {
     if (!course?.subject_id || !course?.tutor_id) {
@@ -832,6 +877,13 @@ const CourseDetail: React.FC = () => {
                   Xem tiến trình học tập
                 </button>
                 <button
+                  onClick={handleViewFeedbacks}
+                  className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 flex items-center gap-2"
+                >
+                  <Star className="h-4 w-4" />
+                  Xem đánh giá
+                </button>
+                <button
                   onClick={handleSaveAllSessions}
                   disabled={loading}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
@@ -857,7 +909,17 @@ const CourseDetail: React.FC = () => {
           {sessions.length === 0 ? (
             <div className="text-center py-12">
               <Clock className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">Chưa có buổi học nào được tạo</p>
+              <p className="text-gray-600 mb-4">Chưa có buổi học nào được tạo</p>
+              {isTutor && (
+                <button
+                  onClick={handleGenerateSessions}
+                  disabled={loading}
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 mx-auto"
+                >
+                  <CalendarIcon className="h-5 w-5" />
+                  {loading ? 'Đang tạo...' : 'Tạo lịch học từ lịch đã đăng ký'}
+                </button>
+              )}
             </div>
           ) : (
             sessions.map((session) => {
@@ -1417,7 +1479,8 @@ const CourseDetail: React.FC = () => {
                   {enrolledStudents.map((student, index) => (
                     <div
                       key={student.user_id}
-                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-blue-50 transition-colors border border-transparent hover:border-blue-300 cursor-pointer"
+                      onClick={() => handleViewStudentProfile(student)}
                     >
                       <div className="flex items-center gap-4">
                         <div className="flex-shrink-0 w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -1434,8 +1497,11 @@ const CourseDetail: React.FC = () => {
                           <span>{student.sessions_enrolled} buổi học</span>
                         </div>
                         <button
-                          onClick={() => handleKickStudent(student.user_id, student.full_name)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleKickStudent(student.user_id, student.full_name);
+                          }}
+                          className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
                           title="Xóa học sinh khỏi khóa học"
                         >
                           <X className="h-5 w-5" />
@@ -1487,6 +1553,326 @@ const CourseDetail: React.FC = () => {
                 className="w-full h-full border-0"
                 title={previewPdfName}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Feedbacks Summary Modal (for Tutor) */}
+      {showFeedbacksModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Đánh giá từ học sinh</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Xem tổng hợp đánh giá của học sinh về các buổi học
+                </p>
+              </div>
+              <button
+                onClick={() => setShowFeedbacksModal(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingFeedbacks ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                </div>
+              ) : subjectFeedbacks ? (
+                <div className="space-y-6">
+                  {/* Summary Stats */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-4 border border-amber-200">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 bg-amber-500 rounded-lg">
+                          <Star className="h-6 w-6 text-white fill-current" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-amber-700 font-medium">Điểm trung bình</p>
+                          <p className="text-3xl font-bold text-amber-900">
+                            {subjectFeedbacks.average_rating.toFixed(1)}
+                            <span className="text-lg text-amber-600">/5.0</span>
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 bg-blue-500 rounded-lg">
+                          <MessageSquare className="h-6 w-6 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-blue-700 font-medium">Tổng đánh giá</p>
+                          <p className="text-3xl font-bold text-blue-900">
+                            {subjectFeedbacks.total_feedbacks}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
+                      <div className="flex items-center gap-3">
+                        <div className="p-3 bg-green-500 rounded-lg">
+                          <CheckCircle className="h-6 w-6 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-green-700 font-medium">Phân bổ đánh giá</p>
+                          <div className="space-y-1 mt-1">
+                            {Object.entries(subjectFeedbacks.rating_distribution)
+                              .sort(([a], [b]) => Number(b) - Number(a))
+                              .map(([rating, count]) => (
+                                <div key={rating} className="flex items-center gap-2 text-xs">
+                                  <span className="text-green-700">{rating}⭐</span>
+                                  <div className="flex-1 bg-green-200 rounded-full h-2">
+                                    <div
+                                      className="bg-green-600 h-2 rounded-full"
+                                      style={{
+                                        width: `${subjectFeedbacks.total_feedbacks > 0 
+                                          ? ((count as number) / subjectFeedbacks.total_feedbacks) * 100 
+                                          : 0}%`
+                                      }}
+                                    />
+                                  </div>
+                                  <span className="text-green-700 font-medium">{count as number}</span>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Individual Feedbacks */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                      Chi tiết đánh giá ({subjectFeedbacks.feedbacks.length})
+                    </h3>
+                    
+                    {subjectFeedbacks.feedbacks.length === 0 ? (
+                      <div className="text-center py-8 bg-gray-50 rounded-lg">
+                        <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                        <p className="text-gray-600">Chưa có đánh giá nào</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {subjectFeedbacks.feedbacks.map((feedback: any) => (
+                          <div key={feedback.feedback_id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-1">
+                                  {[1, 2, 3, 4, 5].map((star) => (
+                                    <Star
+                                      key={star}
+                                      className={`h-5 w-5 ${
+                                        star <= feedback.rating
+                                          ? 'text-amber-500 fill-current'
+                                          : 'text-gray-300'
+                                      }`}
+                                    />
+                                  ))}
+                                </div>
+                                <span className="text-sm font-medium text-gray-700">
+                                  {feedback.rating}.0/5.0
+                                </span>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-sm text-gray-600">
+                                  {new Date(feedback.session_date).toLocaleDateString('vi-VN')}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {new Date(feedback.created_at).toLocaleDateString('vi-VN')}
+                                </p>
+                              </div>
+                            </div>
+
+                            {feedback.comment && (
+                              <p className="text-gray-700 mb-2 italic">"{feedback.comment}"</p>
+                            )}
+
+                            <div className="flex items-center justify-between text-sm">
+                              <p className="text-gray-600">
+                                {feedback.is_anonymous ? (
+                                  <span className="flex items-center gap-1">
+                                    <span>👤 Ẩn danh</span>
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1">
+                                    <span>👤 {feedback.reviewer_name}</span>
+                                    {feedback.reviewer_email && (
+                                      <span className="text-gray-500">({feedback.reviewer_email})</span>
+                                    )}
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-600">Không thể tải đánh giá</p>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+              <button
+                onClick={() => setShowFeedbacksModal(false)}
+                className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Student Profile Modal (for Tutor) */}
+      {showStudentProfileModal && selectedStudent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Users className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">{selectedStudent.full_name}</h2>
+                  <p className="text-sm text-gray-600">{selectedStudent.email}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowStudentProfileModal(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              {loadingStudentProfile ? (
+                <div className="flex justify-center items-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                </div>
+              ) : studentCourses ? (
+                <div className="space-y-6">
+                  {/* Student Info Summary */}
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-200">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin học sinh</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-sm text-gray-600">Họ tên</p>
+                        <p className="font-semibold text-gray-900">{selectedStudent.full_name}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Email</p>
+                        <p className="font-semibold text-gray-900">{selectedStudent.email}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Tổng số môn học</p>
+                        <p className="font-semibold text-gray-900">{studentCourses.total_courses} môn</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600">Tổng buổi học đăng ký</p>
+                        <p className="font-semibold text-gray-900">
+                          {studentCourses.courses.reduce((sum: number, c: any) => sum + c.enrolled_sessions, 0)} buổi
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Enrolled Courses */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                      Các lớp học đang tham gia ({studentCourses.courses.length})
+                    </h3>
+                    
+                    {studentCourses.courses.length === 0 ? (
+                      <div className="text-center py-8 bg-gray-50 rounded-lg">
+                        <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                        <p className="text-gray-600">Chưa tham gia lớp học nào</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-4">
+                        {studentCourses.courses.map((course: any) => (
+                          <div
+                            key={course.subject_id}
+                            className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-medium rounded-full">
+                                    {course.subject_code}
+                                  </span>
+                                  <span className="text-sm text-gray-500">{course.credits} TC</span>
+                                </div>
+                                <h4 className="text-lg font-semibold text-gray-900">
+                                  {course.subject_name}
+                                </h4>
+                                <p className="text-sm text-gray-600 mt-1">
+                                  Khoa: {course.department}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-200">
+                              <div>
+                                <p className="text-sm text-gray-600">Giảng viên</p>
+                                <p className="font-semibold text-gray-900">
+                                  {course.tutor_name || 'Chưa có'}
+                                </p>
+                                {course.tutor_email && (
+                                  <p className="text-xs text-gray-500">{course.tutor_email}</p>
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-sm text-gray-600">Tiến độ học tập</p>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                    <div
+                                      className="bg-blue-600 h-2 rounded-full"
+                                      style={{
+                                        width: `${course.total_sessions > 0 
+                                          ? (course.enrolled_sessions / course.total_sessions) * 100 
+                                          : 0}%`
+                                      }}
+                                    />
+                                  </div>
+                                  <span className="text-sm font-semibold text-gray-700">
+                                    {course.enrolled_sessions}/{course.total_sessions}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-600">Không thể tải thông tin học sinh</p>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+              <button
+                onClick={() => setShowStudentProfileModal(false)}
+                className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+              >
+                Đóng
+              </button>
             </div>
           </div>
         </div>

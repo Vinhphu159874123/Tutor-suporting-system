@@ -295,6 +295,11 @@ export const tutorsApi = {
   getEnrolledStudents: () => {
     return apiClient.get("/tutors/courses/enrolled-students");
   },
+
+  // Generate sessions for an approved course
+  generateSessionsForCourse: (subjectId: number) => {
+    return apiClient.post(`/tutors/courses/${subjectId}/generate-sessions`);
+  },
 };
 
 // Students API
@@ -338,6 +343,18 @@ export const studentsApi = {
       return mockResponse({ message: "Feedback submitted" });
     }
     return apiClient.post("/students/feedback", data);
+  },
+
+  getStudentProfile: (studentId: number) => {
+    return apiClient.get(`/students/${studentId}`);
+  },
+
+  getStudentProfileByUserId: (userId: number) => {
+    return apiClient.get(`/students/by-user/${userId}`);
+  },
+
+  getStudentEnrolledCourses: (studentId: number) => {
+    return apiClient.get(`/students/${studentId}/enrolled-courses`);
   },
 };
 
@@ -465,6 +482,11 @@ export const sessionsApi = {
 
   getBulkFeedbacks: (sessionIds: string) => {
     return apiClient.get(`/sessions/feedback/bulk?session_ids=${sessionIds}`);
+  },
+
+  getSubjectFeedbacks: (subjectId: number, tutorId?: number) => {
+    const params = tutorId ? { tutor_id: tutorId } : {};
+    return apiClient.get(`/sessions/subject/${subjectId}/feedbacks`, { params });
   },
 
   // Attendance APIs

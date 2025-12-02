@@ -781,6 +781,100 @@ async def get_bulk_feedbacks(
     return feedback_map
 
 
+@router.get("/subject/{subject_id}/feedbacks")
+async def get_subject_feedbacks(
+    subject_id: int,
+    tutor_id: int = Query(None, description="Optional tutor_id to filter feedbacks for specific tutor"),
+    current_user: User = Depends(get_current_user),
+    session_service: SessionService = Depends(get_session_service)
+):
+    """
+    Get all feedbacks for a subject's sessions
+    Returns: average rating, total feedbacks, and individual feedback details
+    
+    Accessible by: Everyone (students can view to decide which course to join)
+    Optional tutor_id filter to get feedbacks for specific tutor's sessions only
+    """
+    from app.models.database import SessionFeedback, Session as DBSession, Tutor, User as DBUser
+    from sqlalchemy import select, func
+    
+    # If called by tutor without tutor_id specified, use their own tutor_id
+    if current_user.role == 'tutor' and not tutor_id:
+        tutor_result = await session_service.session_repo.db.execute(
+            select(Tutor).where(Tutor.user_id == current_user.user_id)
+        )
+        tutor = tutor_result.scalar_one_or_none()
+        if tutor:
+            tutor_id = tutor.tutor_id
+    
+    # Build query to get feedbacks
+    query = (
+        select(SessionFeedback, DBSession, DBUser)
+        .join(DBSession, SessionFeedback.session_id == DBSession.session_id)
+        .outerjoin(DBUser, SessionFeedback.reviewer_id == DBUser.user_id)
+        .where(DBSession.subject_id == subject_id)
+    )
+    
+    # Filter by tutor_id if specified
+    if tutor_id:
+        query = query.where(DBSession.tutor_id == tutor_id)
+    
+    # Execute query
+    feedbacks_result = await session_service.session_repo.db.execute(
+        query.order_by(SessionFeedback.created_at.desc())
+    )
+    feedbacks_data = feedbacks_result.all()
+    
+    # If no feedbacks found, return empty result
+    if not feedbacks_data:
+        return {
+            "average_rating": 0,
+            "total_feedbacks": 0,
+            "rating_distribution": {1: 0, 2: 0, 3: 0, 4: 0, 5: 0},
+            "feedbacks": []
+        }
+    
+    # Calculate statistics
+    ratings = [f[0].rating for f in feedbacks_data]
+    total_feedbacks = len(ratings)
+    average_rating = sum(ratings) / total_feedbacks if total_feedbacks > 0 else 0
+    
+    # Rating distribution
+    rating_distribution = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    for rating in ratings:
+        rating_distribution[rating] += 1
+    
+    # Format feedback details
+    feedbacks_list = []
+    for feedback, session, user in feedbacks_data:
+        feedback_item = {
+            "feedback_id": feedback.feedback_id,
+            "session_id": feedback.session_id,
+            "session_date": session.scheduled_date.isoformat() if session.scheduled_date else None,
+            "rating": feedback.rating,
+            "comment": feedback.comment,
+            "is_anonymous": feedback.is_anonymous,
+            "created_at": feedback.created_at.isoformat() if feedback.created_at else None
+        }
+        
+        # Only show reviewer info if NOT anonymous
+        if not feedback.is_anonymous and user:
+            feedback_item["reviewer_name"] = user.full_name
+            feedback_item["reviewer_email"] = user.email
+        else:
+            feedback_item["reviewer_name"] = "Ẩn danh"
+            feedback_item["reviewer_email"] = None
+        
+        feedbacks_list.append(feedback_item)
+    
+    return {
+        "average_rating": round(average_rating, 2),
+        "total_feedbacks": total_feedbacks,
+        "rating_distribution": rating_distribution,
+        "feedbacks": feedbacks_list
+    }
+
+
 # ============================================================================
 # ATTENDANCE ENDPOINTS
 # ============================================================================
