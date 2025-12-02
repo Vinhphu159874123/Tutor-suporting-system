@@ -12,6 +12,7 @@ import {
   BookOpen,
   User,
   FileText,
+  Bell,
 } from 'lucide-react';
 import { notificationsApi } from '../../services/api';
 import { toast } from 'react-toastify';
@@ -311,7 +312,9 @@ const Notifications: React.FC = () => {
         {/* Empty State */}
         {filteredNotifications.length === 0 && (
           <div className="text-center py-12">
-            <div className="text-6xl mb-4">🔔</div>
+            <div className="flex justify-center mb-4">
+              <Bell className="w-20 h-20 text-gray-400" />
+            </div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">
               Không có thông báo
             </h3>

@@ -43,10 +43,10 @@ const Dashboard: React.FC = () => {
   }, []);
 
   const stats = [
-    { name: "Tổng số phiên học", value: loading ? "..." : String(statsData.total_sessions), icon: BookOpen },
-    { name: "Phiên hoàn thành", value: loading ? "..." : String(statsData.completed_sessions), icon: CheckCircle2 },
-    { name: "Phiên sắp tới", value: loading ? "..." : String(statsData.upcoming_sessions), icon: Clock3 },
-    { name: "Đánh giá trung bình", value: loading ? "..." : `${statsData.average_rating}/5`, icon: Star },
+    { name: "Tổng số phiên học", value: String(statsData.total_sessions || 0), icon: BookOpen },
+    { name: "Phiên hoàn thành", value: String(statsData.completed_sessions || 0), icon: CheckCircle2 },
+    { name: "Phiên sắp tới", value: String(statsData.upcoming_sessions || 0), icon: Clock3 },
+    { name: "Đánh giá trung bình", value: `${statsData.average_rating || 0}/5`, icon: Star },
   ];
 
   return (
@@ -72,9 +72,13 @@ const Dashboard: React.FC = () => {
                 <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mr-4">
                   <Icon className="w-6 h-6 text-blue-600" />
                 </div>
-                <div>
+                <div className="flex-1">
                   <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                  {loading ? (
+                    <div className="h-8 w-20 bg-gray-200 animate-pulse rounded mt-1"></div>
+                  ) : (
+                    <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                  )}
                 </div>
               </div>
             </div>

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { toast } from "react-toastify";
-import { useNavigate } from "react-router-dom"; // nav to admin page
+import { useNavigate } from "react-router-dom";
+import { Calendar, CheckCircle, Clock, Users, MapPin, Check, X } from 'lucide-react';
 
 const CoordinatorSessions: React.FC = () => {
   const navigate = useNavigate();
@@ -98,26 +99,34 @@ const CoordinatorSessions: React.FC = () => {
       {/* Stats */}
       <div className="grid md:grid-cols-4 gap-6 mb-6">
         <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="text-3xl mb-2">📅</div>
+          <div className="flex justify-center mb-2">
+            <Calendar className="w-10 h-10 text-blue-600" />
+          </div>
           <p className="text-sm text-gray-600 mb-1">Tổng phiên học</p>
           <p className="text-3xl font-bold text-gray-900">{sessions.length}</p>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="text-3xl mb-2">✅</div>
+          <div className="flex justify-center mb-2">
+            <CheckCircle className="w-10 h-10 text-green-600" />
+          </div>
           <p className="text-sm text-gray-600 mb-1">Đã lên lịch</p>
           <p className="text-3xl font-bold text-green-600">
             {sessions.filter((s) => s.status === "scheduled").length}
           </p>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="text-3xl mb-2">⏳</div>
+          <div className="flex justify-center mb-2">
+            <Clock className="w-10 h-10 text-yellow-600" />
+          </div>
           <p className="text-sm text-gray-600 mb-1">Chờ duyệt</p>
           <p className="text-3xl font-bold text-yellow-600">
             {sessions.filter((s) => s.status === "pending").length}
           </p>
         </div>
         <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="text-3xl mb-2">👥</div>
+          <div className="flex justify-center mb-2">
+            <Users className="w-10 h-10 text-purple-600" />
+          </div>
           <p className="text-sm text-gray-600 mb-1">Tổng học viên</p>
           <p className="text-3xl font-bold text-blue-600">
             {sessions.reduce((sum, s) => sum + s.studentsEnrolled, 0)}
@@ -192,20 +201,30 @@ const CoordinatorSessions: React.FC = () => {
             <div className="grid md:grid-cols-4 gap-4 mb-4">
               <div>
                 <p className="text-sm text-gray-500">Ngày</p>
-                <p className="font-semibold">📅 {session.date}</p>
+                <p className="font-semibold flex items-center gap-1">
+                  <Calendar className="w-4 h-4" />
+                  {session.date}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Giờ</p>
-                <p className="font-semibold">⏰ {session.time}</p>
+                <p className="font-semibold flex items-center gap-1">
+                  <Clock className="w-4 h-4" />
+                  {session.time}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Địa điểm</p>
-                <p className="font-semibold">📍 {session.location}</p>
+                <p className="font-semibold flex items-center gap-1">
+                  <MapPin className="w-4 h-4" />
+                  {session.location}
+                </p>
               </div>
               <div>
                 <p className="text-sm text-gray-500">Học viên</p>
-                <p className="font-semibold">
-                  👥 {session.studentsEnrolled}/{session.maxStudents}
+                <p className="font-semibold flex items-center gap-1">
+                  <Users className="w-4 h-4" />
+                  {session.studentsEnrolled}/{session.maxStudents}
                 </p>
               </div>
             </div>
@@ -215,15 +234,17 @@ const CoordinatorSessions: React.FC = () => {
                 <>
                   <button
                     onClick={() => handleApprove(session.id)}
-                    className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition"
+                    className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2"
                   >
-                    ✓ Phê duyệt
+                    <Check className="w-5 h-5" />
+                    Phê duyệt
                   </button>
                   <button
                     onClick={() => handleCancel(session.id)}
-                    className="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition"
+                    className="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition flex items-center justify-center gap-2"
                   >
-                    ✗ Từ chối
+                    <X className="w-5 h-5" />
+                    Từ chối
                   </button>
                 </>
               )}

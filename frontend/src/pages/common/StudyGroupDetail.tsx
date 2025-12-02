@@ -24,7 +24,7 @@ const StudyGroupDetail: React.FC = () => {
     const fetchGroupDetail = async () => {
       try {
         setLoading(true);
-        const response = await apiClient.get(`/api/v1/study-groups/${id}`);
+        const response = await apiClient.get(`/study-groups/${id}`);
         const data = response.data;
         
         setGroup({

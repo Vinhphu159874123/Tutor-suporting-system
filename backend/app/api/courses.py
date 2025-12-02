@@ -4,7 +4,7 @@ Integration with HCMUT DataCore for course information
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from typing import List, Dict, Any
 import httpx
 
@@ -34,91 +34,105 @@ async def get_my_courses(
     
     try:
         if current_user.role == 'student':
-            # Get student record
-            student_result = await db.execute(
-                select(Student).where(Student.user_id == current_user.user_id)
-            )
-            student = student_result.scalar_one_or_none()
+            # Get distinct subjects from sessions student is enrolled in
+            # No need to check Student table - enrollment creates SessionParticipant directly
+            from app.models.database import Session, SessionParticipant
             
-            if student:
-                # Get distinct subjects from sessions student is enrolled in
-                from app.models.database import Session, SessionParticipant
-                subjects_result = await db.execute(
-                    select(Subject)
-                    .join(Session, Subject.subject_id == Session.subject_id)
-                    .join(SessionParticipant, Session.session_id == SessionParticipant.session_id)
-                    .where(SessionParticipant.user_id == current_user.user_id)
-                    .where(SessionParticipant.role == 'student')
-                    .distinct()
+            # Get subjects with session count and tutor_id
+            # Group by both subject and tutor since a student enrolls with a specific tutor
+            subjects_result = await db.execute(
+                select(
+                    Subject,
+                    Session.tutor_id,
+                    func.count(func.distinct(Session.session_id)).label('session_count')
                 )
-                subjects = subjects_result.scalars().all()
-                
-                courses = [
-                    {
-                        "subject_id": subject.subject_id,
-                        "subject_code": subject.subject_code,
-                        "subject_name": subject.subject_name,
-                        "department": subject.department,
-                        "credits": subject.credits or 4
-                    }
-                    for subject in subjects
-                ]
+                .join(Session, Subject.subject_id == Session.subject_id)
+                .join(SessionParticipant, Session.session_id == SessionParticipant.session_id)
+                .where(SessionParticipant.user_id == current_user.user_id)
+                .where(SessionParticipant.role == 'student')
+                .group_by(Subject.subject_id, Session.tutor_id)
+            )
+            results = subjects_result.all()
+            
+            courses = [
+                {
+                    "subject_id": subject.subject_id,
+                    "subject_code": subject.subject_code,
+                    "subject_name": subject.subject_name,
+                    "department": subject.department,
+                    "credits": subject.credits or 4,
+                    "session_count": session_count,
+                    "tutor_id": tutor_id
+                }
+                for subject, tutor_id, session_count in results
+            ]
         
         elif current_user.role == 'tutor':
             # Get tutor record
             from app.models.database import Tutor, Session, TutorRegistration
+            
             tutor_result = await db.execute(
                 select(Tutor).where(Tutor.user_id == current_user.user_id)
             )
             tutor = tutor_result.scalar_one_or_none()
             
             if tutor:
-                # Get subjects from both:
-                # 1. Approved registrations (subjects tutor is approved to teach)
-                # 2. Active sessions (subjects tutor is currently teaching)
-                
-                # Get subjects from approved registrations
-                registered_subjects_result = await db.execute(
-                    select(Subject)
-                    .join(TutorRegistration, Subject.subject_id == TutorRegistration.subject_id)
-                    .where(
-                        TutorRegistration.tutor_id == tutor.tutor_id,
-                        TutorRegistration.status == 'approved'
+                # Get subjects from sessions (with session counts)
+                subjects_with_sessions = await db.execute(
+                    select(
+                        Subject,
+                        func.count(Session.session_id).label('session_count')
                     )
-                    .distinct()
-                )
-                registered_subjects = registered_subjects_result.scalars().all()
-                
-                # Get subjects from active sessions
-                session_subjects_result = await db.execute(
-                    select(Subject)
                     .join(Session, Subject.subject_id == Session.subject_id)
                     .where(Session.tutor_id == tutor.tutor_id)
-                    .distinct()
+                    .group_by(Subject.subject_id)
                 )
-                session_subjects = session_subjects_result.scalars().all()
                 
-                # Merge both lists (remove duplicates by subject_id)
-                subject_dict = {}
-                for subject in registered_subjects + session_subjects:
-                    if subject.subject_id not in subject_dict:
-                        subject_dict[subject.subject_id] = subject
+                session_results = subjects_with_sessions.all()
                 
-                courses = [
-                    {
+                # Get subjects from pending/approved registrations (without sessions yet)
+                registered_subjects = await db.execute(
+                    select(Subject, TutorRegistration.status)
+                    .join(TutorRegistration, Subject.subject_id == TutorRegistration.subject_id)
+                    .where(TutorRegistration.tutor_id == tutor.tutor_id)
+                    .where(TutorRegistration.status.in_(['pending', 'approved']))
+                )
+                
+                registration_results = registered_subjects.all()
+                
+                # Merge both lists
+                courses_dict = {}
+                
+                # Add subjects with sessions
+                for subject, session_count in session_results:
+                    courses_dict[subject.subject_id] = {
                         "subject_id": subject.subject_id,
                         "subject_code": subject.subject_code,
                         "subject_name": subject.subject_name,
                         "department": subject.department,
-                        "credits": subject.credits or 4
+                        "credits": subject.credits or 4,
+                        "session_count": session_count,
+                        "status": "active"
                     }
-                    for subject in subject_dict.values()
-                ]
+                
+                # Add pending/approved registrations (without sessions)
+                for subject, reg_status in registration_results:
+                    if subject.subject_id not in courses_dict:
+                        courses_dict[subject.subject_id] = {
+                            "subject_id": subject.subject_id,
+                            "subject_code": subject.subject_code,
+                            "subject_name": subject.subject_name,
+                            "department": subject.department,
+                            "credits": subject.credits or 4,
+                            "session_count": 0,
+                            "status": reg_status
+                        }
+                
+                courses = list(courses_dict.values())
         
         return courses
         
     except Exception as e:
-        print(f"Error fetching courses: {e}")
         # Return empty list on error
         return []
 

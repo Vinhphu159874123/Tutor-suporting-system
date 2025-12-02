@@ -1,5 +1,8 @@
 from fastapi import APIRouter, Depends, Query, UploadFile, File, Form, HTTPException, status
+from fastapi.responses import FileResponse
 from typing import List, Optional
+import os
+from pathlib import Path
 
 from app.schemas.session import SessionCreate, SessionUpdate, SessionResponse
 from app.schemas.session_participant import (
@@ -115,6 +118,178 @@ async def upload_materials(
         )
 
 
+@router.get("/{session_id}/materials")
+async def get_session_materials(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    session_service: SessionService = Depends(get_session_service)
+):
+    """Get all materials for a session"""
+    from app.models.database import SessionMaterial
+    from sqlalchemy import select
+    
+    result = await session_service.session_repo.db.execute(
+        select(SessionMaterial).where(SessionMaterial.session_id == session_id)
+    )
+    materials = result.scalars().all()
+    
+    return {
+        "data": [
+            {
+                "material_id": m.material_id,
+                "file_name": m.file_name,
+                "file_type": m.file_type,
+                "file_size": m.file_size,
+                "description": m.description,
+                "uploaded_at": m.uploaded_at,
+                "uploaded_by": m.uploaded_by
+            }
+            for m in materials
+        ]
+    }
+
+
+@router.delete("/{session_id}/materials/{material_identifier}")
+async def delete_material(
+    session_id: int,
+    material_identifier: str,
+    current_user: User = Depends(get_current_user),
+    session_service: SessionService = Depends(get_session_service)
+):
+    """Delete a session material - accepts material_id (int) or filename (str)"""
+    from app.models.database import SessionMaterial
+    from sqlalchemy import select
+    import os
+    
+    # Only tutors can delete materials
+    if current_user.role != 'tutor':
+        raise HTTPException(status_code=403, detail="Only tutors can delete materials")
+    
+    # Try to parse as integer first (material_id)
+    try:
+        material_id = int(material_identifier)
+        result = await session_service.session_repo.db.execute(
+            select(SessionMaterial).where(
+                SessionMaterial.material_id == material_id,
+                SessionMaterial.session_id == session_id
+            )
+        )
+        material = result.scalar_one_or_none()
+    except ValueError:
+        # If not an integer, search by filename
+        result = await session_service.session_repo.db.execute(
+            select(SessionMaterial).where(
+                SessionMaterial.file_name == material_identifier,
+                SessionMaterial.session_id == session_id
+            )
+        )
+        material = result.scalar_one_or_none()
+    
+    if not material:
+        # Fallback: Try to find and delete file in uploads directory (for old materials)
+        upload_dir = Path("uploads/session_materials")
+        deleted = False
+        
+        if upload_dir.exists():
+            matching_files = list(upload_dir.glob(f"session_{session_id}_*"))
+            
+            for file_path in matching_files:
+                if material_identifier in file_path.name or file_path.name.endswith(material_identifier):
+                    try:
+                        os.remove(file_path)
+                        deleted = True
+                        return {
+                            "message": "Material deleted from filesystem (no database record)",
+                            "file_name": material_identifier
+                        }
+                    except Exception as e:
+                        raise HTTPException(
+                            status_code=500,
+                            detail=f"Could not delete file: {str(e)}"
+                        )
+        
+        if not deleted:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Material '{material_identifier}' not found in database or filesystem. Upload dir exists: {upload_dir.exists()}"
+            )
+    
+    # Delete file from disk
+    file_path = Path(material.file_url)
+    if file_path.exists():
+        try:
+            os.remove(file_path)
+        except Exception as e:
+            print(f"Warning: Could not delete file {file_path}: {e}")
+    
+    # Delete from database
+    await session_service.session_repo.db.delete(material)
+    await session_service.session_repo.db.commit()
+    
+    return {"message": "Material deleted successfully", "file_name": material.file_name}
+
+
+@router.get("/{session_id}/materials/{material_identifier}/download")
+async def download_material(
+    session_id: int,
+    material_identifier: str,
+    session_service: SessionService = Depends(get_session_service)
+    # Remove auth requirement for direct browser access
+):
+    """Download a session material file - accepts material_id (int) or filename (str) - PUBLIC"""
+    from app.models.database import SessionMaterial
+    from sqlalchemy import select
+    
+    # Try to parse as integer first (material_id)
+    try:
+        material_id = int(material_identifier)
+        result = await session_service.session_repo.db.execute(
+            select(SessionMaterial).where(
+                SessionMaterial.material_id == material_id,
+                SessionMaterial.session_id == session_id
+            )
+        )
+        material = result.scalar_one_or_none()
+    except ValueError:
+        # If not an integer, search by filename within this session
+        result = await session_service.session_repo.db.execute(
+            select(SessionMaterial).where(
+                SessionMaterial.session_id == session_id,
+                SessionMaterial.file_name == material_identifier
+            ).order_by(SessionMaterial.uploaded_at.desc())  # Get latest if multiple
+        )
+        material = result.scalars().first()  # Get first result instead of scalar_one_or_none
+    
+    if not material:
+        # Fallback: Try to find file in uploads directory (for old materials)
+        upload_dir = Path("uploads/session_materials")
+        
+        # Try to find file with pattern session_{session_id}_*{filename}
+        if upload_dir.exists():
+            matching_files = list(upload_dir.glob(f"session_{session_id}_*"))
+            for file_path in matching_files:
+                if material_identifier in file_path.name or file_path.name.endswith(material_identifier):
+                    return FileResponse(
+                        path=str(file_path),
+                        filename=material_identifier,
+                        media_type='application/octet-stream'
+                    )
+        
+        raise HTTPException(status_code=404, detail=f"Material '{material_identifier}' not found in database or uploads folder")
+    
+    # Check if file exists
+    file_path = Path(material.file_url)
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found on server")
+    
+    # Return file for download
+    return FileResponse(
+        path=str(file_path),
+        filename=material.file_name,
+        media_type='application/octet-stream'
+    )
+
+
 # ============================================================================
 # SESSION PARTICIPANT ENDPOINTS - Student Join/Leave
 # ============================================================================
@@ -200,16 +375,10 @@ async def bulk_save_sessions_for_subject(
     if not tutor:
         raise HTTPException(status_code=404, detail="Tutor profile not found")
     
-    # Delete existing sessions for this subject by this tutor
-    await session_service.session_repo.db.execute(
-        delete(Session).where(
-            Session.subject_id == subject_id,
-            Session.tutor_id == tutor.tutor_id
-        )
-    )
-    
-    # Create new sessions
+    # Process each session - UPDATE if has session_id, CREATE if not
     created_sessions = []
+    updated_sessions = []
+    
     try:
         for session_data in sessions_data:
             try:
@@ -237,30 +406,66 @@ async def bulk_save_sessions_for_subject(
                     start_time = datetime.strptime("07:00", "%H:%M").time()
                     end_time = datetime.strptime("09:00", "%H:%M").time()
                 
-                new_session = Session(
-                    tutor_id=tutor.tutor_id,
-                    subject_id=subject_id,
-                    title=f"Session {session_data['session_number']}",
-                    description=session_data.get('description', ''),
-                    scheduled_date=session_date,
-                    start_time=start_time,
-                    end_time=end_time,
-                    location_type='online' if session_data.get('location') == 'Online' else 'physical',
-                    meeting_link=session_data.get('meeting_link', ''),
-                    physical_address=session_data.get('location', '') if session_data.get('location') != 'Online' else None,
-                    materials=session_data.get('materials', []),
-                    status='draft'
-                )
+                # Check if this is an update (has session_id) or create (no session_id)
+                session_id = session_data.get('session_id')
                 
-                session_service.session_repo.db.add(new_session)
-                created_sessions.append(new_session)
+                if session_id:
+                    # UPDATE existing session
+                    result = await session_service.session_repo.db.execute(
+                        select(Session).where(
+                            Session.session_id == session_id,
+                            Session.tutor_id == tutor.tutor_id  # Security check
+                        )
+                    )
+                    existing_session = result.scalar_one_or_none()
+                    
+                    if existing_session:
+                        existing_session.description = session_data.get('description', '')
+                        existing_session.scheduled_date = session_date
+                        existing_session.start_time = start_time
+                        existing_session.end_time = end_time
+                        existing_session.location_type = 'online' if session_data.get('location') == 'Online' else 'physical'
+                        existing_session.meeting_link = session_data.get('meeting_link', '')
+                        existing_session.physical_address = session_data.get('location', '') if session_data.get('location') != 'Online' else None
+                        existing_session.materials = session_data.get('materials', [])
+                        existing_session.updated_at = datetime.utcnow()
+                        updated_sessions.append(existing_session)
+                    else:
+                        # Session ID provided but not found - create new
+                        session_id = None
+                
+                if not session_id:
+                    # CREATE new session
+                    new_session = Session(
+                        tutor_id=tutor.tutor_id,
+                        subject_id=subject_id,
+                        title=f"Session {session_data['session_number']}",
+                        description=session_data.get('description', ''),
+                        scheduled_date=session_date,
+                        start_time=start_time,
+                        end_time=end_time,
+                        location_type='online' if session_data.get('location') == 'Online' else 'physical',
+                        meeting_link=session_data.get('meeting_link', ''),
+                        physical_address=session_data.get('location', '') if session_data.get('location') != 'Online' else None,
+                        materials=session_data.get('materials', []),
+                        status='draft'
+                    )
+                    
+                    session_service.session_repo.db.add(new_session)
+                    created_sessions.append(new_session)
                 
             except Exception as e:
-                print(f"Error creating session {session_data.get('session_number')}: {e}")
+                print(f"Error processing session {session_data.get('session_number')}: {e}")
                 print(f"Session data: {session_data}")
                 raise HTTPException(status_code=400, detail=f"Invalid session data: {str(e)}")
         
         await session_service.session_repo.db.commit()
+        
+        return {
+            "message": "Sessions saved successfully", 
+            "created_count": len(created_sessions),
+            "updated_count": len(updated_sessions)
+        }
         
     except HTTPException:
         await session_service.session_repo.db.rollback()
@@ -269,8 +474,243 @@ async def bulk_save_sessions_for_subject(
         await session_service.session_repo.db.rollback()
         print(f"Error saving sessions: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to save sessions: {str(e)}")
+
+
+# ============================================================================
+# SESSION FEEDBACK ENDPOINTS
+# ============================================================================
+
+@router.post("/{session_id}/feedback")
+async def submit_session_feedback(
+    session_id: int,
+    rating: int = Form(..., ge=1, le=5),
+    comment: Optional[str] = Form(None),
+    is_anonymous: bool = Form(False),
+    current_user: User = Depends(get_current_user),
+    session_service: SessionService = Depends(get_session_service)
+):
+    """
+    Student submits feedback for a session
+    - rating: 1-5 stars
+    - comment: optional text feedback
+    - is_anonymous: whether to hide student identity
+    """
+    from app.models.database import SessionFeedback, SessionParticipant
+    from sqlalchemy import select
+    
+    # Verify session exists
+    session = await session_service.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Verify student is enrolled in this session
+    participant_result = await session_service.session_repo.db.execute(
+        select(SessionParticipant).where(
+            SessionParticipant.session_id == session_id,
+            SessionParticipant.user_id == current_user.user_id,
+            SessionParticipant.role == 'student'
+        )
+    )
+    participant = participant_result.scalar_one_or_none()
+    
+    if not participant:
+        raise HTTPException(status_code=403, detail="You are not enrolled in this session")
+    
+    # Check if feedback already exists
+    existing_feedback = await session_service.session_repo.db.execute(
+        select(SessionFeedback).where(
+            SessionFeedback.session_id == session_id,
+            SessionFeedback.reviewer_id == current_user.user_id
+        )
+    )
+    existing = existing_feedback.scalar_one_or_none()
+    
+    if existing:
+        # Update existing feedback
+        existing.rating = rating
+        existing.comment = comment
+        existing.is_anonymous = is_anonymous
+        await session_service.session_repo.db.commit()
+        return {"message": "Feedback updated successfully"}
+    
+    # Create new feedback
+    feedback = SessionFeedback(
+        session_id=session_id,
+        reviewer_id=current_user.user_id,
+        reviewer_type='student',
+        rating=rating,
+        comment=comment,
+        is_anonymous=is_anonymous,
+        is_public=True
+    )
+    
+    session_service.session_repo.db.add(feedback)
+    await session_service.session_repo.db.commit()
+    
+    return {"message": "Feedback submitted successfully"}
+
+
+@router.get("/{session_id}/feedback")
+async def get_session_feedbacks(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    session_service: SessionService = Depends(get_session_service)
+):
+    """Get all feedback for a session (tutor can see all, student sees their own)"""
+    from app.models.database import SessionFeedback
+    from sqlalchemy import select
+    
+    query = select(SessionFeedback).where(SessionFeedback.session_id == session_id)
+    
+    # Students can only see their own feedback
+    if current_user.role == 'student':
+        query = query.where(SessionFeedback.reviewer_id == current_user.user_id)
+    
+    result = await session_service.session_repo.db.execute(query)
+    feedbacks = result.scalars().all()
+    
+    return [
+        {
+            "feedback_id": f.feedback_id,
+            "rating": f.rating,
+            "comment": f.comment,
+            "is_anonymous": f.is_anonymous,
+            "reviewer_id": None if f.is_anonymous else f.reviewer_id,
+            "created_at": f.created_at.isoformat() if f.created_at else None
+        }
+        for f in feedbacks
+    ]
+
+
+@router.get("/feedback/bulk")
+async def get_bulk_feedbacks(
+    session_ids: str = Query(..., description="Comma-separated session IDs"),
+    current_user: User = Depends(get_current_user),
+    session_service: SessionService = Depends(get_session_service)
+):
+    """Get feedbacks for multiple sessions in one call - OPTIMIZED"""
+    from app.models.database import SessionFeedback
+    from sqlalchemy import select
+    
+    # Parse comma-separated IDs
+    try:
+        ids = [int(id.strip()) for id in session_ids.split(',')]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid session IDs format")
+    
+    # Single query for all sessions
+    query = select(SessionFeedback).where(SessionFeedback.session_id.in_(ids))
+    
+    # Students can only see their own feedback
+    if current_user.role == 'student':
+        query = query.where(SessionFeedback.reviewer_id == current_user.user_id)
+    
+    result = await session_service.session_repo.db.execute(query)
+    feedbacks = result.scalars().all()
+    
+    # Group by session_id
+    feedback_map = {}
+    for f in feedbacks:
+        if f.session_id not in feedback_map:
+            feedback_map[f.session_id] = []
+        feedback_map[f.session_id].append({
+            "feedback_id": f.feedback_id,
+            "session_id": f.session_id,
+            "rating": f.rating,
+            "comment": f.comment,
+            "is_anonymous": f.is_anonymous,
+            "reviewer_id": None if f.is_anonymous else f.reviewer_id,
+            "created_at": f.created_at.isoformat() if f.created_at else None
+        })
+    
+    return feedback_map
+
+
+# ============================================================================
+# ATTENDANCE ENDPOINTS
+# ============================================================================
+
+@router.get("/{session_id}/participants")
+async def get_session_participants(
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    session_service: SessionService = Depends(get_session_service)
+):
+    """Get list of students enrolled in a session (for attendance)"""
+    from app.models.database import SessionParticipant, User as DBUser
+    from sqlalchemy import select
+    
+    # Verify session exists and user is the tutor
+    session = await session_service.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Only tutors can view participants
+    if current_user.role != 'tutor':
+        raise HTTPException(status_code=403, detail="Only tutors can view participants")
+    
+    # Get all student participants
+    result = await session_service.session_repo.db.execute(
+        select(SessionParticipant, DBUser)
+        .join(DBUser, SessionParticipant.user_id == DBUser.user_id)
+        .where(
+            SessionParticipant.session_id == session_id,
+            SessionParticipant.role == 'student'
+        )
+    )
+    participants_data = result.all()
+    
+    return [
+        {
+            "user_id": user.user_id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "status": participant.status,
+            "attended": participant.attended,
+            "joined_at": participant.joined_at.isoformat() if participant.joined_at else None
+        }
+        for participant, user in participants_data
+    ]
+
+
+@router.post("/{session_id}/attendance")
+async def mark_attendance(
+    session_id: int,
+    attendance_data: dict,  # {"user_id": true/false, ...}
+    current_user: User = Depends(get_current_user),
+    session_service: SessionService = Depends(get_session_service)
+):
+    """Tutor marks attendance for students in a session"""
+    from app.models.database import SessionParticipant
+    from sqlalchemy import select
+    
+    # Verify session exists and user is the tutor
+    session = await session_service.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    if current_user.role != 'tutor':
+        raise HTTPException(status_code=403, detail="Only tutors can mark attendance")
+    
+    # Update attendance for each student
+    updated_count = 0
+    for user_id, attended in attendance_data.items():
+        result = await session_service.session_repo.db.execute(
+            select(SessionParticipant).where(
+                SessionParticipant.session_id == session_id,
+                SessionParticipant.user_id == int(user_id),
+                SessionParticipant.role == 'student'
+            )
+        )
+        participant = result.scalar_one_or_none()
+        
+        if participant:
+            participant.attended = attended
+            updated_count += 1
+    
+    await session_service.session_repo.db.commit()
     
     return {
-        "message": f"Successfully saved {len(created_sessions)} sessions",
-        "sessions_count": len(created_sessions)
+        "message": f"Attendance marked for {updated_count} students",
+        "updated_count": updated_count
     }

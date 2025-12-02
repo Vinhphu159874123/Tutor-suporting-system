@@ -24,7 +24,7 @@ const LearningProgress: React.FC = () => {
         // TODO: Get actual student_id from auth context
         const studentId = 94; // Placeholder
         const response = await apiClient.get(
-          `/api/v1/progress/students/${studentId}/progress`
+          `/progress/students/${studentId}/progress`
         ) as AxiosResponse<any>;
         
         // Transform API data

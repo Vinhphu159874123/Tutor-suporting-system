@@ -34,8 +34,8 @@ const BookSession: React.FC = () => {
       if (!tutorId) return;
       try {
         const [tutorRes, subjectsRes] = await Promise.all([
-          apiClient.get(`/api/v1/tutors/${tutorId}`),
-          apiClient.get('/api/v1/courses/subjects')
+          apiClient.get(`/tutors/${tutorId}`),
+          apiClient.get('/courses/subjects')
         ]);
         setTutor(tutorRes.data);
         setSubjects(subjectsRes.data);
@@ -84,7 +84,7 @@ const BookSession: React.FC = () => {
       const endHour = parseInt(formData.end_time.split(':')[0]);
       const duration = endHour - startHour;
       
-      await apiClient.post("/api/v1/sessions/", {
+      await apiClient.post("/sessions/", {
         tutor_id: parseInt(tutorId || "0"),
         subject_id: parseInt(formData.subject_id),
         student_ids: [], // Backend will auto-add current user

@@ -26,7 +26,7 @@ const CreateForum: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      const response = await apiClient.post("/api/v1/forum/posts", {
+      const response = await apiClient.post("/forum/posts", {
         title: formData.title,
         content: formData.content,
         category: formData.category,

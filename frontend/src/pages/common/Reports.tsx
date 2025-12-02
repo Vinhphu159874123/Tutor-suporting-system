@@ -86,7 +86,7 @@ const Reports: React.FC = () => {
   useEffect(() => {
     const fetchReports = async () => {
       try {
-        const response = await apiClient.get("/api/v1/reports/courses") as AxiosResponse<any>;
+        const response = await apiClient.get("/reports/courses") as AxiosResponse<any>;
         setCourseStats(response.data || []);
       } catch (error: any) {
         console.error("Error fetching reports:", error);

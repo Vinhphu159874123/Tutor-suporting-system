@@ -17,6 +17,7 @@ class EventTypes:
     STUDENT_UPDATED = "student.updated"
     TUTOR_REQUESTED = "student.tutor_requested"
     FEEDBACK_SUBMITTED = "student.feedback_submitted"
+    STUDENT_ENROLLED_COURSE = "student.enrolled_course"  # Student enrolled in a course
     
     # Tutor Events
     TUTOR_REGISTERED = "tutor.registered"

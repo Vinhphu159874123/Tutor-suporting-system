@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { useAuthStore } from "../../stores/authStore";
+import { AlertTriangle } from "lucide-react";
 import { toast } from "react-toastify";
 
 const Settings: React.FC = () => {
-  const { user } = useAuthStore();
 
   const [notifications, setNotifications] = useState({
     email: true,
@@ -243,8 +243,9 @@ const Settings: React.FC = () => {
 
       {/* Danger Zone */}
       <div className="card border-2 border-red-200 bg-red-50">
-        <h2 className="text-xl font-bold text-red-900 mb-4">
-          ⚠️ Vùng nguy hiểm
+        <h2 className="text-xl font-bold text-red-900 mb-4 flex items-center gap-2">
+          <AlertTriangle className="w-6 h-6" />
+          Vùng nguy hiểm
         </h2>
         <p className="text-sm text-red-700 mb-6">
           Các hành động dưới đây không thể hoàn tác

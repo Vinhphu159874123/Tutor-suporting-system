@@ -45,7 +45,8 @@ class SessionRepository:
         """Get all sessions with filters and eager loading"""
         query = select(SessionModel).options(
             selectinload(SessionModel.tutor).selectinload(Tutor.user),
-            selectinload(SessionModel.participants).selectinload(SessionParticipant.user)
+            selectinload(SessionModel.participants).selectinload(SessionParticipant.user),
+            selectinload(SessionModel.session_materials)  # Load uploaded materials
         )
         
         if tutor_id:

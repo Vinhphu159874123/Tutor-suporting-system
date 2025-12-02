@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useAuthStore } from "../../stores/authStore";
 import { toast } from "react-toastify";
 import api, { usersApi } from "../../services/api";
-import { Edit3, Save, Ban, KeyRound, LockKeyhole, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Edit3, Save, Ban, KeyRound, LockKeyhole, ShieldCheck, ShieldAlert, CheckCircle, AlertTriangle } from "lucide-react";
 
 // Faculty and Major data structure
 const FACULTY_STRUCTURE: Record<string, { name: string; majors: string[] }> = {
@@ -71,7 +71,7 @@ const Profile: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [hasPendingTutorApplication, setHasPendingTutorApplication] = useState(false);
+  // const [hasPendingTutorApplication, setHasPendingTutorApplication] = useState(false);
 
   const [formData, setFormData] = useState({
     full_name: user?.full_name || "",
@@ -383,14 +383,14 @@ const Profile: React.FC = () => {
             </label>
             <div className="flex items-center gap-2">
               <p className="text-gray-900 font-medium capitalize">{user?.role}</p>
-              {hasPendingTutorApplication && user?.role === "student" && (
+              {/* hasPendingTutorApplication && user?.role === "student" && (
                 <span className="inline-flex items-center gap-1 px-3 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded-full border border-yellow-300">
                   <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
                   </svg>
                   Đơn đăng ký Tutor: Đang chờ duyệt
                 </span>
-              )}
+              ) */}
             </div>
           </div>
         </div>
@@ -550,10 +550,20 @@ const Profile: React.FC = () => {
           <div className="flex justify-between py-2 border-b">
             <span className="text-gray-600">Email đã xác thực</span>
             <span
-              className={`font-medium ${user?.is_verified ? "text-green-600" : "text-yellow-600"
+              className={`font-medium flex items-center gap-1 ${user?.is_verified ? "text-green-600" : "text-yellow-600"
                 }`}
             >
-              {user?.is_verified ? "✅ Đã xác thực" : "⚠️ Chưa xác thực"}
+              {user?.is_verified ? (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  Đã xác thực
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="w-4 h-4" />
+                  Chưa xác thực
+                </>
+              )}
             </span>
           </div>
           <div className="flex justify-between py-2">
