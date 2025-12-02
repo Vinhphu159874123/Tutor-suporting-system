@@ -94,7 +94,7 @@ async def get_pending_tutor_registrations(
             first_session = session_result.scalar_one_or_none()
             
             if first_session:
-                # Match schedule by day, time
+                # Match schedule by day, time - use .first() instead of .scalar_one_or_none() to handle multiple schedules
                 schedule_query = (
                     select(SessionSchedule)
                     .where(
@@ -103,6 +103,7 @@ async def get_pending_tutor_registrations(
                         SessionSchedule.start_time == first_session.start_time,
                         SessionSchedule.end_time == first_session.end_time
                     )
+                    .limit(1)
                 )
                 schedule_result = await db.execute(schedule_query)
                 schedule = schedule_result.scalar_one_or_none()
@@ -255,6 +256,10 @@ async def approve_tutor_registration(
     registration.status = 'approved'
     registration.approved_by = coordinator.coordinator_id
     registration.responded_at = datetime.utcnow()
+    
+    # Save selected schedule if provided
+    if approval_data.schedule_id:
+        registration.selected_schedule_id = approval_data.schedule_id
     
     await db.commit()
     await db.refresh(registration)

@@ -273,6 +273,21 @@ async def get_available_courses(
             total_sessions_display = reg.total_sessions or 0
             start_date_display = reg.start_date
         
+        # Get average rating for this subject/tutor combination
+        from app.models.database import SessionFeedback
+        avg_rating_query = (
+            select(func.avg(SessionFeedback.rating), func.count(SessionFeedback.feedback_id))
+            .join(Session, SessionFeedback.session_id == Session.session_id)
+            .where(
+                Session.subject_id == reg.subject_id,
+                Session.tutor_id == reg.tutor_id
+            )
+        )
+        rating_result = await db.execute(avg_rating_query)
+        avg_rating_row = rating_result.first()
+        avg_rating = float(avg_rating_row[0]) if avg_rating_row[0] else 0.0
+        total_feedbacks = avg_rating_row[1] if avg_rating_row[1] else 0
+        
         # Only include courses that have planned sessions (either saved or from registration)
         if total_sessions_display > 0:
             courses.append({
@@ -288,7 +303,9 @@ async def get_available_courses(
                 "current_students": current_students,
                 "available_slots": max(0, available_slots),
                 "start_date": start_date_display.isoformat() if start_date_display else None,
-                "status": reg.status
+                "status": reg.status,
+                "average_rating": round(avg_rating, 1),
+                "total_feedbacks": total_feedbacks
             })
     
     return {"data": courses}
@@ -402,6 +419,148 @@ async def request_join_course(
     return {
         "message": f"Successfully joined {subject_name}",
         "sessions_joined": len(sessions)
+    }
+
+
+@router.post("/courses/{subject_id}/generate-sessions")
+async def generate_sessions_for_course(
+    subject_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Generate sessions for an approved course based on tutor's registered schedule
+    
+    This endpoint allows tutors to manually generate sessions after their course is approved.
+    Sessions are generated based on:
+    - The schedule registered during course registration
+    - Total number of sessions specified in registration
+    - Start date and max students from registration
+    
+    Returns:
+    - message: Success message
+    - generated_count: Number of sessions created
+    """
+    from sqlalchemy import select, func
+    from app.models.database import Tutor, TutorRegistration, SessionSchedule, Session, Subject
+    from datetime import datetime, timedelta
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    # Get tutor profile
+    tutor_query = select(Tutor).where(Tutor.user_id == current_user.user_id)
+    tutor_result = await db.execute(tutor_query)
+    tutor = tutor_result.scalar_one_or_none()
+    
+    if not tutor:
+        raise HTTPException(status_code=403, detail="Only tutors can generate sessions")
+    
+    # Get registration for this subject
+    reg_query = select(TutorRegistration).where(
+        TutorRegistration.tutor_id == tutor.tutor_id,
+        TutorRegistration.subject_id == subject_id
+    )
+    reg_result = await db.execute(reg_query)
+    registration = reg_result.scalar_one_or_none()
+    
+    if not registration:
+        raise HTTPException(status_code=404, detail="Course registration not found")
+    
+    if registration.status != "approved":
+        raise HTTPException(status_code=400, detail="Course must be approved before generating sessions")
+    
+    # Check if sessions already exist
+    existing_sessions_result = await db.execute(
+        select(func.count(Session.session_id)).where(
+            Session.tutor_id == tutor.tutor_id,
+            Session.subject_id == subject_id
+        )
+    )
+    existing_count = existing_sessions_result.scalar() or 0
+    
+    if existing_count > 0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Sessions already exist for this course ({existing_count} sessions). Delete them first if you want to regenerate."
+        )
+    
+    # Get schedule - use selected_schedule_id if available, otherwise first active schedule
+    if registration.selected_schedule_id:
+        schedule_query = select(SessionSchedule).where(
+            SessionSchedule.schedule_id == registration.selected_schedule_id
+        )
+    else:
+        schedule_query = select(SessionSchedule).where(
+            SessionSchedule.tutor_id == tutor.tutor_id,
+            SessionSchedule.subject_id == subject_id,
+            SessionSchedule.is_active == True
+        )
+    
+    schedule_result = await db.execute(schedule_query)
+    schedule = schedule_result.scalar_one_or_none()
+    
+    if not schedule:
+        raise HTTPException(
+            status_code=400, 
+            detail="No active schedule found. Please set up your schedule first."
+        )
+    
+    # Get subject name
+    subject_query = select(Subject).where(Subject.subject_id == subject_id)
+    subject_result = await db.execute(subject_query)
+    subject = subject_result.scalar_one_or_none()
+    subject_name = subject.subject_name if subject else "Unknown Subject"
+    
+    # Determine start date
+    start_date = registration.start_date if registration.start_date else datetime.now().date()
+    current_date = start_date
+    day_of_week = schedule.day_of_week
+    
+    # Advance to the first matching day
+    while current_date.weekday() != day_of_week:
+        current_date += timedelta(days=1)
+    
+    # Generate sessions
+    total_sessions = registration.total_sessions or 10
+    max_students = registration.max_students or 5
+    
+    logger.info(f"Generating {total_sessions} sessions for tutor {tutor.tutor_id}, subject {subject_id}")
+    
+    for i in range(total_sessions):
+        session = Session(
+            tutor_id=tutor.tutor_id,
+            subject_id=subject_id,
+            title=f"{subject_name} - Session {i+1}",
+            description=schedule.description or f"Tutoring session for {subject_name}",
+            scheduled_date=current_date,
+            start_time=schedule.start_time,
+            end_time=schedule.end_time,
+            duration=schedule.duration,
+            location_type=schedule.location_type or 'online',
+            meeting_link=None,
+            physical_address=None,
+            max_students=max_students,
+            status='draft'
+        )
+        db.add(session)
+        
+        # Move to next week (same day)
+        current_date += timedelta(weeks=1)
+    
+    await db.commit()
+    
+    logger.info(f"✅ Successfully generated {total_sessions} sessions")
+    
+    return {
+        "message": f"Successfully generated {total_sessions} sessions",
+        "generated_count": total_sessions,
+        "start_date": start_date.isoformat(),
+        "schedule": {
+            "day_of_week": schedule.day_of_week,
+            "start_time": str(schedule.start_time),
+            "end_time": str(schedule.end_time)
+        }
     }
 
 

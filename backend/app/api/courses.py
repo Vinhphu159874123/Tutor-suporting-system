@@ -116,18 +116,18 @@ async def get_my_courses(
                     }
                 
                 # Add pending/approved registrations
-                # If approved but no sessions yet, use total_sessions from registration
+                # Only show subjects without actual sessions (registration only, no sessions yet)
                 for subject, reg_status, total_sessions, subject_id in registration_results:
                     if subject.subject_id not in courses_dict:
-                        # For approved registrations without sessions, use planned total_sessions
-                        session_count = total_sessions if reg_status == 'approved' else 0
+                        # Don't show phantom sessions - only count actual sessions from database
+                        # If approved but no sessions created yet, show 0
                         courses_dict[subject.subject_id] = {
                             "subject_id": subject.subject_id,
                             "subject_code": subject.subject_code,
                             "subject_name": subject.subject_name,
                             "department": subject.department,
                             "credits": subject.credits or 4,
-                            "session_count": session_count,
+                            "session_count": 0,  # Always 0 for registrations without actual sessions
                             "status": reg_status
                         }
                 
