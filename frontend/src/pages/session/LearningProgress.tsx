@@ -1,6 +1,9 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { toast } from "react-toastify";
+import { AxiosResponse } from "axios";
 import SessionBackButton from "./SessionBackButton";
 import { BookOpen, CheckCircle2, Star, BarChart3 } from "lucide-react";
+import apiClient from "../../services/api";
 
 interface CourseProgress {
   courseId: string;
@@ -12,32 +15,53 @@ interface CourseProgress {
 }
 
 const LearningProgress: React.FC = () => {
-  const courses: CourseProgress[] = [
-    {
-      courseId: "CO3005",
-      courseName: "Công nghệ phần mềm",
-      totalSessions: 10,
-      completedSessions: 7,
-      averageScore: 8.5,
-      attendance: 85,
-    },
-    {
-      courseId: "CO3001",
-      courseName: "Cấu trúc dữ liệu và giải thuật",
-      totalSessions: 12,
-      completedSessions: 9,
-      averageScore: 9.0,
-      attendance: 92,
-    },
-    {
-      courseId: "CO2003",
-      courseName: "Lập trình hướng đối tượng",
-      totalSessions: 8,
-      completedSessions: 8,
-      averageScore: 8.8,
-      attendance: 100,
-    },
-  ];
+  const [courses, setCourses] = useState<CourseProgress[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProgress = async () => {
+      try {
+        // TODO: Get actual student_id from auth context
+        const studentId = 94; // Placeholder
+        const response = await apiClient.get(
+          `/progress/students/${studentId}/progress`
+        ) as AxiosResponse<any>;
+        
+        // Transform API data
+        const progressData = response.data || [];
+        
+        // Aggregate by course
+        const courseMap = new Map<string, CourseProgress>();
+        progressData.forEach((item: any) => {
+          const key = item.courseId;
+          if (!courseMap.has(key)) {
+            courseMap.set(key, {
+              courseId: item.courseId,
+              courseName: item.courseName,
+              totalSessions: 0,
+              completedSessions: 0,
+              averageScore: 0,
+              attendance: 0
+            });
+          }
+          const course = courseMap.get(key)!;
+          course.totalSessions += 1;
+          course.completedSessions += item.completedSessions || 0;
+          course.averageScore = (course.averageScore + (item.averageScore || 0)) / 2;
+          course.attendance = (course.attendance + (item.attendance || 0)) / 2;
+        });
+        
+        setCourses(Array.from(courseMap.values()));
+      } catch (error: any) {
+        console.error("Error fetching progress:", error);
+        toast.error("Không thể tải tiến độ học tập");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProgress();
+  }, []);
 
   const getProgressColor = (percentage: number) => {
     if (percentage >= 80) return "bg-green-500";
@@ -83,6 +107,17 @@ const LearningProgress: React.FC = () => {
       </h1>
 
       {/* Overall Statistics */}
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="mt-2 text-gray-600">Đang tải tiến độ...</p>
+        </div>
+      ) : courses.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-lg shadow-md">
+          <p className="text-gray-500">Chưa có dữ liệu tiến độ học tập</p>
+        </div>
+      ) : (
+        <>
       <div className="grid md:grid-cols-4 gap-6 mb-8">
         <div className="bg-white rounded-lg shadow-md p-6">
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
@@ -201,6 +236,8 @@ const LearningProgress: React.FC = () => {
           );
         })}
       </div>
+        </>
+      )}
     </div>
   );
 };

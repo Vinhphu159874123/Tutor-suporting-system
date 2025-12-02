@@ -1,5 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import { AxiosResponse } from "axios";
+import apiClient from "../../services/api";
 import {
   ArrowRight,
   CalendarDays,
@@ -34,65 +37,6 @@ interface ForumThread {
   isLiked?: boolean;
 }
 
-const initialThreads: ForumThread[] = [
-  {
-    id: "1",
-    title: "Kinh nghiệm vượt môn Cấu trúc dữ liệu trong 1 học kỳ",
-    category: "study",
-    author: "Nguyễn Văn A",
-    createdAt: "2025-11-20",
-    excerpt:
-      "Mình tổng hợp lại toàn bộ tài liệu + tips luyện tập giúp pass môn DSA, chia sẻ cho mọi người cùng tham khảo.",
-    likes: 42,
-    replies: 18,
-    views: 520,
-    isPinned: true,
-    isSolved: true,
-    tags: ["DSA", "Tips", "Midterm"],
-    isLiked: true,
-  },
-  {
-    id: "2",
-    title: "Tìm team làm project cuối kỳ môn Công nghệ phần mềm",
-    category: "project",
-    author: "Trần Thị B",
-    createdAt: "2025-11-19",
-    excerpt:
-      "Team mình còn 2 slot cho các bạn muốn tham gia project tutor supporting system. Ưu tiên bạn đã quen React/FastAPI.",
-    likes: 25,
-    replies: 9,
-    views: 310,
-    tags: ["Project", "React", "FastAPI"],
-  },
-  {
-    id: "3",
-    title: "Chia sẻ bộ đề cương ôn thi Hệ điều hành",
-    category: "exam",
-    author: "Lê Văn C",
-    createdAt: "2025-11-18",
-    excerpt:
-      "Mình vừa tổng hợp bộ đề ôn thi + flashcard cho môn Hệ điều hành. Bạn nào cần thì vào nhận nhé!",
-    likes: 18,
-    replies: 4,
-    views: 210,
-    tags: ["Exam", "Flashcard"],
-  },
-  {
-    id: "4",
-    title: "Định hướng nghề nghiệp cho sinh viên IT năm 3",
-    category: "career",
-    author: "Phạm Thu Hà",
-    createdAt: "2025-11-17",
-    excerpt:
-      "Mình vừa tham dự workshop về lộ trình nghề nghiệp, chia sẻ lại tài liệu + câu hỏi Q&A mọi người quan tâm.",
-    likes: 31,
-    replies: 7,
-    views: 264,
-    tags: ["Career", "Workshop"],
-    isSolved: false,
-  },
-];
-
 const trendingTags = [
   { label: "React", count: 32 },
   { label: "Python", count: 27 },
@@ -109,12 +53,26 @@ const topContributors = [
 
 const Forum: React.FC = () => {
   const navigate = useNavigate();
-  const [threads, setThreads] = useState(initialThreads);
+  const [threads, setThreads] = useState<ForumThread[]>([]);
   const [searchText, setSearchText] = useState("");
   const [category, setCategory] = useState<ThreadCategory>("all");
   const [sortBy, setSortBy] = useState<"latest" | "popular" | "unanswered">(
     "latest"
   );
+
+  useEffect(() => {
+    const fetchForumPosts = async () => {
+      try {
+        const response = await apiClient.get("/forum/posts") as AxiosResponse<any>;
+        setThreads(response.data || []);
+      } catch (error: any) {
+        console.error("Error fetching forum posts:", error);
+        toast.error("Không thể tải bài viết diễn đàn");
+      }
+    };
+    
+    fetchForumPosts();
+  }, []);
   const [onlyPinned, setOnlyPinned] = useState(false);
 
   const filteredThreads = useMemo(() => {

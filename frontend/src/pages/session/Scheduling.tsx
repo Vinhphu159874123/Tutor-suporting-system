@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import SessionBackButton from "./SessionBackButton";
 import { useAuthStore } from "../../stores/authStore";
-import { schedulingApi } from "../../services/api";
+import { schedulingApi, sessionsApi } from "../../services/api";
 import { toast } from "react-toastify";
 import {
   CalendarPlus,
@@ -39,7 +39,7 @@ const Scheduling: React.FC = () => {
   const canManageTutorSessionResponses = isTutor;
   const canManageStudentSessionResponses = isStudent;
   const canOrganizeSessions = isCoordinator || isAdmin;
-  const defaultTutorId = isTutor && user?.id ? String(user.id) : "";
+  const defaultTutorId = isTutor && user?.user_id ? String(user.user_id) : "";
   const tutorIdFromProfile = defaultTutorId;
 
   const [tutorIdInput, setTutorIdInput] = useState<string>(tutorIdFromProfile);
@@ -81,43 +81,9 @@ const Scheduling: React.FC = () => {
   const [sessionSlots, setSessionSlots] = useState<
     { date: string; start_time: string; end_time: string }[]
   >([]);
-  const [tutorSessions, setTutorSessions] = useState([
-    {
-      session_id: 401,
-      title: "Ôn tập Giải tích",
-      proposed_time: "2025-11-22 09:00",
-      format: "online",
-      location: "Zoom",
-      status: "pending",
-    },
-    {
-      session_id: 402,
-      title: "Thực hành Python",
-      proposed_time: "2025-11-23 14:00",
-      format: "in-person",
-      location: "Phòng H2-203",
-      status: "pending",
-    },
-  ]);
-  const [studentSessions, setStudentSessions] = useState([
-    {
-      session_id: 601,
-      title: "Kèm cặp XSTK",
-      proposed_time: "2025-11-25 18:00",
-      tutor_name: "TS. Nguyễn Văn A",
-      status: "pending",
-    },
-  ]);
-  const [pendingCoordinatorSessions, setPendingCoordinatorSessions] = useState([
-    {
-      session_id: 701,
-      title: "AI Fundamentals",
-      tutor_name: "ThS. Phạm Văn C",
-      student_name: "SV Trần B",
-      ai_score: 0.92,
-      availability_hint: "Thứ 5, 9:00-11:00",
-    },
-  ]);
+  const [tutorSessions, setTutorSessions] = useState<any[]>([]);
+  const [studentSessions, setStudentSessions] = useState<any[]>([]);
+  const [pendingCoordinatorSessions, setPendingCoordinatorSessions] = useState<any[]>([]);
   const [isScheduling, setIsScheduling] = useState(false);
 
   const [rescheduleForm, setRescheduleForm] = useState({
@@ -131,7 +97,7 @@ const Scheduling: React.FC = () => {
 
   const formattedTutorLabel = useMemo(() => {
     if (isTutor && user?.full_name) {
-      return `${user.full_name} (ID ${user.id})`;
+      return `${user.full_name} (ID ${user.user_id})`;
     }
     if (activeTutorId) {
       return `Tutor ID ${activeTutorId}`;
@@ -146,6 +112,35 @@ const Scheduling: React.FC = () => {
       setAvailabilitySlots([]);
     }
   }, [activeTutorId]);
+
+  // Load sessions from API
+  useEffect(() => {
+    fetchSessions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, role]);
+
+  const fetchSessions = async () => {
+    try {
+      const response: any = await sessionsApi.getSessions({ status: 'pending' });
+      const sessions = response.data || [];
+      
+      if (isTutor) {
+        // Filter sessions where user is the tutor
+        setTutorSessions(sessions.filter((s: any) => s.tutor_id === user?.user_id));
+      } else if (isStudent) {
+        // Filter sessions where user is a participant
+        setStudentSessions(sessions.filter((s: any) => 
+          s.participants?.some((p: any) => p.student_id === user?.user_id)
+        ));
+      } else if (isCoordinator || isAdmin) {
+        // Show all pending sessions for coordinator/admin
+        setPendingCoordinatorSessions(sessions);
+      }
+    } catch (error) {
+      console.error('Failed to load sessions:', error);
+      toast.error('Không thể tải danh sách phiên học');
+    }
+  };
 
   const handleAddSessionSlot = () => {
     if (!newSlotDraft.date || !newSlotDraft.start_time || !newSlotDraft.end_time) {
@@ -319,6 +314,8 @@ const Scheduling: React.FC = () => {
         notes: "",
       }));
       setSessionSlots([]);
+      // Reload sessions list
+      fetchSessions();
     } catch (error: any) {
       console.error(error);
       toast.error("Không thể tạo buổi học. Kiểm tra lại thông tin.");
@@ -347,6 +344,8 @@ const Scheduling: React.FC = () => {
         status: "draft",
       });
       toast.success("Đã lưu phiên học ở trạng thái nháp.");
+      // Reload sessions list
+      fetchSessions();
     } catch (error) {
       console.error(error);
       toast.error("Lưu nháp thất bại.");
@@ -506,7 +505,7 @@ const Scheduling: React.FC = () => {
 
             {isTutor && (
               <div className="text-sm text-gray-600 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
-                Bạn đang cập nhật lịch của chính mình (ID {user?.id}). Mọi thay đổi sẽ áp dụng ngay.
+                Bạn đang cập nhật lịch của chính mình (ID {user?.user_id}). Mọi thay đổi sẽ áp dụng ngay.
               </div>
             )}
 

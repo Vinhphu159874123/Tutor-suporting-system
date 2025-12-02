@@ -66,11 +66,16 @@ class EventBus:
         Note: This method returns immediately without waiting for listeners
         """
         if not self._enabled:
+            logger.warning(f"Event bus disabled, skipping event: {event_name}")
             return
         
         if event_name not in self._listeners:
-            logger.debug(f"No listeners registered for event: {event_name}")
+            logger.warning(f"⚠️  No listeners registered for event: {event_name}")
+            logger.info(f"Available events: {list(self._listeners.keys())}")
             return
+        
+        listener_count = len(self._listeners[event_name])
+        logger.info(f"🚀 Emitting event '{event_name}' to {listener_count} listener(s)")
         
         # Create background task for each listener (non-blocking)
         for listener in self._listeners[event_name]:
@@ -82,11 +87,20 @@ class EventBus:
         Errors in listeners don't affect main flow
         """
         try:
-            await listener(data)
-            logger.debug(f"Event '{event_name}' processed by {listener.__name__}")
+            # Check if listener is a class instance with handle method
+            if hasattr(listener, 'handle'):
+                await listener.handle(data)
+                listener_name = listener.__class__.__name__
+            else:
+                # Direct callable function
+                await listener(data)
+                listener_name = getattr(listener, '__name__', str(listener))
+            
+            logger.debug(f"Event '{event_name}' processed by {listener_name}")
         except Exception as e:
+            listener_name = getattr(listener, '__class__', {}).get('__name__', str(listener))
             logger.error(
-                f"Error in listener {listener.__name__} for event '{event_name}': {e}",
+                f"Error in listener {listener_name} for event '{event_name}': {e}",
                 exc_info=True
             )
     

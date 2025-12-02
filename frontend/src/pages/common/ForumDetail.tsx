@@ -1,5 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import apiClient from "../../services/api";
 import {
   ArrowLeft,
   CalendarDays,
@@ -128,14 +130,48 @@ const repliesSeed: Reply[] = [
 const ForumDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [replies, setReplies] = useState(repliesSeed);
+  const [thread, setThread] = useState<ThreadDetail | null>(null);
+  const [replies, setReplies] = useState<Reply[]>([]);
   const [replyContent, setReplyContent] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const thread = useMemo(() => {
-    const found = threadMap.find((item) => item.id === id);
-    return found || threadMap[0];
-  }, [id]);
+  // Fetch thread details from API
+  useEffect(() => {
+    const fetchThreadDetail = async () => {
+      try {
+        setLoading(true);
+        const response = await apiClient.get(`/forum/${id}/posts`);
+        const data = response.data;
+        
+        setThread({
+          id: data.id,
+          title: data.title,
+          category: data.category,
+          author: data.author,
+          createdAt: data.createdAt,
+          views: data.views || 0,
+          likes: data.likes || 0,
+          replies: Array.isArray(data.replies_list) ? data.replies_list.length : (data.replies || 0),
+          isSolved: data.isSolved,
+          tags: data.tags || [],
+          content: data.content
+        });
+        
+        setReplies(Array.isArray(data.replies_list) ? data.replies_list : []);
+      } catch (error: any) {
+        console.error("Error fetching thread:", error);
+        toast.error("Không thể tải bài viết");
+        navigate("/forum");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    if (id) {
+      fetchThreadDetail();
+    }
+  }, [id, navigate]);
 
   const formatDateTime = (value: string) =>
     new Date(value).toLocaleString("vi-VN", {
@@ -160,26 +196,65 @@ const ForumDetail: React.FC = () => {
     );
   };
 
-  const handleReply = () => {
+  const handleReply = async () => {
     if (!replyContent.trim()) return;
+    
     setIsSubmitting(true);
-    setTimeout(() => {
-      setReplies((prev) => [
-        {
-          id: Date.now().toString(),
-          author: "Bạn",
-          role: "Student",
-          content: replyContent.trim(),
-          createdAt: new Date().toISOString(),
-          likes: 0,
-          isLiked: false,
-        },
-        ...prev,
-      ]);
+    try {
+      const response = await apiClient.post(`/forum/${id}/reply`, {
+        content: replyContent.trim(),
+        parent_post_id: parseInt(id || "0")
+      });
+      
+      // Add new reply to list
+      const newReply: Reply = {
+        id: response.data.reply_id?.toString() || Date.now().toString(),
+        author: response.data.author || "Bạn",
+        role: response.data.role || "Student",
+        content: replyContent.trim(),
+        createdAt: response.data.created_at || new Date().toISOString(),
+        likes: 0,
+        isLiked: false,
+        isAuthor: true
+      };
+      
+      setReplies((prev) => [...prev, newReply]);
       setReplyContent("");
+      toast.success("Đã gửi phản hồi thành công!");
+    } catch (error: any) {
+      console.error("Error posting reply:", error);
+      toast.error(error?.response?.data?.detail || "Không thể gửi phản hồi");
+    } finally {
       setIsSubmitting(false);
-    }, 500);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <p className="ml-4 text-gray-600">Đang tải bài viết...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!thread) {
+    return (
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center py-12">
+          <p className="text-gray-600">Không tìm thấy bài viết</p>
+          <button 
+            onClick={() => navigate("/forum")}
+            className="mt-4 text-blue-600 hover:underline"
+          >
+            Quay lại danh sách
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-6">

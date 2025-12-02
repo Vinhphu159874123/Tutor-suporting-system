@@ -3,7 +3,7 @@ Tutor Schemas - Request/Response DTOs
 """
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal
 
 
@@ -19,6 +19,8 @@ class TutorBase(BaseModel):
 class TutorCreate(TutorBase):
     """Data for creating tutor profile"""
     user_id: Optional[int] = None  # Will be auto-filled from current_user in endpoint
+    experience_years: Optional[int] = Field(default=0, ge=0, description="Years of teaching experience")
+    availability: Optional[Dict[str, list[str]]] = Field(default={}, description="Weekly availability slots")
 
 
 class TutorUpdate(BaseModel):
@@ -45,15 +47,22 @@ class TutorResponse(TutorBase):
     phone: Optional[str] = None
     avatar_url: Optional[str] = None
     
+    # Subjects taught (list of subject names)
+    subjects: list[str] = Field(default_factory=list, description="List of subjects this tutor teaches")
+    
     class Config:
         from_attributes = True
 
 
 class TutorRegistrationCreate(BaseModel):
     """Request to register for teaching a subject"""
-    subject_id: int
-    gpa: Optional[Decimal] = Field(None, ge=0, le=4.0, description="GPA (0-4.0)")
-    qualifications: Optional[str] = Field(None, description="Teaching qualifications")
+    subject_id: int = Field(..., description="Subject ID to register for teaching")
+    gpa: Optional[Decimal] = Field(None, ge=0, le=4.0, description="GPA for this subject (0-4.0)")
+    qualifications: Optional[str] = Field(None, description="Teaching qualifications and experience for this subject")
+    availability: Optional[Dict[str, list[str]]] = Field(default={}, description="Weekly availability slots for this subject")
+    total_sessions: int = Field(default=10, ge=1, le=100, description="Total number of sessions (default 10)")
+    start_date: Optional[date] = Field(None, description="Start date for teaching")
+    max_students: int = Field(default=25, ge=1, le=35, description="Maximum students per session (1-35, default 25)")
 
 
 class TutorRegistrationResponse(BaseModel):
@@ -68,6 +77,10 @@ class TutorRegistrationResponse(BaseModel):
     rejection_reason: Optional[str]
     registered_at: datetime
     responded_at: Optional[datetime]
+    total_sessions: int = 10
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    max_students: int = 25
     
     # Joined data
     subject_name: Optional[str] = None

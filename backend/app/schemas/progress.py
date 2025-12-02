@@ -61,7 +61,7 @@ class SubjectProgressStats(BaseModel):
     topics_completed: int = Field(..., ge=0)
     total_topics: int = Field(..., ge=0)
     completion_percentage: float = Field(..., ge=0.0, le=100.0)
-    progress_trend: str = Field(..., regex="^(improving|stable|declining)$")
+    progress_trend: str = Field(..., pattern="^(improving|stable|declining)$")
     last_session_date: Optional[datetime]
 
 # TODO: Add more schemas as needed

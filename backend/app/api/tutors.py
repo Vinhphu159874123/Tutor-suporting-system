@@ -2,14 +2,15 @@
 Tutor Routes - Layered Architecture
 Routes delegate to TutorService - PLACEHOLDER implementations preserved
 """
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, Query, HTTPException, status, Request
 from typing import List, Optional
 from datetime import datetime
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas.tutor import TutorCreate, TutorUpdate, TutorResponse
+from app.schemas.tutor import TutorCreate, TutorUpdate, TutorResponse, TutorRegistrationCreate, TutorRegistrationResponse
 from app.schemas.session import SessionListResponse
 from app.services.tutor_service import TutorService
-from app.core.dependencies import get_tutor_service, get_current_user
+from app.core.dependencies import get_tutor_service, get_current_user, get_db
 from app.models.database import User
 
 router = APIRouter()
@@ -67,14 +68,17 @@ async def register_tutor(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Register as tutor for specific subjects
+    Create or update tutor profile (without subject registration)
+    
+    This creates the general tutor profile with bio, faculty, availability, etc.
+    After creating profile, use /register-subject to register for specific subjects.
     
     Request body:
-    - user_id: User ID (auto-filled with current_user)
-    - subjects: List of subject codes
     - bio: Tutor introduction
+    - faculty: Faculty name
     - hourly_rate: Hourly rate in VND
     - experience_years: Years of experience
+    - availability: Weekly availability slots
     
     Returns: Tutor profile
     """
@@ -83,9 +87,562 @@ async def register_tutor(
     return await tutor_service.register_tutor(tutor_data)
 
 
+@router.post("/register-subject", response_model=TutorRegistrationResponse)
+async def register_subject(
+    registration_data: TutorRegistrationCreate,
+    tutor_service: TutorService = Depends(get_tutor_service),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Register for teaching a specific subject
+    
+    Requires existing tutor profile. Creates a TutorRegistration entry.
+    Each registration is for ONE subject and requires coordinator approval.
+    
+    Request body:
+    - subject_id: ID of the subject to teach
+    - gpa: Your GPA for this subject (optional)
+    - qualifications: Teaching qualifications for this subject (optional)
+    - availability: Weekly availability for this subject (optional)
+    
+    Returns: TutorRegistration with status 'pending'
+    """
+    return await tutor_service.register_subject(current_user.user_id, registration_data)
+
+
+@router.get("/my-registrations")
+async def get_my_registrations(
+    status: Optional[str] = Query(None, description="Filter by status: pending, approved, rejected"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all subject registrations for current tutor
+    
+    Returns list of TutorRegistration with subject info, availability, and schedule details
+    """
+    from app.models.database import Tutor, TutorRegistration, Subject
+    from sqlalchemy import select
+    
+    # Get tutor record
+    tutor_result = await db.execute(
+        select(Tutor).where(Tutor.user_id == current_user.user_id)
+    )
+    tutor = tutor_result.scalar_one_or_none()
+    
+    if not tutor:
+        from fastapi import HTTPException, status as http_status
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail="Tutor profile not found"
+        )
+    
+    # Build query
+    query = select(TutorRegistration, Subject).join(
+        Subject, TutorRegistration.subject_id == Subject.subject_id
+    ).where(TutorRegistration.tutor_id == tutor.tutor_id)
+    
+    if status:
+        query = query.where(TutorRegistration.status == status)
+    
+    result = await db.execute(query)
+    registrations = result.all()
+    
+    return [
+        {
+            "registration_id": reg.TutorRegistration.registration_id,
+            "subject_id": reg.TutorRegistration.subject_id,
+            "subject_code": reg.Subject.subject_code,
+            "subject_name": reg.Subject.subject_name,
+            "status": reg.TutorRegistration.status,
+            "gpa": reg.TutorRegistration.gpa,
+            "qualifications": reg.TutorRegistration.qualifications,
+            "availability": reg.TutorRegistration.availability,
+            "total_sessions": reg.TutorRegistration.total_sessions,
+            "start_date": reg.TutorRegistration.start_date.isoformat() if reg.TutorRegistration.start_date else None,
+            "end_date": reg.TutorRegistration.end_date.isoformat() if reg.TutorRegistration.end_date else None,
+            "registered_at": reg.TutorRegistration.registered_at.isoformat() if reg.TutorRegistration.registered_at else None,
+            "max_students": reg.TutorRegistration.max_students
+        }
+        for reg in registrations
+    ]
+
+
 # ============================================================================
 # SPECIFIC ROUTES - Must come BEFORE dynamic routes like /{tutor_id}
 # ============================================================================
+
+@router.get("/available-courses")
+async def get_available_courses(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all approved tutor registrations with available slots for students to browse
+    Only shows courses that the current user has NOT joined yet
+    
+    Returns:
+    - registration_id: ID of the tutor registration
+    - subject details: code, name, department
+    - tutor details: name
+    - capacity: max_students, current_students, available_slots
+    - session info: total_sessions, start_date
+    """
+    from sqlalchemy import select, func
+    from app.models.database import TutorRegistration, Subject, Tutor, Session, SessionParticipant, User
+    
+    # Get approved registrations with course details (including total_sessions)
+    query = (
+        select(
+            TutorRegistration.registration_id,
+            TutorRegistration.subject_id,
+            TutorRegistration.tutor_id,
+            TutorRegistration.max_students,
+            TutorRegistration.total_sessions,
+            TutorRegistration.start_date,
+            TutorRegistration.status,
+            Subject.subject_code,
+            Subject.subject_name,
+            Subject.department,
+            User.full_name.label("tutor_name"),
+        )
+        .join(Subject, TutorRegistration.subject_id == Subject.subject_id)
+        .join(Tutor, TutorRegistration.tutor_id == Tutor.tutor_id)
+        .join(User, Tutor.user_id == User.user_id)
+        .where(TutorRegistration.status == "approved")
+    )
+    
+    result = await db.execute(query)
+    registrations = result.all()
+    
+    # Get all courses the current user has already joined
+    joined_courses_query = (
+        select(Session.subject_id, Session.tutor_id)
+        .join(SessionParticipant, SessionParticipant.session_id == Session.session_id)
+        .where(
+            SessionParticipant.user_id == current_user.user_id,
+            SessionParticipant.role == "student"
+        )
+        .distinct()
+    )
+    joined_result = await db.execute(joined_courses_query)
+    joined_courses = set((row.subject_id, row.tutor_id) for row in joined_result.all())
+    
+    courses = []
+    for reg in registrations:
+        # Count sessions for this registration
+        session_count_query = select(func.count(Session.session_id)).where(
+            Session.subject_id == reg.subject_id,
+            Session.tutor_id == reg.tutor_id
+        )
+        session_count = await db.scalar(session_count_query)
+        
+        # Get earliest session date
+        start_date_query = select(func.min(Session.scheduled_date)).where(
+            Session.subject_id == reg.subject_id,
+            Session.tutor_id == reg.tutor_id
+        )
+        start_date = await db.scalar(start_date_query)
+        
+        # Count current students (participants with role='student' across all sessions)
+        # Using DISTINCT to count unique students
+        student_count_query = (
+            select(func.count(func.distinct(SessionParticipant.user_id)))
+            .join(Session, SessionParticipant.session_id == Session.session_id)
+            .where(
+                Session.subject_id == reg.subject_id,
+                Session.tutor_id == reg.tutor_id,
+                SessionParticipant.role == "student"
+            )
+        )
+        current_students = await db.scalar(student_count_query) or 0
+        
+        available_slots = reg.max_students - current_students
+        
+        # Skip courses that user has already joined
+        if (reg.subject_id, reg.tutor_id) in joined_courses:
+            continue
+        
+        # If no sessions in DB yet, use total_sessions from registration (planned sessions)
+        # Otherwise use actual session count from database
+        if session_count and session_count > 0:
+            total_sessions_display = session_count
+            start_date_display = start_date
+        else:
+            # No sessions saved yet, but registration approved - show planned sessions
+            total_sessions_display = reg.total_sessions or 0
+            start_date_display = reg.start_date
+        
+        # Get average rating for this subject/tutor combination
+        from app.models.database import SessionFeedback
+        avg_rating_query = (
+            select(func.avg(SessionFeedback.rating), func.count(SessionFeedback.feedback_id))
+            .join(Session, SessionFeedback.session_id == Session.session_id)
+            .where(
+                Session.subject_id == reg.subject_id,
+                Session.tutor_id == reg.tutor_id
+            )
+        )
+        rating_result = await db.execute(avg_rating_query)
+        avg_rating_row = rating_result.first()
+        avg_rating = float(avg_rating_row[0]) if avg_rating_row[0] else 0.0
+        total_feedbacks = avg_rating_row[1] if avg_rating_row[1] else 0
+        
+        # Only include courses that have planned sessions (either saved or from registration)
+        if total_sessions_display > 0:
+            courses.append({
+                "registration_id": reg.registration_id,
+                "subject_id": reg.subject_id,
+                "subject_code": reg.subject_code,
+                "subject_name": reg.subject_name,
+                "department": reg.department,
+                "tutor_id": reg.tutor_id,
+                "tutor_name": reg.tutor_name,
+                "total_sessions": total_sessions_display,
+                "max_students": reg.max_students,
+                "current_students": current_students,
+                "available_slots": max(0, available_slots),
+                "start_date": start_date_display.isoformat() if start_date_display else None,
+                "status": reg.status,
+                "average_rating": round(avg_rating, 1),
+                "total_feedbacks": total_feedbacks
+            })
+    
+    return {"data": courses}
+
+
+@router.post("/courses/{registration_id}/request-join")
+async def request_join_course(
+    registration_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Student requests to join a course
+    
+    - Validates registration exists and is approved
+    - Checks available slots
+    - Adds student to all sessions for the course
+    - Sends notification to tutor
+    """
+    from sqlalchemy import select, and_, func
+    from app.models.database import TutorRegistration, Session, SessionParticipant, Tutor, Subject
+    from app.events import event_bus, EventTypes
+    
+    # Get registration details
+    reg_query = (
+        select(TutorRegistration, Subject.subject_name, Tutor)
+        .join(Subject, TutorRegistration.subject_id == Subject.subject_id)
+        .join(Tutor, TutorRegistration.tutor_id == Tutor.tutor_id)
+        .where(TutorRegistration.registration_id == registration_id)
+    )
+    reg_result = await db.execute(reg_query)
+    reg_data = reg_result.first()
+    
+    if not reg_data:
+        raise HTTPException(status_code=404, detail="Course registration not found")
+    
+    registration, subject_name, tutor = reg_data
+    
+    if registration.status != "approved":
+        raise HTTPException(status_code=400, detail="Course is not approved yet")
+    
+    # Count current students
+    student_count_query = (
+        select(func.count(func.distinct(SessionParticipant.user_id)))
+        .join(Session, SessionParticipant.session_id == Session.session_id)
+        .where(
+            Session.subject_id == registration.subject_id,
+            Session.tutor_id == registration.tutor_id,
+            SessionParticipant.role == "student"
+        )
+    )
+    current_students = await db.scalar(student_count_query) or 0
+    
+    if current_students >= registration.max_students:
+        raise HTTPException(status_code=400, detail="Course is full")
+    
+    # Check if student already joined
+    check_query = (
+        select(SessionParticipant)
+        .join(Session, SessionParticipant.session_id == Session.session_id)
+        .where(
+            Session.subject_id == registration.subject_id,
+            Session.tutor_id == registration.tutor_id,
+            SessionParticipant.user_id == current_user.user_id,
+            SessionParticipant.role == "student"
+        )
+    )
+    existing = await db.scalar(check_query)
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="You have already joined this course")
+    
+    # Get all sessions for this course
+    sessions_query = select(Session).where(
+        Session.subject_id == registration.subject_id,
+        Session.tutor_id == registration.tutor_id
+    )
+    sessions_result = await db.execute(sessions_query)
+    sessions = sessions_result.scalars().all()
+    
+    if not sessions:
+        raise HTTPException(status_code=400, detail="No sessions available for this course")
+    
+    # Add student to all sessions
+    for session in sessions:
+        participant = SessionParticipant(
+            session_id=session.session_id,
+            user_id=current_user.user_id,
+            role="student",
+            status="confirmed"
+        )
+        db.add(participant)
+    
+    await db.commit()
+    
+    # Emit event for notification
+    import logging
+    logger = logging.getLogger(__name__)
+    event_data = {
+        'student_id': current_user.user_id,
+        'student_name': current_user.full_name,
+        'tutor_id': tutor.tutor_id,
+        'subject_id': registration.subject_id,
+        'subject_name': subject_name,
+        'sessions_count': len(sessions)
+    }
+    logger.info(f"🔔 Emitting STUDENT_ENROLLED_COURSE event: {event_data}")
+    await event_bus.emit(EventTypes.STUDENT_ENROLLED_COURSE, event_data)
+    logger.info(f"✅ Event emitted successfully")
+    
+    return {
+        "message": f"Successfully joined {subject_name}",
+        "sessions_joined": len(sessions)
+    }
+
+
+@router.post("/courses/{subject_id}/generate-sessions")
+async def generate_sessions_for_course(
+    subject_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Generate sessions for an approved course based on tutor's registered schedule
+    
+    This endpoint allows tutors to manually generate sessions after their course is approved.
+    Sessions are generated based on:
+    - The schedule registered during course registration
+    - Total number of sessions specified in registration
+    - Start date and max students from registration
+    
+    Returns:
+    - message: Success message
+    - generated_count: Number of sessions created
+    """
+    from sqlalchemy import select, func
+    from app.models.database import Tutor, TutorRegistration, SessionSchedule, Session, Subject
+    from datetime import datetime, timedelta
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    # Get tutor profile
+    tutor_query = select(Tutor).where(Tutor.user_id == current_user.user_id)
+    tutor_result = await db.execute(tutor_query)
+    tutor = tutor_result.scalar_one_or_none()
+    
+    if not tutor:
+        raise HTTPException(status_code=403, detail="Only tutors can generate sessions")
+    
+    # Get registration for this subject
+    reg_query = select(TutorRegistration).where(
+        TutorRegistration.tutor_id == tutor.tutor_id,
+        TutorRegistration.subject_id == subject_id
+    )
+    reg_result = await db.execute(reg_query)
+    registration = reg_result.scalar_one_or_none()
+    
+    if not registration:
+        raise HTTPException(status_code=404, detail="Course registration not found")
+    
+    if registration.status != "approved":
+        raise HTTPException(status_code=400, detail="Course must be approved before generating sessions")
+    
+    # Check if sessions already exist
+    existing_sessions_result = await db.execute(
+        select(func.count(Session.session_id)).where(
+            Session.tutor_id == tutor.tutor_id,
+            Session.subject_id == subject_id
+        )
+    )
+    existing_count = existing_sessions_result.scalar() or 0
+    
+    if existing_count > 0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Sessions already exist for this course ({existing_count} sessions). Delete them first if you want to regenerate."
+        )
+    
+    # Get schedule - use selected_schedule_id if available, otherwise first active schedule
+    if registration.selected_schedule_id:
+        schedule_query = select(SessionSchedule).where(
+            SessionSchedule.schedule_id == registration.selected_schedule_id
+        )
+    else:
+        schedule_query = select(SessionSchedule).where(
+            SessionSchedule.tutor_id == tutor.tutor_id,
+            SessionSchedule.subject_id == subject_id,
+            SessionSchedule.is_active == True
+        )
+    
+    schedule_result = await db.execute(schedule_query)
+    schedule = schedule_result.scalar_one_or_none()
+    
+    if not schedule:
+        raise HTTPException(
+            status_code=400, 
+            detail="No active schedule found. Please set up your schedule first."
+        )
+    
+    # Get subject name
+    subject_query = select(Subject).where(Subject.subject_id == subject_id)
+    subject_result = await db.execute(subject_query)
+    subject = subject_result.scalar_one_or_none()
+    subject_name = subject.subject_name if subject else "Unknown Subject"
+    
+    # Determine start date
+    start_date = registration.start_date if registration.start_date else datetime.now().date()
+    current_date = start_date
+    day_of_week = schedule.day_of_week
+    
+    # Advance to the first matching day
+    while current_date.weekday() != day_of_week:
+        current_date += timedelta(days=1)
+    
+    # Generate sessions
+    total_sessions = registration.total_sessions or 10
+    max_students = registration.max_students or 5
+    
+    logger.info(f"Generating {total_sessions} sessions for tutor {tutor.tutor_id}, subject {subject_id}")
+    
+    for i in range(total_sessions):
+        session = Session(
+            tutor_id=tutor.tutor_id,
+            subject_id=subject_id,
+            title=f"{subject_name} - Session {i+1}",
+            description=schedule.description or f"Tutoring session for {subject_name}",
+            scheduled_date=current_date,
+            start_time=schedule.start_time,
+            end_time=schedule.end_time,
+            duration=schedule.duration,
+            location_type=schedule.location_type or 'online',
+            meeting_link=None,
+            physical_address=None,
+            max_students=max_students,
+            status='draft'
+        )
+        db.add(session)
+        
+        # Move to next week (same day)
+        current_date += timedelta(weeks=1)
+    
+    await db.commit()
+    
+    logger.info(f"✅ Successfully generated {total_sessions} sessions")
+    
+    return {
+        "message": f"Successfully generated {total_sessions} sessions",
+        "generated_count": total_sessions,
+        "start_date": start_date.isoformat(),
+        "schedule": {
+            "day_of_week": schedule.day_of_week,
+            "start_time": str(schedule.start_time),
+            "end_time": str(schedule.end_time)
+        }
+    }
+
+
+@router.get("/courses/enrolled-students")
+async def get_enrolled_students(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get list of students enrolled in tutor's courses
+    Returns students grouped by course
+    """
+    from sqlalchemy import select, func, distinct
+    from app.models.database import Tutor, TutorRegistration, Subject, Session, SessionParticipant
+    
+    # Get tutor_id from current user
+    tutor_query = select(Tutor).where(Tutor.user_id == current_user.user_id)
+    result = await db.execute(tutor_query)
+    tutor = result.scalar_one_or_none()
+    
+    if not tutor:
+        raise HTTPException(status_code=403, detail="Only tutors can access this endpoint")
+    
+    # Get all approved registrations for this tutor
+    reg_query = (
+        select(TutorRegistration, Subject)
+        .join(Subject, TutorRegistration.subject_id == Subject.subject_id)
+        .where(
+            TutorRegistration.tutor_id == tutor.tutor_id,
+            TutorRegistration.status == "approved"
+        )
+    )
+    reg_result = await db.execute(reg_query)
+    registrations = reg_result.all()
+    
+    courses = []
+    
+    for registration, subject in registrations:
+        # Get all students enrolled in sessions for this course
+        students_query = (
+            select(
+                User.user_id,
+                User.full_name,
+                User.email,
+                func.count(distinct(SessionParticipant.session_id)).label('sessions_count')
+            )
+            .select_from(SessionParticipant)
+            .join(Session, SessionParticipant.session_id == Session.session_id)
+            .join(User, SessionParticipant.user_id == User.user_id)
+            .where(
+                Session.subject_id == registration.subject_id,
+                Session.tutor_id == tutor.tutor_id,
+                SessionParticipant.role == "student"
+            )
+            .group_by(User.user_id, User.full_name, User.email)
+        )
+        
+        students_result = await db.execute(students_query)
+        students = students_result.all()
+        
+        if students:  # Only include courses with students
+            courses.append({
+                "registration_id": registration.registration_id,
+                "subject_id": subject.subject_id,
+                "subject_code": subject.subject_code,
+                "subject_name": subject.subject_name,
+                "total_sessions": registration.total_sessions,
+                "max_students": registration.max_students,
+                "enrolled_count": len(students),
+                "students": [
+                    {
+                        "user_id": s.user_id,
+                        "full_name": s.full_name,
+                        "email": s.email,
+                        "sessions_enrolled": s.sessions_count
+                    }
+                    for s in students
+                ]
+            })
+    
+    return {"data": courses}
+
 
 @router.get("/sessions", response_model=SessionListResponse)
 async def get_tutor_sessions(
@@ -138,6 +695,15 @@ async def get_tutor(
 ):
     """Get specific tutor details"""
     return await tutor_service.get_tutor(tutor_id)
+
+
+@router.get("/{tutor_id}/availability")
+async def get_tutor_availability(
+    tutor_id: int,
+    tutor_service: TutorService = Depends(get_tutor_service)
+):
+    """Get tutor's available time slots"""
+    return await tutor_service.get_tutor_availability(tutor_id)
 
 
 @router.put("/{tutor_id}", response_model=TutorResponse)
@@ -200,6 +766,7 @@ async def get_tutor_reviews(
         limit = 100
     
     return await tutor_service.get_tutor_reviews(tutor_id, skip, limit)
+
 
 # ============================================================================
 # PLACEHOLDER ENDPOINTS

@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { Calendar, BookOpen, MessageCircle, BarChart3 } from "lucide-react";
 
 const Landing: React.FC = () => {
   const navigate = useNavigate();
@@ -34,7 +35,9 @@ const Landing: React.FC = () => {
         {/* Features Section */}
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
           <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition">
-            <div className="text-4xl mb-4">📅</div>
+            <div className="flex justify-center mb-4">
+              <Calendar className="w-12 h-12 text-blue-600" />
+            </div>
             <h3 className="text-xl font-bold mb-2">Đặt lịch học</h3>
             <p className="text-gray-600">
               Dễ dàng đặt lịch học với tutor phù hợp với thời gian của bạn
@@ -42,7 +45,9 @@ const Landing: React.FC = () => {
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition">
-            <div className="text-4xl mb-4">📚</div>
+            <div className="flex justify-center mb-4">
+              <BookOpen className="w-12 h-12 text-green-600" />
+            </div>
             <h3 className="text-xl font-bold mb-2">Tài liệu học tập</h3>
             <p className="text-gray-600">
               Truy cập và chia sẻ tài liệu học tập chất lượng cao
@@ -50,7 +55,9 @@ const Landing: React.FC = () => {
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition">
-            <div className="text-4xl mb-4">💬</div>
+            <div className="flex justify-center mb-4">
+              <MessageCircle className="w-12 h-12 text-purple-600" />
+            </div>
             <h3 className="text-xl font-bold mb-2">Diễn đàn & Nhóm học tập</h3>
             <p className="text-gray-600">
               Tham gia thảo luận và học nhóm cùng sinh viên khác
@@ -58,7 +65,9 @@ const Landing: React.FC = () => {
           </div>
 
           <div className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition">
-            <div className="text-4xl mb-4">📊</div>
+            <div className="flex justify-center mb-4">
+              <BarChart3 className="w-12 h-12 text-orange-600" />
+            </div>
             <h3 className="text-xl font-bold mb-2">Theo dõi tiến độ</h3>
             <p className="text-gray-600">
               Giám sát quá trình học tập, nhận phản hồi và cải thiện hiệu quả

@@ -42,6 +42,8 @@ class UserResponse(BaseModel):
     is_active: bool
     is_verified: bool
     created_at: datetime
+    tutor_id: Optional[int] = None
+    student_id: Optional[int] = None
 
     class Config:
         from_attributes = True
