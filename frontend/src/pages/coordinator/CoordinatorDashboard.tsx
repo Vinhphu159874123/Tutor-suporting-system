@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom"; 
 import { useAuthStore } from "../../stores/authStore";
-import { CheckSquare, UserCheck, Clock, Star } from "lucide-react";
+import { CheckSquare, UserCheck, Clock, Star, FileText, Calendar, BarChart3, Users } from "lucide-react";
 import { usersApi } from "../../services/api";
 import { AxiosResponse } from "axios";
 
@@ -86,7 +86,9 @@ const CoordinatorDashboard: React.FC = () => {
           key={item}
           className="flex items-center p-3 bg-gray-50 rounded-lg"
         >
-          <div className="text-2xl mr-3">📝</div>
+          <div className="text-2xl mr-3">
+            <FileText className="w-8 h-8 text-yellow-600" />
+          </div>
           <div className="flex-1">
             <p className="font-medium">Tutor: Nguyễn Văn A</p>
             <p className="text-sm text-gray-600">
@@ -110,7 +112,9 @@ const CoordinatorDashboard: React.FC = () => {
           key={item}
           className="flex items-center p-3 bg-gray-50 rounded-lg"
         >
-          <div className="text-2xl mr-3">📅</div>
+          <div className="text-2xl mr-3">
+            <Calendar className="w-8 h-8 text-blue-600" />
+          </div>
           <div className="flex-1">
             <p className="font-medium">Toán cao cấp A1 - Tutor: Nguyễn Văn B</p>
             <p className="text-sm text-gray-600">
@@ -136,7 +140,9 @@ const CoordinatorDashboard: React.FC = () => {
             onClick={() => navigate("/coor/review")}
             className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
           >
-            <div className="text-2xl mr-3">👩‍🏫</div>
+            <div className="text-2xl mr-3">
+              <Users className="w-7 h-7 text-blue-600" />
+            </div>
             <div className="text-left">
               <p className="font-medium">Duyệt Tutor</p>
               <p className="text-sm text-gray-600">Xét duyệt đăng ký tutor</p>
@@ -148,7 +154,9 @@ const CoordinatorDashboard: React.FC = () => {
             onClick={() => navigate("/coor/sessions")}
             className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors"
           >
-            <div className="text-2xl mr-3">📅</div>
+            <div className="text-2xl mr-3">
+              <Calendar className="w-7 h-7 text-green-600" />
+            </div>
             <div className="text-left">
               <p className="font-medium">Quản lý Buổi học</p>
               <p className="text-sm text-gray-600">Kiểm tra & phê duyệt buổi học</p>
@@ -160,7 +168,9 @@ const CoordinatorDashboard: React.FC = () => {
             onClick={() => navigate("/reports")}
             className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors"
           >
-            <div className="text-2xl mr-3">📊</div>
+            <div className="text-2xl mr-3">
+              <BarChart3 className="w-7 h-7 text-purple-600" />
+            </div>
             <div className="text-left">
               <p className="font-medium">Xem báo cáo</p>
               <p className="text-sm text-gray-600">Báo cáo tổng quan</p>

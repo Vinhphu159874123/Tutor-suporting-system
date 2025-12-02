@@ -63,7 +63,7 @@ const Forum: React.FC = () => {
   useEffect(() => {
     const fetchForumPosts = async () => {
       try {
-        const response = await apiClient.get("/api/v1/forum/posts") as AxiosResponse<any>;
+        const response = await apiClient.get("/forum/posts") as AxiosResponse<any>;
         setThreads(response.data || []);
       } catch (error: any) {
         console.error("Error fetching forum posts:", error);

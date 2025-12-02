@@ -141,7 +141,7 @@ const ForumDetail: React.FC = () => {
     const fetchThreadDetail = async () => {
       try {
         setLoading(true);
-        const response = await apiClient.get(`/api/v1/forum/${id}/posts`);
+        const response = await apiClient.get(`/forum/${id}/posts`);
         const data = response.data;
         
         setThread({
@@ -201,7 +201,7 @@ const ForumDetail: React.FC = () => {
     
     setIsSubmitting(true);
     try {
-      const response = await apiClient.post(`/api/v1/forum/${id}/reply`, {
+      const response = await apiClient.post(`/forum/${id}/reply`, {
         content: replyContent.trim(),
         parent_post_id: parseInt(id || "0")
       });

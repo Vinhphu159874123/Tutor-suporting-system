@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, case
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -226,7 +226,7 @@ async def get_user_dashboard_stats(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
-    """Get dashboard statistics for current user"""
+    """Get dashboard statistics for current user - OPTIMIZED"""
     
     stats = {
         "total_sessions": 0,
@@ -244,42 +244,24 @@ async def get_user_dashboard_stats(
             student = student_result.scalar_one_or_none()
             
             if student:
-                # Count total sessions via SessionParticipant
-                total_result = await db.execute(
-                    select(func.count(SessionParticipant.participant_id))
+                # Single query with CASE aggregation
+                result = await db.execute(
+                    select(
+                        func.count(SessionParticipant.participant_id).label('total'),
+                        func.sum(case((Session.status == 'completed', 1), else_=0)).label('completed'),
+                        func.sum(case((Session.status.in_(['confirmed', 'ongoing', 'published']), 1), else_=0)).label('upcoming')
+                    )
+                    .select_from(SessionParticipant)
+                    .outerjoin(Session, SessionParticipant.session_id == Session.session_id)
                     .where(SessionParticipant.student_id == student.student_id)
                 )
-                stats["total_sessions"] = total_result.scalar() or 0
+                row = result.first()
+                if row:
+                    stats["total_sessions"] = row.total or 0
+                    stats["completed_sessions"] = int(row.completed or 0)
+                    stats["upcoming_sessions"] = int(row.upcoming or 0)
                 
-                # Count completed sessions
-                completed_result = await db.execute(
-                    select(func.count(SessionParticipant.participant_id))
-                    .select_from(SessionParticipant)
-                    .join(Session)
-                    .where(
-                        and_(
-                            SessionParticipant.student_id == student.student_id,
-                            Session.status == 'completed'
-                        )
-                    )
-                )
-                stats["completed_sessions"] = completed_result.scalar() or 0
-                
-                # Count upcoming sessions (confirmed, ongoing, published)
-                upcoming_result = await db.execute(
-                    select(func.count(SessionParticipant.participant_id))
-                    .select_from(SessionParticipant)
-                    .join(Session)
-                    .where(
-                        and_(
-                            SessionParticipant.student_id == student.student_id,
-                            Session.status.in_(['confirmed', 'ongoing', 'published'])
-                        )
-                    )
-                )
-                stats["upcoming_sessions"] = upcoming_result.scalar() or 0
-                
-                # Average rating given by this student
+                # Average rating (separate query)
                 rating_result = await db.execute(
                     select(func.avg(SessionFeedback.rating))
                     .where(SessionFeedback.student_id == student.student_id)
@@ -295,38 +277,22 @@ async def get_user_dashboard_stats(
             tutor = tutor_result.scalar_one_or_none()
             
             if tutor:
-                # Count total sessions
-                total_result = await db.execute(
-                    select(func.count(Session.session_id))
+                # Single query with CASE aggregation
+                result = await db.execute(
+                    select(
+                        func.count(Session.session_id).label('total'),
+                        func.sum(case((Session.status == 'completed', 1), else_=0)).label('completed'),
+                        func.sum(case((Session.status.in_(['confirmed', 'ongoing', 'published']), 1), else_=0)).label('upcoming')
+                    )
                     .where(Session.tutor_id == tutor.tutor_id)
                 )
-                stats["total_sessions"] = total_result.scalar() or 0
+                row = result.first()
+                if row:
+                    stats["total_sessions"] = row.total or 0
+                    stats["completed_sessions"] = int(row.completed or 0)
+                    stats["upcoming_sessions"] = int(row.upcoming or 0)
                 
-                # Count completed
-                completed_result = await db.execute(
-                    select(func.count(Session.session_id))
-                    .where(
-                        and_(
-                            Session.tutor_id == tutor.tutor_id,
-                            Session.status == 'completed'
-                        )
-                    )
-                )
-                stats["completed_sessions"] = completed_result.scalar() or 0
-                
-                # Count upcoming
-                upcoming_result = await db.execute(
-                    select(func.count(Session.session_id))
-                    .where(
-                        and_(
-                            Session.tutor_id == tutor.tutor_id,
-                            Session.status.in_(['confirmed', 'ongoing', 'published'])
-                        )
-                    )
-                )
-                stats["upcoming_sessions"] = upcoming_result.scalar() or 0
-                
-                # Average rating received by this tutor
+                # Average rating (separate query)
                 rating_result = await db.execute(
                     select(func.avg(SessionFeedback.rating))
                     .select_from(SessionFeedback)

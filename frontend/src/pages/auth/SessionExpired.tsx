@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { Clock } from "lucide-react";
 import { useAuthStore } from "../../stores/authStore";
 
 const SessionExpired: React.FC = () => {
@@ -18,7 +19,9 @@ const SessionExpired: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
-        <div className="text-6xl mb-4">⏰</div>
+        <div className="flex justify-center mb-4">
+          <Clock className="w-20 h-20 text-orange-600" />
+        </div>
         <h1 className="text-3xl font-bold text-gray-900 mb-4">
           Phiên làm việc đã hết hạn
         </h1>

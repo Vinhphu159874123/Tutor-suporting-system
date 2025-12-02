@@ -48,6 +48,18 @@ class SessionService:
             else:
                 end_datetime = session.end_time
         
+        # Get materials from SessionMaterial table (uploaded files)
+        material_files = []
+        try:
+            if hasattr(session, 'session_materials') and session.session_materials:
+                material_files = [mat.file_name for mat in session.session_materials]
+        except:
+            pass
+        
+        # Merge with old JSONB materials (fallback for legacy data)
+        jsonb_materials = session.materials or []
+        all_materials = list(set(material_files + jsonb_materials))  # Deduplicate
+        
         # Build dict manually to avoid validation errors
         data = {
             'session_id': session.session_id,
@@ -68,7 +80,7 @@ class SessionService:
             'actual_start': session.actual_start or start_datetime,  # Use combined datetime if actual_start is None
             'actual_end': session.actual_end or end_datetime,  # Use combined datetime if actual_end is None
             'session_notes': session.session_notes,
-            'materials': session.materials or [],  # Get materials from JSONB column
+            'materials': all_materials,  # Merged materials from SessionMaterial table + JSONB
             'created_at': session.created_at,
             'updated_at': session.updated_at,
             'students': [],

@@ -30,7 +30,7 @@ const CreateStudyGroup: React.FC = () => {
     // Fetch subjects for dropdown
     const fetchSubjects = async () => {
       try {
-        const response = await apiClient.get("/api/v1/courses/subjects");
+        const response = await apiClient.get("/courses/subjects");
         setSubjects(response.data || []);
       } catch (error) {
         console.error("Error fetching subjects:", error);
@@ -66,7 +66,7 @@ const CreateStudyGroup: React.FC = () => {
 
     try {
       setLoading(true);
-      await apiClient.post("/api/v1/study-groups/", {
+      await apiClient.post("/study-groups/", {
         ...formData,
         subject_id: parseInt(formData.subject_id),
       });

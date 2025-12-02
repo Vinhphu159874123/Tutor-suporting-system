@@ -26,7 +26,7 @@ const SessionRequests: React.FC = () => {
     try {
       setLoading(true);
       // Get sessions with status 'published' (pending tutor confirmation)
-      const response = await apiClient.get("/api/v1/sessions/", {
+      const response = await apiClient.get("/sessions/", {
         params: { status: "published" },
       });
       setSessions(response.data);
@@ -44,7 +44,7 @@ const SessionRequests: React.FC = () => {
 
   const handleConfirm = async (sessionId: number) => {
     try {
-      await apiClient.put(`/api/v1/sessions/${sessionId}`, {
+      await apiClient.put(`/sessions/${sessionId}`, {
         status: "confirmed",
       });
       toast.success("Đã xác nhận lịch học!");
@@ -61,7 +61,7 @@ const SessionRequests: React.FC = () => {
 
   const handleReject = async (sessionId: number) => {
     try {
-      await apiClient.put(`/api/v1/sessions/${sessionId}`, {
+      await apiClient.put(`/sessions/${sessionId}`, {
         status: "cancelled",
       });
       toast.success("Đã từ chối lịch học");

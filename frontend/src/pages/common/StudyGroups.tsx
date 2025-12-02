@@ -27,7 +27,7 @@ const StudyGroups: React.FC = () => {
     const fetchGroups = async () => {
       try {
         setLoading(true);
-        const response = await apiClient.get("/api/v1/study-groups/");
+        const response = await apiClient.get("/study-groups/");
         setGroups(response.data || []);
       } catch (error: any) {
         console.error("Error fetching study groups:", error);

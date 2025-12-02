@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle, Star } from 'lucide-react';
+import { MessageCircle, Star, Search } from 'lucide-react';
 import { tutorsApi, coursesApi } from '../../services/api';
 import { toast } from 'react-toastify';
 import { AxiosResponse } from 'axios';
@@ -228,7 +228,9 @@ const TutorList: React.FC = () => {
       {/* Empty State */}
       {tutors.length === 0 && !loading && (
         <div className="card text-center py-12">
-          <div className="text-6xl mb-4">🔍</div>
+          <div className="flex justify-center mb-4">
+            <Search className="w-16 h-16 text-gray-400" />
+          </div>
           <h3 className="text-xl font-bold text-gray-900 mb-2">
             Không tìm thấy gia sư
           </h3>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
+import { Check, X, Clock } from "lucide-react";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
-import { Clock } from "lucide-react";
 import { coordinatorApi } from "../../services/api";
 
 interface RegistrationRequest {
@@ -326,16 +326,26 @@ const CoordinatorReview: React.FC = () => {
                   <button
                     onClick={() => handleApprove(request.registration_id)}
                     disabled={processingId !== null}
-                    className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
-                    {processingId === request.registration_id ? "Đang xử lý..." : "✓ Phê duyệt"}
+                    {processingId === request.registration_id ? "Đang xử lý..." : (
+                      <>
+                        <Check className="w-5 h-5" />
+                        Phê duyệt
+                      </>
+                    )}
                   </button>
                   <button
                     onClick={() => handleReject(request.registration_id)}
                     disabled={processingId !== null}
-                    className="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
-                    {processingId === request.registration_id ? "Đang xử lý..." : "✗ Từ chối"}
+                    {processingId === request.registration_id ? "Đang xử lý..." : (
+                      <>
+                        <X className="w-5 h-5" />
+                        Từ chối
+                      </>
+                    )}
                   </button>
                 </div>
               )}

@@ -28,6 +28,8 @@ const MyCourses: React.FC = () => {
   const fetchMyCourses = async () => {
     try {
       const response = await coursesApi.getMyCourses() as any;
+      console.log('My Courses API Response:', response);
+      console.log('Courses data:', response.data);
       setCourses(response.data);
     } catch (error) {
       console.error('Failed to fetch courses:', error);
@@ -66,7 +68,9 @@ const MyCourses: React.FC = () => {
           </div>
         ) : courses.length === 0 ? (
           <div className="text-center py-12">
-            <div className="text-6xl mb-4">📚</div>
+            <div className="flex justify-center mb-4">
+              <BookOpen className="w-20 h-20 text-gray-400" />
+            </div>
             <h3 className="text-xl font-bold text-gray-900 mb-2">
               {isTutor ? 'Chưa có môn học nào' : 'Chưa đăng ký môn học'}
             </h3>

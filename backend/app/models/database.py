@@ -106,6 +106,7 @@ class NotificationType(str, Enum):
     ACHIEVEMENT_EARNED = "achievement_earned"
     REPORT_AVAILABLE = "report_available"
     SYSTEM_ANNOUNCEMENT = "system_announcement"
+    STUDENT_ENROLLED = "student_enrolled"  # Student enrolled in course
 
 class NotificationStatus(str, Enum):
     UNREAD = "unread"

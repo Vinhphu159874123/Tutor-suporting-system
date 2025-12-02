@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Users, Calendar, BookOpen, UserPlus, CheckCircle } from 'lucide-react';
+import { Search, Users, Calendar, BookOpen, UserPlus, CheckCircle, ExternalLink, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { coursesApi, tutorsApi } from '../../services/api';
 import { toast } from 'react-toastify';
 import { useAuthStore } from '../../stores/authStore';
@@ -22,12 +23,18 @@ interface CourseOffer {
 
 const BrowseCourses: React.FC = () => {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
   const [courses, setCourses] = useState<CourseOffer[]>([]);
   const [filteredCourses, setFilteredCourses] = useState<CourseOffer[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [departments, setDepartments] = useState<string[]>([]);
+  const [enrollingId, setEnrollingId] = useState<number | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<CourseOffer | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [enrollmentResult, setEnrollmentResult] = useState<{sessions_joined: number} | null>(null);
 
   useEffect(() => {
     fetchAvailableCourses();
@@ -79,14 +86,33 @@ const BrowseCourses: React.FC = () => {
     setFilteredCourses(filtered);
   };
 
-  const handleRequestJoin = async (registrationId: number, subjectName: string) => {
+  const handleRequestJoin = async (course: CourseOffer) => {
+    setSelectedCourse(course);
+    setShowConfirmModal(true);
+  };
+
+  const confirmEnrollment = async () => {
+    if (!selectedCourse) return;
+    
     try {
-      await tutorsApi.requestJoinCourse(registrationId);
-      toast.success(`Đã gửi yêu cầu tham gia khóa ${subjectName}!`);
+      setEnrollingId(selectedCourse.registration_id);
+      setShowConfirmModal(false);
+      
+      const response: any = await tutorsApi.requestJoinCourse(selectedCourse.registration_id);
+      const result = response.data;
+      
+      setEnrollmentResult(result);
+      setShowSuccessModal(true);
+      
+      toast.success(`Đăng ký thành công khóa ${selectedCourse.subject_name}!`);
+      
       // Refresh courses to update available slots
-      fetchAvailableCourses();
+      await fetchAvailableCourses();
     } catch (error: any) {
-      toast.error(error.response?.data?.detail || 'Không thể gửi yêu cầu tham gia');
+      const errorMsg = error.response?.data?.detail || 'Không thể đăng ký khóa học';
+      toast.error(errorMsg);
+    } finally {
+      setEnrollingId(null);
     }
   };
 
@@ -193,11 +219,21 @@ const BrowseCourses: React.FC = () => {
                 <div className="pt-2">
                   {course.available_slots > 0 ? (
                     <button
-                      onClick={() => handleRequestJoin(course.registration_id, course.subject_name)}
-                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
+                      onClick={() => handleRequestJoin(course)}
+                      disabled={enrollingId === course.registration_id}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <UserPlus size={18} className="mr-2" />
-                      Đăng Ký Tham Gia
+                      {enrollingId === course.registration_id ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                          Đang xử lý...
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus size={18} className="mr-2" />
+                          Đăng Ký Tham Gia
+                        </>
+                      )}
                     </button>
                   ) : (
                     <button
@@ -212,6 +248,112 @@ const BrowseCourses: React.FC = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {showConfirmModal && selectedCourse && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-xl font-bold text-gray-900">Xác nhận đăng ký</h3>
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="space-y-4 mb-6">
+              <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+                <h4 className="font-bold text-blue-900 mb-2">{selectedCourse.subject_code}</h4>
+                <p className="text-blue-800 text-sm">{selectedCourse.subject_name}</p>
+              </div>
+              
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Giảng viên:</span>
+                  <span className="font-medium">{selectedCourse.tutor_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Số buổi học:</span>
+                  <span className="font-medium">{selectedCourse.total_sessions} buổi</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Chỗ còn trống:</span>
+                  <span className="font-medium text-green-600">{selectedCourse.available_slots}/{selectedCourse.max_students}</span>
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+                <p className="text-sm text-yellow-800">
+                  <strong>Lưu ý:</strong> Bạn sẽ được tự động thêm vào tất cả {selectedCourse.total_sessions} buổi học của khóa này.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={confirmEnrollment}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                Xác nhận đăng ký
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && selectedCourse && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="text-center mb-6">
+              <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle className="w-10 h-10 text-green-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Đăng ký thành công!</h3>
+              <p className="text-gray-600">
+                Bạn đã đăng ký thành công khóa học <strong>{selectedCourse.subject_name}</strong>
+              </p>
+            </div>
+
+            {enrollmentResult && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-green-800">Số buổi học đã đăng ký:</span>
+                  <span className="font-bold text-green-900 text-lg">{enrollmentResult.sessions_joined} buổi</span>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <button
+                onClick={() => navigate('/my-courses')}
+                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center"
+              >
+                <BookOpen size={20} className="mr-2" />
+                Xem Khóa Học Của Tôi
+              </button>
+              <button
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  setSelectedCourse(null);
+                  setEnrollmentResult(null);
+                }}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Tiếp tục duyệt khóa học
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
