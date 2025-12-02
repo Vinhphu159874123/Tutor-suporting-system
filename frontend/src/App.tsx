@@ -58,6 +58,11 @@ import LearningProgress from "./pages/session/LearningProgress";
 import MyCourses from "./pages/course/MyCourses";
 import CourseDetail from "./pages/course/CourseDetail";
 
+// Coordinator pages
+import TutorsList from "./pages/coordinator/TutorsList";
+import TutorCourses from "./pages/coordinator/TutorCourses";
+import CourseReport from "./pages/coordinator/CourseReport";
+
 // Student pages
 import BrowseCourses from "./pages/student/BrowseCourses";
 
@@ -191,6 +196,9 @@ function App() {
                       <Route path="/coor" element={<CoordinatorDashboard />} />
                       <Route path="/coor/review" element={<CoordinatorReview />} />
                       <Route path="/coor/sessions" element={<CoordinatorSessions />} />
+                      <Route path="/coordinator/tutors" element={<TutorsList />} />
+                      <Route path="/coordinator/tutors/:tutorId/courses" element={<TutorCourses />} />
+                      <Route path="/coordinator/tutors/:tutorId/courses/:subjectId" element={<CourseReport />} />
                       <Route path="/tutors" element={<TutorList />} />
                       <Route path="/tutors/register" element={<RegisterTutor />} />
                       <Route path="/tutors/:id" element={<TutorDetail />} />
