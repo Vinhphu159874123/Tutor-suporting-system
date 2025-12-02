@@ -870,8 +870,8 @@ class SchedulePreference(Base):
     }
     
     preference_id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("tutor_system.Student.student_id", ondelete="CASCADE"), nullable=False, index=True)
-    subject_id = Column(Integer, ForeignKey("tutor_system.Subject.subject_id", ondelete="CASCADE"), nullable=False, index=True)
+    student_id = Column(Integer, ForeignKey("tutor_system.student.student_id", ondelete="CASCADE"), nullable=False, index=True)
+    subject_id = Column(Integer, ForeignKey("tutor_system.subject.subject_id", ondelete="CASCADE"), nullable=False, index=True)
     
     # Scheduling details
     preferred_start_date = Column(Date, nullable=False)

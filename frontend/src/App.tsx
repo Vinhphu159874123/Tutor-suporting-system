@@ -51,6 +51,9 @@ import MyCourses from "./pages/course/MyCourses";
 import CourseDetail from "./pages/course/CourseDetail";
 import CourseProgress from "./pages/course/CourseProgress";
 
+// Tutor pages
+import TutorStatistics from "./pages/tutor/TutorStatistics";
+
 // Coordinator pages
 import TutorsList from "./pages/coordinator/TutorsList";
 import TutorCourses from "./pages/coordinator/TutorCourses";
@@ -58,6 +61,7 @@ import CourseReport from "./pages/coordinator/CourseReport";
 
 // Student pages
 import BrowseCourses from "./pages/student/BrowseCourses";
+import StudentScheduling from "./pages/student/StudentScheduling";
 
 // Admin pages
 import Admin from "./pages/admin/Admin";
@@ -190,6 +194,8 @@ function App() {
                       <Route path="/tutors/:id" element={<TutorDetail />} />
                       <Route path="/tutors/requests" element={<SessionRequests />} />
                       <Route path="/browse-courses" element={<BrowseCourses />} />
+                      <Route path="/student/scheduling" element={<StudentScheduling />} />
+                      <Route path="/tutor/statistics" element={<TutorStatistics />} />
                       <Route
                         path="/notifications"
                         element={<Notifications />}
