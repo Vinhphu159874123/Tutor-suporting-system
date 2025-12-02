@@ -12,7 +12,8 @@ import {
   Settings as SettingsIcon, 
   MessageSquare, 
   BarChart3, 
-  Shield 
+  Shield,
+  Users
 } from "lucide-react";
 
 interface LayoutProps {
@@ -47,6 +48,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const coordinatorNavigation = [
     { name: "Dashboard", href: "/coor", icon: <LayoutDashboard size={20} /> },
     { name: "Duyệt Tutor", href: "/coor/review", icon: <GraduationCap size={20} /> },
+    { name: "Quản lý Giảng viên", href: "/coordinator/tutors", icon: <Users size={20} /> },
     { name: "Quản lý Buổi học", href: "/coor/sessions", icon: <Calendar size={20} /> },
     { name: "Báo cáo", href: "/reports", icon: <BarChart3 size={20} /> },
     { name: "Thông báo", href: "/notifications", icon: <Bell size={20} /> },
