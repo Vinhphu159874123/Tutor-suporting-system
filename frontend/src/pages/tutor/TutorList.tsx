@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle, Star, Search } from 'lucide-react';
+import { MessageCircle, Star, Search, RefreshCw } from 'lucide-react';
 import { tutorsApi, coursesApi } from '../../services/api';
 import { toast } from 'react-toastify';
 import { AxiosResponse } from 'axios';
@@ -32,27 +32,44 @@ const TutorList: React.FC = () => {
   const [allTutors, setAllTutors] = useState<Tutor[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchData = async (showLoading = true) => {
+    try {
+      if (showLoading) setLoading(true);
+
+      // Fetch subjects
+      const subjectsResponse = await coursesApi.getAllSubjects() as AxiosResponse<any>;
+      setSubjects(subjectsResponse.data || []);
+
+      // Fetch all tutors
+      const tutorsResponse = await tutorsApi.getTutors({}) as AxiosResponse<any>;
+      setAllTutors(tutorsResponse.data || []);
+      setTutors(tutorsResponse.data || []);
+    } catch (error: any) {
+      toast.error('Không thể tải danh sách gia sư');
+      console.error(error);
+    } finally {
+      if (showLoading) setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchData(false);
+    setRefreshing(false);
+    toast.success('Đã cập nhật danh sách gia sư');
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Fetch subjects
-        const subjectsResponse = await coursesApi.getAllSubjects() as AxiosResponse<any>;
-        setSubjects(subjectsResponse.data || []);
-
-        // Fetch all tutors
-        const tutorsResponse = await tutorsApi.getTutors({}) as AxiosResponse<any>;
-        setAllTutors(tutorsResponse.data || []);
-        setTutors(tutorsResponse.data || []);
-      } catch (error: any) {
-        toast.error('Không thể tải danh sách gia sư');
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
+
+    // Auto refresh every 30 seconds
+    const interval = setInterval(() => {
+      fetchData(false);
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   // Apply filters whenever filter values change
@@ -61,7 +78,7 @@ const TutorList: React.FC = () => {
 
     // Filter by subject
     if (selectedSubject !== 'all') {
-      filtered = filtered.filter(tutor => 
+      filtered = filtered.filter(tutor =>
         (tutor.subjects || []).includes(selectedSubject)
       );
     }
@@ -73,7 +90,7 @@ const TutorList: React.FC = () => {
 
     // Filter by search term
     if (searchTerm.trim()) {
-      filtered = filtered.filter(tutor => 
+      filtered = filtered.filter(tutor =>
         tutor.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (tutor.subjects || []).some(s => s.toLowerCase().includes(searchTerm.toLowerCase()))
       );
@@ -86,10 +103,23 @@ const TutorList: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg p-6 text-white">
-        <h1 className="text-3xl font-bold mb-2">Danh sách Gia sư</h1>
-        <p className="text-blue-100">
-          Tìm kiếm gia sư phù hợp với nhu cầu học tập của bạn
-        </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Danh sách Gia sư</h1>
+            <p className="text-blue-100">
+              Tìm kiếm gia sư phù hợp với nhu cầu học tập của bạn
+            </p>
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors"
+            title="Làm mới danh sách"
+          >
+            <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Làm mới</span>
+          </button>
+        </div>
       </div>
 
       {loading && (
@@ -102,7 +132,7 @@ const TutorList: React.FC = () => {
       {/* Filters */}
       <div className="card">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Tìm kiếm & Lọc</h2>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Search */}
           <div>
