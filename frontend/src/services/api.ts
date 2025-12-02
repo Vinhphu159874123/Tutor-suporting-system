@@ -472,12 +472,22 @@ export const sessionsApi = {
     return apiClient.get(`/sessions/${sessionId}/participants`);
   },
 
-  markAttendance: (sessionId: number, attendanceData: Record<string, boolean>) => {
+  markAttendance: (sessionId: number, attendanceData: Array<{user_id: number, is_present: boolean, is_late: boolean, is_excused: boolean}>) => {
     return apiClient.post(`/sessions/${sessionId}/attendance`, attendanceData);
   },
 
   deleteMaterial: (sessionId: number, materialName: string) => {
     return apiClient.delete(`/sessions/${sessionId}/materials/${materialName}`);
+  },
+
+  removeStudentFromSubject: (subjectId: number, studentId: number, tutorId: number) => {
+    return apiClient.delete(`/sessions/remove-student-from-subject`, {
+      params: {
+        subject_id: subjectId,
+        student_id: studentId,
+        tutor_id: tutorId,
+      },
+    });
   },
 };
 
@@ -800,8 +810,14 @@ export const coordinatorApi = {
     });
   },
 
-  approveTutorRegistration: (registrationId: number) => {
-    return apiClient.put(`/coordinator/tutor-registrations/${registrationId}/approve`);
+  getRegistrationSchedules: (registrationId: number) => {
+    return apiClient.get(`/coordinator/tutor-registrations/${registrationId}/schedules`);
+  },
+
+  approveTutorRegistration: (registrationId: number, scheduleId?: number) => {
+    return apiClient.put(`/coordinator/tutor-registrations/${registrationId}/approve`, {
+      schedule_id: scheduleId
+    });
   },
 
   rejectTutorRegistration: (registrationId: number, reason: string) => {

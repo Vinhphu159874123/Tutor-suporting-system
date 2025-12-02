@@ -4,7 +4,7 @@ Handle tutor-related events
 """
 import logging
 from typing import Dict, Any
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from app.events.base_listener import BaseListener
 from app.events import event_bus, EventTypes
@@ -186,6 +186,7 @@ class TutorApprovalListener(BaseListener):
             - reason: str (optional, for rejection)
             - total_sessions: int (optional, default 10)
             - start_date: str (ISO format)
+            - schedule_id: int (optional, specific schedule to use)
         """
         try:
             user_id = data.get('user_id')
@@ -220,7 +221,8 @@ class TutorApprovalListener(BaseListener):
                         subject_id=data.get('subject_id'),
                         total_sessions=data.get('total_sessions', 10),
                         start_date_str=data.get('start_date'),
-                        max_students=data.get('max_students', 5)
+                        max_students=data.get('max_students', 5),
+                        schedule_id=data.get('schedule_id')
                     )
                     
                 else:  # rejected
@@ -253,21 +255,32 @@ class TutorApprovalListener(BaseListener):
         subject_id: int,
         total_sessions: int,
         start_date_str: str,
-        max_students: int = 5
+        max_students: int = 5,
+        schedule_id: int = None
     ):
         """Generate Session records from SessionSchedule"""
         try:
             from app.models.database import SessionSchedule, Session, Subject
             from datetime import datetime, timedelta
             
-            # Get the schedule
-            schedule_result = await db.execute(
-                select(SessionSchedule).where(
-                    SessionSchedule.tutor_id == tutor_id,
-                    SessionSchedule.subject_id == subject_id,
-                    SessionSchedule.is_active == True
+            # Get the schedule (specific one if schedule_id provided, otherwise first active)
+            if schedule_id:
+                schedule_result = await db.execute(
+                    select(SessionSchedule).where(
+                        SessionSchedule.schedule_id == schedule_id,
+                        SessionSchedule.tutor_id == tutor_id,
+                        SessionSchedule.subject_id == subject_id,
+                        SessionSchedule.is_active == True
+                    )
                 )
-            )
+            else:
+                schedule_result = await db.execute(
+                    select(SessionSchedule).where(
+                        SessionSchedule.tutor_id == tutor_id,
+                        SessionSchedule.subject_id == subject_id,
+                        SessionSchedule.is_active == True
+                    )
+                )
             schedule = schedule_result.scalar_one_or_none()
             
             if not schedule:
@@ -286,6 +299,19 @@ class TutorApprovalListener(BaseListener):
                 start_date = datetime.fromisoformat(start_date_str).date()
             else:
                 start_date = datetime.now().date()
+            
+            # Check if sessions already exist to prevent duplicates
+            existing_sessions_result = await db.execute(
+                select(func.count(Session.session_id)).where(
+                    Session.tutor_id == tutor_id,
+                    Session.subject_id == subject_id
+                )
+            )
+            existing_count = existing_sessions_result.scalar() or 0
+            
+            if existing_count > 0:
+                logger.warning(f"⚠️  Sessions already exist for tutor {tutor_id}, subject {subject_id} ({existing_count} sessions). Skipping generation.")
+                return
             
             # Find first occurrence of the scheduled day
             current_date = start_date

@@ -14,7 +14,7 @@ elif database_url.startswith("sqlite"):
 
 engine = create_async_engine(
     database_url,
-    echo=True,
+    echo=False,  # Disable SQL logging for cleaner output
     future=True,
     pool_pre_ping=True  # Enable connection health checks
 )

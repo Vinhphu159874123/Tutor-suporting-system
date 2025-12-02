@@ -179,6 +179,47 @@ async def get_current_user(
     
     return user
 
+async def get_current_user_optional(
+    token: str = Depends(oauth2_scheme),
+    user_repo: UserRepository = Depends(get_user_repository)
+):
+    """
+    Get current authenticated user from JWT token (optional - returns None if not authenticated)
+    Used for endpoints that can work with or without authentication
+    """
+    if not token:
+        return None
+        
+    try:
+        payload = jwt.decode(
+            token, 
+            settings.JWT_SECRET_KEY, 
+            algorithms=[settings.JWT_ALGORITHM]
+        )
+        email: str = payload.get("sub")
+        if email is None:
+            return None
+        token_data = TokenData(email=email)
+    except JWTError:
+        return None
+    
+    user = await user_repo.get_by_email(token_data.email)
+    if user is None:
+        return None
+    
+    # Load student_id or tutor_id from relationships
+    if hasattr(user, 'student') and user.student:
+        user.student_id = user.student.student_id
+    else:
+        user.student_id = None
+        
+    if hasattr(user, 'tutor') and user.tutor:
+        user.tutor_id = user.tutor.tutor_id
+    else:
+        user.tutor_id = None
+    
+    return user
+
 async def get_current_active_user(
     current_user = Depends(get_current_user)
 ):

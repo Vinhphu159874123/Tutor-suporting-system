@@ -66,11 +66,16 @@ class EventBus:
         Note: This method returns immediately without waiting for listeners
         """
         if not self._enabled:
+            logger.warning(f"Event bus disabled, skipping event: {event_name}")
             return
         
         if event_name not in self._listeners:
-            logger.debug(f"No listeners registered for event: {event_name}")
+            logger.warning(f"⚠️  No listeners registered for event: {event_name}")
+            logger.info(f"Available events: {list(self._listeners.keys())}")
             return
+        
+        listener_count = len(self._listeners[event_name])
+        logger.info(f"🚀 Emitting event '{event_name}' to {listener_count} listener(s)")
         
         # Create background task for each listener (non-blocking)
         for listener in self._listeners[event_name]:

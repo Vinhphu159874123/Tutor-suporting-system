@@ -174,11 +174,12 @@ async def get_my_registrations(
 
 @router.get("/available-courses")
 async def get_available_courses(
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get all approved tutor registrations with available slots for students to browse
-    (Public endpoint - no authentication required)
+    Only shows courses that the current user has NOT joined yet
     
     Returns:
     - registration_id: ID of the tutor registration
@@ -190,13 +191,15 @@ async def get_available_courses(
     from sqlalchemy import select, func
     from app.models.database import TutorRegistration, Subject, Tutor, Session, SessionParticipant, User
     
-    # Get approved registrations with course details
+    # Get approved registrations with course details (including total_sessions)
     query = (
         select(
             TutorRegistration.registration_id,
             TutorRegistration.subject_id,
             TutorRegistration.tutor_id,
             TutorRegistration.max_students,
+            TutorRegistration.total_sessions,
+            TutorRegistration.start_date,
             TutorRegistration.status,
             Subject.subject_code,
             Subject.subject_name,
@@ -211,6 +214,19 @@ async def get_available_courses(
     
     result = await db.execute(query)
     registrations = result.all()
+    
+    # Get all courses the current user has already joined
+    joined_courses_query = (
+        select(Session.subject_id, Session.tutor_id)
+        .join(SessionParticipant, SessionParticipant.session_id == Session.session_id)
+        .where(
+            SessionParticipant.user_id == current_user.user_id,
+            SessionParticipant.role == "student"
+        )
+        .distinct()
+    )
+    joined_result = await db.execute(joined_courses_query)
+    joined_courses = set((row.subject_id, row.tutor_id) for row in joined_result.all())
     
     courses = []
     for reg in registrations:
@@ -243,8 +259,22 @@ async def get_available_courses(
         
         available_slots = reg.max_students - current_students
         
-        # Only include courses with at least 1 session
+        # Skip courses that user has already joined
+        if (reg.subject_id, reg.tutor_id) in joined_courses:
+            continue
+        
+        # If no sessions in DB yet, use total_sessions from registration (planned sessions)
+        # Otherwise use actual session count from database
         if session_count and session_count > 0:
+            total_sessions_display = session_count
+            start_date_display = start_date
+        else:
+            # No sessions saved yet, but registration approved - show planned sessions
+            total_sessions_display = reg.total_sessions or 0
+            start_date_display = reg.start_date
+        
+        # Only include courses that have planned sessions (either saved or from registration)
+        if total_sessions_display > 0:
             courses.append({
                 "registration_id": reg.registration_id,
                 "subject_id": reg.subject_id,
@@ -253,11 +283,11 @@ async def get_available_courses(
                 "department": reg.department,
                 "tutor_id": reg.tutor_id,
                 "tutor_name": reg.tutor_name,
-                "total_sessions": session_count,
+                "total_sessions": total_sessions_display,
                 "max_students": reg.max_students,
                 "current_students": current_students,
                 "available_slots": max(0, available_slots),
-                "start_date": start_date.isoformat() if start_date else None,
+                "start_date": start_date_display.isoformat() if start_date_display else None,
                 "status": reg.status
             })
     
@@ -355,14 +385,19 @@ async def request_join_course(
     await db.commit()
     
     # Emit event for notification
-    await event_bus.emit(EventTypes.STUDENT_ENROLLED_COURSE, {
+    import logging
+    logger = logging.getLogger(__name__)
+    event_data = {
         'student_id': current_user.user_id,
         'student_name': current_user.full_name,
         'tutor_id': tutor.tutor_id,
         'subject_id': registration.subject_id,
         'subject_name': subject_name,
         'sessions_count': len(sessions)
-    })
+    }
+    logger.info(f"🔔 Emitting STUDENT_ENROLLED_COURSE event: {event_data}")
+    await event_bus.emit(EventTypes.STUDENT_ENROLLED_COURSE, event_data)
+    logger.info(f"✅ Event emitted successfully")
     
     return {
         "message": f"Successfully joined {subject_name}",

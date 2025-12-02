@@ -26,6 +26,25 @@ interface RegistrationRequest {
   start_date?: string | null;
   end_date?: string | null;
   max_students?: number;
+  selected_schedule?: {
+    schedule_id: number;
+    day_of_week: number;
+    day_name: string;
+    start_time: string;
+    end_time: string;
+    location_type: string;
+  } | null;
+}
+
+interface Schedule {
+  schedule_id: number;
+  day_of_week: number;
+  day_name: string;
+  start_time: string;
+  end_time: string;
+  duration: number;
+  location_type: string;
+  description?: string;
 }
 
 const CoordinatorReview: React.FC = () => {
@@ -34,6 +53,11 @@ const CoordinatorReview: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
   const [processingId, setProcessingId] = useState<number | null>(null);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [selectedRegistration, setSelectedRegistration] = useState<number | null>(null);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [selectedSchedule, setSelectedSchedule] = useState<number | null>(null);
+  const [loadingSchedules, setLoadingSchedules] = useState(false);
 
   // Load tutor registrations
   useEffect(() => {
@@ -73,13 +97,55 @@ const CoordinatorReview: React.FC = () => {
   };
 
   const handleApprove = async (registrationId: number) => {
-    if (processingId) return; // Prevent double-click
+    if (processingId) return;
     
-    setProcessingId(registrationId);
+    // First, fetch schedules for this registration
+    setLoadingSchedules(true);
     try {
-      await coordinatorApi.approveTutorRegistration(registrationId);
+      const response = await coordinatorApi.getRegistrationSchedules(registrationId);
+      const schedulesData = response.data || [];
+      
+      console.log("Schedules fetched:", schedulesData);
+      console.log("Number of schedules:", schedulesData.length);
+      
+      if (schedulesData.length === 0) {
+        toast.error("Không tìm thấy lịch dạy cho đăng ký này");
+        return;
+      }
+      
+      if (schedulesData.length === 1) {
+        // Only one schedule, approve directly
+        console.log("Only 1 schedule, approving directly with schedule_id:", schedulesData[0].schedule_id);
+        setProcessingId(registrationId);
+        await coordinatorApi.approveTutorRegistration(registrationId, schedulesData[0].schedule_id);
+        toast.success("Đã phê duyệt đăng ký");
+        loadRegistrations();
+        setProcessingId(null);
+      } else {
+        // Multiple schedules, show modal to choose
+        console.log("Multiple schedules, showing modal");
+        setSchedules(schedulesData);
+        setSelectedRegistration(registrationId);
+        setSelectedSchedule(schedulesData[0].schedule_id); // Default to first
+        setShowScheduleModal(true);
+      }
+    } catch (error: any) {
+      console.error("Error fetching schedules:", error);
+      toast.error(error.response?.data?.detail || "Không thể tải lịch dạy");
+    } finally {
+      setLoadingSchedules(false);
+    }
+  };
+
+  const confirmApproval = async () => {
+    if (!selectedRegistration || !selectedSchedule) return;
+    
+    setProcessingId(selectedRegistration);
+    try {
+      await coordinatorApi.approveTutorRegistration(selectedRegistration, selectedSchedule);
       toast.success("Đã phê duyệt đăng ký");
-      loadRegistrations(); // Reload list
+      setShowScheduleModal(false);
+      loadRegistrations();
     } catch (error: any) {
       toast.error(error.response?.data?.detail || "Không thể phê duyệt");
     } finally {
@@ -310,6 +376,27 @@ const CoordinatorReview: React.FC = () => {
                 </div>
               </div>
 
+              {/* Selected Schedule - Only show for approved registrations */}
+              {request.status === "approved" && request.selected_schedule && (
+                <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                  <p className="text-sm font-semibold text-purple-900 mb-2">📅 Lịch dạy đã chọn</p>
+                  <div className="flex items-center gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-600">Thời gian:</span>
+                      <span className="ml-2 font-medium text-gray-900">
+                        {request.selected_schedule.day_name}, {request.selected_schedule.start_time} - {request.selected_schedule.end_time}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Hình thức:</span>
+                      <span className="ml-2 font-medium text-gray-900">
+                        {request.selected_schedule.location_type === "online" ? "Online" : "Offline"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <p className="text-sm text-gray-500 mb-4">
                 Ngày nộp: {new Date(request.registered_at).toLocaleString("vi-VN")}
               </p>
@@ -353,6 +440,77 @@ const CoordinatorReview: React.FC = () => {
           ))
         )}
       </div>
+
+      {/* Schedule Selection Modal */}
+      {showScheduleModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-xl font-bold mb-4">Chọn lịch dạy</h3>
+            <p className="text-gray-600 mb-4">
+              Tutor này có nhiều lịch dạy. Vui lòng chọn lịch để tạo các buổi học:
+            </p>
+            
+            <div className="space-y-3 mb-6">
+              {schedules.map((schedule) => (
+                <label
+                  key={schedule.schedule_id}
+                  className={`flex items-start p-3 border rounded-lg cursor-pointer transition-colors ${
+                    selectedSchedule === schedule.schedule_id
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-300 hover:border-blue-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="schedule"
+                    value={schedule.schedule_id}
+                    checked={selectedSchedule === schedule.schedule_id}
+                    onChange={() => setSelectedSchedule(schedule.schedule_id)}
+                    className="mt-1 mr-3"
+                  />
+                  <div className="flex-1">
+                    <div className="font-semibold text-gray-900">
+                      {schedule.day_name}
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      {schedule.start_time} - {schedule.end_time}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      {schedule.location_type === "online" ? "Online" : "Offline"} • {schedule.duration} phút
+                    </div>
+                    {schedule.description && (
+                      <div className="text-sm text-gray-500 mt-1">
+                        {schedule.description}
+                      </div>
+                    )}
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowScheduleModal(false);
+                  setSelectedRegistration(null);
+                  setSelectedSchedule(null);
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                disabled={!!processingId}
+              >
+                Hủy
+              </button>
+              <button
+                onClick={confirmApproval}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                disabled={!!processingId || !selectedSchedule}
+              >
+                {processingId ? "Đang xử lý..." : "Phê duyệt"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

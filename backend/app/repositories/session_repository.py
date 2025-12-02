@@ -52,7 +52,16 @@ class SessionRepository:
         if tutor_id:
             query = query.where(SessionModel.tutor_id == tutor_id)
         if student_id:
-            query = query.where(SessionModel.student_id == student_id)
+            # Join with SessionParticipant to filter sessions the student is enrolled in
+            query = query.join(
+                SessionParticipant,
+                SessionModel.session_id == SessionParticipant.session_id
+            ).where(
+                and_(
+                    SessionParticipant.user_id == student_id,
+                    SessionParticipant.role == 'student'
+                )
+            ).distinct()
         if subject_id:
             query = query.where(SessionModel.subject_id == subject_id)
         if status:

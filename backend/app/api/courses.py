@@ -90,9 +90,9 @@ async def get_my_courses(
                 
                 session_results = subjects_with_sessions.all()
                 
-                # Get subjects from pending/approved registrations (without sessions yet)
+                # Get subjects from pending/approved registrations (with total_sessions)
                 registered_subjects = await db.execute(
-                    select(Subject, TutorRegistration.status)
+                    select(Subject, TutorRegistration.status, TutorRegistration.total_sessions, TutorRegistration.subject_id)
                     .join(TutorRegistration, Subject.subject_id == TutorRegistration.subject_id)
                     .where(TutorRegistration.tutor_id == tutor.tutor_id)
                     .where(TutorRegistration.status.in_(['pending', 'approved']))
@@ -115,16 +115,19 @@ async def get_my_courses(
                         "status": "active"
                     }
                 
-                # Add pending/approved registrations (without sessions)
-                for subject, reg_status in registration_results:
+                # Add pending/approved registrations
+                # If approved but no sessions yet, use total_sessions from registration
+                for subject, reg_status, total_sessions, subject_id in registration_results:
                     if subject.subject_id not in courses_dict:
+                        # For approved registrations without sessions, use planned total_sessions
+                        session_count = total_sessions if reg_status == 'approved' else 0
                         courses_dict[subject.subject_id] = {
                             "subject_id": subject.subject_id,
                             "subject_code": subject.subject_code,
                             "subject_name": subject.subject_name,
                             "department": subject.department,
                             "credits": subject.credits or 4,
-                            "session_count": 0,
+                            "session_count": session_count,
                             "status": reg_status
                         }
                 

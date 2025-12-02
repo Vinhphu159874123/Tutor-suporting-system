@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
   BookOpen, ArrowLeft, Clock, MapPin, Video, 
   FileText, Edit2, Save, X, ChevronDown, ChevronUp, Upload, Trash2, Calendar as CalendarIcon,
@@ -34,6 +34,7 @@ interface WeeklySession {
 
 const CourseDetail: React.FC = () => {
   const { subjectId } = useParams<{ subjectId: string }>();
+  const navigate = useNavigate();
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [sessions, setSessions] = useState<WeeklySession[]>([]);
   const [expandedSession, setExpandedSession] = useState<number | null>(null);
@@ -52,7 +53,7 @@ const CourseDetail: React.FC = () => {
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<number | null>(null);
   const [participants, setParticipants] = useState<any[]>([]);
-  const [attendanceData, setAttendanceData] = useState<Record<string, boolean>>({});
+  const [attendanceData, setAttendanceData] = useState<Record<string, 'present' | 'absent' | 'late' | 'excused' | null>>({});
   
   // Enrolled students modal state
   const [showEnrolledStudentsModal, setShowEnrolledStudentsModal] = useState(false);
@@ -64,11 +65,21 @@ const CourseDetail: React.FC = () => {
   const [previewPdfName, setPreviewPdfName] = useState<string>('');
   
   const { user } = useAuthStore();
+  const hasFetched = useRef(false);
+  const lastSubjectId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (subjectId) {
+    // Reset flag if subjectId changed
+    if (subjectId !== lastSubjectId.current) {
+      hasFetched.current = false;
+      lastSubjectId.current = subjectId || null;
+    }
+    
+    if (subjectId && user && !hasFetched.current) {
+      hasFetched.current = true;
       fetchCourseData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subjectId]);
 
   const fetchCourseData = async () => {
@@ -78,7 +89,7 @@ const CourseDetail: React.FC = () => {
       setLoading(true);
       // Fetch course details
       const courseResponse = await coursesApi.getCourseByCode(subjectId) as any;
-      setCourse(courseResponse.data);
+      let courseData = courseResponse.data;
 
       // Get current user's tutor_id if they are a tutor
       let currentUserTutorId: number | null = null;
@@ -86,6 +97,10 @@ const CourseDetail: React.FC = () => {
         try {
           const tutorResponse = await tutorsApi.getMyTutorProfile() as any;
           currentUserTutorId = tutorResponse.data?.tutor_id;
+          // Add tutor_id to course data
+          if (currentUserTutorId) {
+            courseData = { ...courseData, tutor_id: currentUserTutorId };
+          }
         } catch (err) {
           console.log('Could not fetch tutor profile');
         }
@@ -102,11 +117,11 @@ const CourseDetail: React.FC = () => {
             try {
               const tutorDetailResponse = await tutorsApi.getTutor(tutorId) as any;
               if (tutorDetailResponse.data) {
-                setCourse(prev => prev ? {
-                  ...prev,
+                courseData = {
+                  ...courseData,
                   tutor_name: tutorDetailResponse.data.user?.full_name || tutorDetailResponse.data.full_name,
                   tutor_id: tutorId
-                } : prev);
+                };
               }
             } catch (err) {
               console.log('Could not fetch tutor details');
@@ -116,22 +131,45 @@ const CourseDetail: React.FC = () => {
           console.log('Could not fetch enrolled course info');
         }
       }
+      
+      // Set course data ONCE with all updates
+      setCourse(courseData);
 
       // Step 1: Try to fetch saved sessions from database first
       try {
         // Call the sessions API to get sessions for this subject
         const params: any = { subject_id: parseInt(subjectId) };
         
-        // Filter by tutor_id for both tutors and students
+        console.log('🔍 Checking user for session filter:', {
+          user,
+          role: user?.role,
+          user_id: user?.user_id,
+          currentUserTutorId
+        });
+        
+        // IMPORTANT: Always filter by tutor_id to avoid seeing sessions from other tutors
+        // For both tutor and student, we need the tutor_id
         if (currentUserTutorId) {
           params.tutor_id = currentUserTutorId;
+          console.log('✅ Using tutor_id filter:', currentUserTutorId);
+          
+          // Also add student_id filter if student to ensure they only see enrolled sessions
+          if (user?.role === 'student' && user?.user_id) {
+            params.student_id = user.user_id;
+            console.log('✅ Also using student_id filter:', user.user_id);
+          } else if (user?.role === 'student') {
+            console.error('❌ CRITICAL: Student role but user_id is undefined!', { user });
+          }
+        } else {
+          console.log('⚠️ No tutor_id found - student may not be enrolled yet');
         }
         
+        console.log('📤 API Request params:', JSON.stringify(params));
         const sessionsResponse = await sessionsApi.getSessions(params) as any;
         const savedSessions = sessionsResponse.data || [];
         
-        console.log('Fetched sessions from DB:', savedSessions);
-        console.log('Filter params:', params);
+        console.log('📥 API Response - Fetched sessions count:', savedSessions.length);
+        console.log('Filter params used:', params);
         
         if (savedSessions.length > 0) {
           // Convert DB sessions to WeeklySession format
@@ -307,6 +345,14 @@ const CourseDetail: React.FC = () => {
   const handleSaveAllSessions = async () => {
     if (!subjectId) return;
     
+    // Prevent duplicate calls
+    if (loading) {
+      console.log('⚠️ Already saving, ignoring duplicate call');
+      return;
+    }
+    
+    console.log('🚀 handleSaveAllSessions called');
+    
     try {
       setLoading(true);
       
@@ -321,12 +367,15 @@ const CourseDetail: React.FC = () => {
         materials: s.materials
       }));
 
+      console.log('📤 Calling bulkSaveForSubject with', sessionsData.length, 'sessions');
+
       // Call API to save all sessions using apiClient with proper auth
       await sessionsApi.bulkSaveForSubject(parseInt(subjectId), sessionsData);
 
+      console.log('✅ Successfully saved all sessions');
       toast.success('Đã lưu tất cả các buổi học!');
     } catch (error) {
-      console.error('Failed to save sessions:', error);
+      console.error('❌ Failed to save sessions:', error);
       toast.error('Không thể lưu buổi học');
     } finally {
       setLoading(false);
@@ -424,10 +473,12 @@ const CourseDetail: React.FC = () => {
   // Download material with authentication
   const handleDownloadMaterial = async (sessionId: number, materialName: string) => {
     try {
+      const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000/api/v1";
+      
       // For PDFs, try to open backend URL directly in new tab
       // Browser will use existing auth cookies/session
       if (materialName.toLowerCase().endsWith('.pdf')) {
-        const backendUrl = `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/sessions/${sessionId}/materials/${encodeURIComponent(materialName)}/download`;
+        const backendUrl = `${API_BASE_URL}/sessions/${sessionId}/materials/${encodeURIComponent(materialName)}/download`;
         
         // Open directly - browser handles PDF rendering
         window.open(backendUrl, '_blank');
@@ -445,7 +496,7 @@ const CourseDetail: React.FC = () => {
       }
 
       const response = await fetch(
-        `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/v1/sessions/${sessionId}/materials/${materialName}/download`,
+        `${API_BASE_URL}/sessions/${sessionId}/materials/${materialName}/download`,
         {
           headers: {
             'Authorization': `Bearer ${authToken}`
@@ -556,6 +607,31 @@ const CourseDetail: React.FC = () => {
     }
   };
 
+  // Kick student handler
+  const handleKickStudent = async (studentId: number, studentName: string) => {
+    if (!course?.subject_id || !course?.tutor_id) {
+      toast.error('Không thể xác định thông tin khóa học');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Bạn có chắc chắn muốn xóa học sinh "${studentName}" khỏi khóa học này?\n\nHọc sinh sẽ bị xóa khỏi tất cả ${enrolledStudents.find(s => s.user_id === studentId)?.sessions_enrolled || 0} buổi học.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await sessionsApi.removeStudentFromSubject(course.subject_id, studentId, course.tutor_id);
+      toast.success(`Đã xóa học sinh "${studentName}" khỏi khóa học`);
+      
+      // Refresh enrolled students list
+      setEnrolledStudents(prev => prev.filter(s => s.user_id !== studentId));
+    } catch (error: any) {
+      console.error('Error removing student:', error);
+      toast.error(error.response?.data?.detail || 'Không thể xóa học sinh khỏi khóa học');
+    }
+  };
+
   // Feedback handlers
   const handleOpenFeedback = (sessionId: number) => {
     setSelectedSessionForFeedback(sessionId);
@@ -618,15 +694,18 @@ const CourseDetail: React.FC = () => {
     setSelectedSessionForAttendance(sessionId);
     try {
       const response = await sessionsApi.getParticipants(sessionId) as any;
-      const participantsList = response.data || [];
+      console.log('🔍 Raw API response:', response);
+      console.log('🔍 Response.data:', response.data);
+      
+      // Handle both direct array and nested object response
+      const participantsList = Array.isArray(response.data) ? response.data : (response.data?.data || response || []);
+      console.log('📋 Participants list:', participantsList);
+      
       setParticipants(participantsList);
       
-      // Initialize attendance data
-      const initialAttendance: Record<string, boolean> = {};
-      participantsList.forEach((p: any) => {
-        initialAttendance[p.user_id] = p.attended || false;
-      });
-      setAttendanceData(initialAttendance);
+      // Initialize attendance data - DON'T pre-fill from DB
+      // This allows fresh attendance marking each time
+      setAttendanceData({});
       setShowAttendanceModal(true);
     } catch (error) {
       console.error('Error loading participants:', error);
@@ -634,10 +713,10 @@ const CourseDetail: React.FC = () => {
     }
   };
 
-  const handleToggleAttendance = (userId: string) => {
+  const handleSetAttendance = (userId: string, status: 'present' | 'absent' | 'late' | 'excused') => {
     setAttendanceData(prev => ({
       ...prev,
-      [userId]: !prev[userId]
+      [userId]: status
     }));
   };
 
@@ -647,12 +726,33 @@ const CourseDetail: React.FC = () => {
       return;
     }
     try {
-      await sessionsApi.markAttendance(selectedSessionForAttendance, attendanceData);
+      // Convert to format backend expects
+      const attendanceRecords = Object.entries(attendanceData)
+        .filter(([_, status]) => status !== null)
+        .map(([userId, status]) => ({
+          user_id: parseInt(userId),
+          is_present: status === 'present',
+          is_late: status === 'late',
+          is_excused: status === 'excused'
+        }));
+      
+      if (attendanceRecords.length === 0) {
+        toast.warning('Vui lòng chọn trạng thái điểm danh cho ít nhất một học viên');
+        return;
+      }
+      
+      await sessionsApi.markAttendance(selectedSessionForAttendance, attendanceRecords);
       toast.success('Đã lưu điểm danh thành công!');
+      
+      // Close modal after successful save
       setShowAttendanceModal(false);
-    } catch (error) {
+      setAttendanceData({});
+      setParticipants([]);
+      
+    } catch (error: any) {
       console.error('Error saving attendance:', error);
-      toast.error('Không thể lưu điểm danh');
+      const message = error.response?.data?.detail || 'Không thể lưu điểm danh';
+      toast.error(message);
     }
   };
 
@@ -725,6 +825,13 @@ const CourseDetail: React.FC = () => {
                   Xem danh sách học sinh
                 </button>
                 <button
+                  onClick={() => navigate(`/courses/${subjectId}/progress`)}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+                >
+                  <Clock className="h-4 w-4" />
+                  Xem tiến trình học tập
+                </button>
+                <button
                   onClick={handleSaveAllSessions}
                   disabled={loading}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
@@ -733,6 +840,15 @@ const CourseDetail: React.FC = () => {
                   Lưu tất cả
                 </button>
               </div>
+            )}
+            {!isTutor && sessions.length > 0 && (
+              <button
+                onClick={() => navigate(`/courses/${subjectId}/progress`)}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+              >
+                <Clock className="h-4 w-4" />
+                Xem tiến trình học tập của tôi
+              </button>
             )}
           </div>
         </div>
@@ -934,16 +1050,41 @@ const CourseDetail: React.FC = () => {
                             <div>
                               <p className="text-sm text-gray-600 mb-2">Tài liệu</p>
                               <div className="space-y-2">
-                                {session.materials.map((material, idx) => (
-                                  <button
-                                    key={idx}
-                                    onClick={() => handleDownloadMaterial(session.session_id!, material)}
-                                    className="w-full flex items-center gap-2 p-2 bg-gray-50 rounded hover:bg-blue-50 transition-colors group text-left"
-                                  >
-                                    <FileText className="h-4 w-4 text-gray-500 group-hover:text-blue-600" />
-                                    <span className="text-sm text-gray-700 group-hover:text-blue-600 underline">{material}</span>
-                                  </button>
-                                ))}
+                                {session.materials.map((material, idx) => {
+                                  const isPDF = material.toLowerCase().endsWith('.pdf');
+                                  const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000/api/v1";
+                                  const downloadUrl = `${API_BASE_URL}/sessions/${session.session_id}/materials/${encodeURIComponent(material)}/download`;
+                                  const previewUrl = `${downloadUrl}?inline=true`;
+                                  
+                                  return (
+                                    <div
+                                      key={idx}
+                                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                                    >
+                                      <div className="flex items-center gap-2 flex-1">
+                                        <FileText className="h-4 w-4 text-gray-500" />
+                                        <span className="text-sm text-gray-700">{material}</span>
+                                      </div>
+                                      <div className="flex gap-2">
+                                        {isPDF && (
+                                          <button
+                                            onClick={() => window.open(previewUrl, '_blank')}
+                                            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                                          >
+                                            Xem
+                                          </button>
+                                        )}
+                                        <a
+                                          href={downloadUrl}
+                                          download={material}
+                                          className="px-3 py-1 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                                        >
+                                          Tải về
+                                        </a>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           )}
@@ -1107,31 +1248,119 @@ const CourseDetail: React.FC = () => {
             {participants.length === 0 ? (
               <p className="text-gray-600 text-center py-8">Chưa có sinh viên đăng ký</p>
             ) : (
-              <div className="space-y-2 mb-6">
-                {participants.map((participant) => (
-                  <div
-                    key={participant.user_id}
-                    className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
-                  >
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">{participant.full_name}</p>
-                      <p className="text-sm text-gray-600">{participant.email}</p>
+              <div className="space-y-3 mb-6">
+                {participants.map((participant) => {
+                  // Check if already marked in database OR just marked in current session
+                  const hasStatusInDB = participant.attendance_status !== null && participant.attendance_status !== undefined;
+                  const hasStatusInState = attendanceData[participant.user_id] !== null && attendanceData[participant.user_id] !== undefined;
+                  const isAlreadyMarked = hasStatusInDB || hasStatusInState;
+                  const currentStatus = attendanceData[participant.user_id] || participant.attendance_status;
+                  
+                  console.log(`👤 ${participant.full_name}:`, {
+                    attendance_status: participant.attendance_status,
+                    hasStatusInDB,
+                    hasStatusInState,
+                    isAlreadyMarked,
+                    currentStatus
+                  });
+                  
+                  return (
+                    <div
+                      key={participant.user_id}
+                      className={`p-4 rounded-lg ${
+                        isAlreadyMarked 
+                          ? 'bg-white border-2 border-gray-200' 
+                          : 'border-2 border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      {isAlreadyMarked ? (
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-900">{participant.full_name}</p>
+                          </div>
+                          <span className={`px-4 py-2 rounded-full text-base font-semibold ${
+                            currentStatus === 'present' ? 'bg-green-100 text-green-800' :
+                            currentStatus === 'late' ? 'bg-yellow-100 text-yellow-800' :
+                            currentStatus === 'excused' ? 'bg-blue-100 text-blue-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {currentStatus === 'present' ? '✓ Có mặt' :
+                             currentStatus === 'late' ? '⏰ Trễ' :
+                             currentStatus === 'excused' ? '📋 Có phép' :
+                             '✗ Vắng'}
+                          </span>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex-1">
+                              <p className="font-medium text-gray-900">{participant.full_name}</p>
+                              <p className="text-sm text-gray-600">{participant.email}</p>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <label className="flex items-center gap-2 cursor-pointer p-3 border-2 border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all">
+                              <input
+                                type="radio"
+                                name={`attendance-${participant.user_id}`}
+                                checked={attendanceData[participant.user_id] === 'present'}
+                                onChange={() => handleSetAttendance(participant.user_id.toString(), 'present')}
+                                className="w-4 h-4 text-green-600 focus:ring-2 focus:ring-green-500"
+                              />
+                              <span className={`text-sm font-medium ${
+                                attendanceData[participant.user_id] === 'present' ? 'text-green-600' : 'text-gray-600'
+                              }`}>
+                                ✓ Có mặt
+                              </span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer p-3 border-2 border-gray-200 rounded-lg hover:border-yellow-500 hover:bg-yellow-50 transition-all">
+                              <input
+                                type="radio"
+                                name={`attendance-${participant.user_id}`}
+                                checked={attendanceData[participant.user_id] === 'late'}
+                                onChange={() => handleSetAttendance(participant.user_id.toString(), 'late')}
+                                className="w-4 h-4 text-yellow-600 focus:ring-2 focus:ring-yellow-500"
+                              />
+                              <span className={`text-sm font-medium ${
+                                attendanceData[participant.user_id] === 'late' ? 'text-yellow-600' : 'text-gray-600'
+                              }`}>
+                                ⏰ Trễ
+                              </span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer p-3 border-2 border-gray-200 rounded-lg hover:border-red-500 hover:bg-red-50 transition-all">
+                              <input
+                                type="radio"
+                                name={`attendance-${participant.user_id}`}
+                                checked={attendanceData[participant.user_id] === 'absent'}
+                                onChange={() => handleSetAttendance(participant.user_id.toString(), 'absent')}
+                                className="w-4 h-4 text-red-600 focus:ring-2 focus:ring-red-500"
+                              />
+                              <span className={`text-sm font-medium ${
+                                attendanceData[participant.user_id] === 'absent' ? 'text-red-600' : 'text-gray-600'
+                              }`}>
+                                ✗ Vắng
+                              </span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer p-3 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all">
+                              <input
+                                type="radio"
+                                name={`attendance-${participant.user_id}`}
+                                checked={attendanceData[participant.user_id] === 'excused'}
+                                onChange={() => handleSetAttendance(participant.user_id.toString(), 'excused')}
+                                className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                              />
+                              <span className={`text-sm font-medium ${
+                                attendanceData[participant.user_id] === 'excused' ? 'text-blue-600' : 'text-gray-600'
+                              }`}>
+                                📋 Có phép
+                              </span>
+                            </label>
+                          </div>
+                        </>
+                      )}
                     </div>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={attendanceData[participant.user_id] || false}
-                        onChange={() => handleToggleAttendance(participant.user_id.toString())}
-                        className="w-5 h-5 text-green-600 rounded focus:ring-2 focus:ring-green-500"
-                      />
-                      <span className={`text-sm font-medium ${
-                        attendanceData[participant.user_id] ? 'text-green-600' : 'text-gray-400'
-                      }`}>
-                        {attendanceData[participant.user_id] ? 'Có mặt' : 'Vắng'}
-                      </span>
-                    </label>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -1199,11 +1428,18 @@ const CourseDetail: React.FC = () => {
                           <p className="text-sm text-gray-600">{student.email}</p>
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <CalendarIcon className="h-4 w-4" />
                           <span>{student.sessions_enrolled} buổi học</span>
                         </div>
+                        <button
+                          onClick={() => handleKickStudent(student.user_id, student.full_name)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Xóa học sinh khỏi khóa học"
+                        >
+                          <X className="h-5 w-5" />
+                        </button>
                       </div>
                     </div>
                   ))}
