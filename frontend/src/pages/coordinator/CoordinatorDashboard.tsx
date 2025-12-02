@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
-import { useNavigate } from "react-router-dom"; 
+import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 import { CheckSquare, UserCheck, Clock, Star, FileText, Calendar, BarChart3, Users } from "lucide-react";
-import { usersApi } from "../../services/api";
+import { usersApi, coordinatorApi, sessionsApi } from "../../services/api";
 import { AxiosResponse } from "axios";
 
 
@@ -11,6 +11,8 @@ const CoordinatorDashboard: React.FC = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [pendingSessions, setPendingSessions] = useState<any[]>([]);
+  const [upcomingSessions, setUpcomingSessions] = useState<any[]>([]);
   const [statsData, setStatsData] = useState({
     total_sessions: 0,
     pending_tutors: 0,
@@ -19,13 +21,25 @@ const CoordinatorDashboard: React.FC = () => {
   });
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchData = async () => {
       try {
-        const response = await usersApi.getCoordinatorStats() as AxiosResponse<any>;
-        setStatsData(response.data);
+        // Fetch stats
+        const statsResponse = await usersApi.getCoordinatorStats() as AxiosResponse<any>;
+        setStatsData(statsResponse.data);
+
+        // Fetch pending sessions
+        const pendingResponse = await coordinatorApi.getPendingSessions(0, 3) as AxiosResponse<any>;
+        setPendingSessions(pendingResponse.data.sessions || []);
+
+        // Fetch upcoming sessions
+        const upcomingResponse = await sessionsApi.getSessions({
+          status: 'scheduled',
+          skip: 0,
+          limit: 3
+        }) as AxiosResponse<any>;
+        setUpcomingSessions(upcomingResponse.data || []);
       } catch (error: any) {
-        console.error('Failed to fetch coordinator stats:', error);
-        // Don't show error toast, just use default values
+        console.error('Failed to fetch coordinator data:', error);
         setStatsData({
           total_sessions: 0,
           pending_tutors: 0,
@@ -36,16 +50,15 @@ const CoordinatorDashboard: React.FC = () => {
         setLoading(false);
       }
     };
-    fetchStats();
+    fetchData();
   }, []);
 
   const stats = [
     { name: "Tổng số phiên học", value: loading ? "..." : String(statsData.total_sessions), icon: <CheckSquare size={32} className="text-green-500" /> },
     { name: "Số Tutor chờ duyệt", value: loading ? "..." : String(statsData.pending_tutors), icon: <UserCheck size={32} className="text-blue-500" /> },
     { name: "Số phiên học chờ duyệt", value: loading ? "..." : String(statsData.pending_sessions), icon: <Clock size={32} className="text-yellow-500" /> },
-    { name: "Đánh giá trung bình", value: loading ? "..." : `${statsData.average_rating}/5`, icon: <Star size={32} className="text-orange-400" /> },
   ];
-    return (
+  return (
     <div className="space-y-6">
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg p-6 text-white">
         <h1 className="text-3xl font-bold mb-2">
@@ -59,7 +72,7 @@ const CoordinatorDashboard: React.FC = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {stats.map((stat) => (
           <div key={stat.name} className="card">
             <div className="flex items-center">
@@ -74,59 +87,83 @@ const CoordinatorDashboard: React.FC = () => {
       </div>
 
       {/* Recent Activities */}
-<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-  {/* Phiên học cần duyệt */}
-  <div className="card p-6 bg-white rounded-lg shadow">
-    <h2 className="text-xl font-bold text-gray-900 mb-4">
-      Phiên học cần duyệt
-    </h2>
-    <div className="space-y-4">
-      {[1, 2, 3].map((item) => (
-        <div
-          key={item}
-          className="flex items-center p-3 bg-gray-50 rounded-lg"
-        >
-          <div className="text-2xl mr-3">
-            <FileText className="w-8 h-8 text-yellow-600" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Phiên học cần duyệt */}
+        <div className="card p-6 bg-white rounded-lg shadow">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">
+            Phiên học cần duyệt
+          </h2>
+          <div className="space-y-4">
+            {loading ? (
+              <div className="text-center py-4">
+                <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              </div>
+            ) : pendingSessions.length > 0 ? (
+              pendingSessions.map((session) => (
+                <div
+                  key={session.session_id}
+                  className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
+                  onClick={() => navigate('/coor/sessions')}
+                >
+                  <div className="text-2xl mr-3">
+                    <FileText className="w-8 h-8 text-yellow-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium">Tutor: {session.tutor?.full_name || session.tutor_name || 'N/A'}</p>
+                    <p className="text-sm text-gray-600">
+                      Môn: {session.subject_name || session.subject_code} • Ngày: {session.scheduled_date || new Date(session.start_datetime || session.created_at).toLocaleDateString('vi-VN')}, {session.start_time?.slice(0, 5) || new Date(session.start_datetime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - {session.end_time?.slice(0, 5) || new Date(session.end_datetime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                  <div className="text-yellow-600 font-medium">Chờ duyệt</div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <FileText className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                <p>Không có phiên học nào cần duyệt</p>
+              </div>
+            )}
           </div>
-          <div className="flex-1">
-            <p className="font-medium">Tutor: Nguyễn Văn A</p>
-            <p className="text-sm text-gray-600">
-              Môn: Toán cao cấp A1 • Ngày: Hôm nay, 14:00 - 16:00
-            </p>
-          </div>
-          <div className="text-yellow-600 font-medium">Chờ duyệt</div>
         </div>
-      ))}
-    </div>
-  </div>
 
-  {/* Lịch các phiên học sắp tới */}
-  <div className="card p-6 bg-white rounded-lg shadow">
-    <h2 className="text-xl font-bold text-gray-900 mb-4">
-      Lịch các phiên học sắp tới
-    </h2>
-    <div className="space-y-4">
-      {[1, 2, 3].map((item) => (
-        <div
-          key={item}
-          className="flex items-center p-3 bg-gray-50 rounded-lg"
-        >
-          <div className="text-2xl mr-3">
-            <Calendar className="w-8 h-8 text-blue-600" />
+        {/* Lịch các phiên học sắp tới */}
+        <div className="card p-6 bg-white rounded-lg shadow">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">
+            Lịch các phiên học sắp tới
+          </h2>
+          <div className="space-y-4">
+            {loading ? (
+              <div className="text-center py-4">
+                <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              </div>
+            ) : upcomingSessions.length > 0 ? (
+              upcomingSessions.map((session) => (
+                <div
+                  key={session.session_id}
+                  className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer"
+                  onClick={() => navigate('/coor/sessions')}
+                >
+                  <div className="text-2xl mr-3">
+                    <Calendar className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium">{session.subject_name || session.subject_code} - Tutor: {session.tutor?.full_name || session.tutor_name || 'N/A'}</p>
+                    <p className="text-sm text-gray-600">
+                      {session.scheduled_date || new Date(session.start_datetime || session.created_at).toLocaleDateString('vi-VN')}, {session.start_time?.slice(0, 5) || new Date(session.start_datetime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - {session.end_time?.slice(0, 5) || new Date(session.end_datetime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                  <div className="text-blue-600 font-medium">Đã lên lịch</div>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <Calendar className="w-12 h-12 mx-auto mb-2 text-gray-400" />
+                <p>Không có phiên học sắp tới</p>
+              </div>
+            )}
           </div>
-          <div className="flex-1">
-            <p className="font-medium">Toán cao cấp A1 - Tutor: Nguyễn Văn B</p>
-            <p className="text-sm text-gray-600">
-              Ngày mai, 09:00 - 11:00
-            </p>
-          </div>
-          <div className="text-blue-600 font-medium">Đã lên lịch</div>
         </div>
-      ))}
-    </div>
-  </div>
-</div>
+      </div>
 
 
       {/* Quick Actions */}
