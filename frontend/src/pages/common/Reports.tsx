@@ -1,5 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+import { AxiosResponse } from "axios";
+import { usersApi, sessionsApi } from "../../services/api";
 import { FileText } from "lucide-react";
 
 interface CourseStat {
@@ -12,115 +15,145 @@ interface CourseStat {
   activeStudents: number;
 }
 
-const kpiCards = [
-  {
-    label: "Phiên học hoàn thành",
-    value: "128",
-    trend: "+12% so với kỳ trước",
-    trendColor: "text-green-600",
-  },
-  {
-    label: "Sinh viên hoạt động",
-    value: "432",
-    trend: "+36 sinh viên mới",
-    trendColor: "text-blue-600",
-  },
-  {
-    label: "Điểm hài lòng trung bình",
-    value: "4.7/5",
-    trend: "↑ 0.2 điểm",
-    trendColor: "text-purple-600",
-  },
-  {
-    label: "Giờ tutor đóng góp",
-    value: "312h",
-    trend: "-18h so với mục tiêu",
-    trendColor: "text-yellow-600",
-  },
-];
-
-const facultyOptions = [
-  { value: "all", label: "Tất cả khoa" },
-  { value: "CS", label: "Khoa Khoa học & Kỹ thuật Máy tính" },
-  { value: "EE", label: "Khoa Điện - Điện tử" },
-  { value: "BS", label: "Khoa Cơ khí" },
-];
-
-const courseStats: CourseStat[] = [
-  {
-    id: "1",
-    course: "Cấu trúc dữ liệu và giải thuật",
-    faculty: "CS",
-    completion: 86,
-    averageScore: 8.2,
-    tutorHours: 48,
-    activeStudents: 120,
-  },
-  {
-    id: "2",
-    course: "Hệ điều hành",
-    faculty: "CS",
-    completion: 73,
-    averageScore: 7.4,
-    tutorHours: 36,
-    activeStudents: 92,
-  },
-  {
-    id: "3",
-    course: "Điện tử căn bản",
-    faculty: "EE",
-    completion: 68,
-    averageScore: 7.1,
-    tutorHours: 40,
-    activeStudents: 80,
-  },
-  {
-    id: "4",
-    course: "Cơ học ứng dụng",
-    faculty: "BS",
-    completion: 62,
-    averageScore: 6.9,
-    tutorHours: 28,
-    activeStudents: 54,
-  },
-];
-
-const satisfactionByRole = [
-  { role: "Student", score: 4.6 },
-  { role: "Tutor", score: 4.8 },
-  { role: "Coordinator", score: 4.4 },
-];
-
-const recentReports = [
-  {
-    name: "Tổng quan hoạt động tháng 11/2025",
-    createdAt: "2025-11-15",
-    author: "Nguyễn Thị Hằng",
-    status: "Hoàn thành",
-  },
-  {
-    name: "Tiến độ sinh viên khoa CSE",
-    createdAt: "2025-11-10",
-    author: "Phạm Quốc Bảo",
-    status: "Đang soạn",
-  },
-  {
-    name: "Đánh giá chất lượng tutor",
-    createdAt: "2025-11-02",
-    author: "Lê Mỹ Anh",
-    status: "Hoàn thành",
-  },
-];
-
 const Reports: React.FC = () => {
   const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState("quarter");
   const [faculty, setFaculty] = useState("all");
+  const [courseStats, setCourseStats] = useState<CourseStat[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    total_sessions: 0,
+    active_students: 0,
+    average_rating: 0,
+    total_hours: 0
+  });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        // Fetch coordinator stats for KPIs
+        const statsResponse = await usersApi.getCoordinatorStats() as AxiosResponse<any>;
+        setStats({
+          total_sessions: statsResponse.data?.total_sessions || 0,
+          active_students: statsResponse.data?.active_students || 0,
+          average_rating: statsResponse.data?.average_rating || 0,
+          total_hours: Math.round((statsResponse.data?.total_sessions || 0) * 2) // Estimate 2h per session
+        });
+
+        // Fetch sessions for course breakdown
+        const sessionsResponse = await sessionsApi.getSessions({}) as AxiosResponse<any>;
+        const sessions = sessionsResponse.data || [];
+
+        // Group by subject and calculate stats
+        const courseMap = new Map();
+        sessions.forEach((session: any) => {
+          const key = session.subject_id;
+          if (!courseMap.has(key)) {
+            courseMap.set(key, {
+              id: key,
+              course: session.subject_name || session.subject_code,
+              faculty: session.department || 'N/A',
+              completion: 0,
+              totalSessions: 0,
+              completedSessions: 0,
+              averageScore: 0,
+              tutorHours: 0,
+              activeStudents: 0
+            });
+          }
+          const course = courseMap.get(key);
+          course.totalSessions++;
+          if (session.status === 'completed') {
+            course.completedSessions++;
+          }
+          course.tutorHours += 2; // Estimate 2h per session
+          course.activeStudents += session.student_count || 0;
+        });
+
+        const courseStatsData = Array.from(courseMap.values()).map((course: any) => ({
+          ...course,
+          completion: course.totalSessions > 0 ? Math.round((course.completedSessions / course.totalSessions) * 100) : 0,
+          averageScore: 4.5 // Placeholder
+        }));
+
+        setCourseStats(courseStatsData);
+      } catch (error: any) {
+        console.error("Error fetching reports:", error);
+        toast.error("Không thể tải báo cáo");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const filteredCourses = useMemo(() => {
     if (faculty === "all") return courseStats;
     return courseStats.filter((course) => course.faculty === faculty);
-  }, [faculty]);
+  }, [faculty, courseStats]);
+
+  const kpiCards = [
+    {
+      label: "Phiên học hoàn thành",
+      value: loading ? "..." : stats.total_sessions.toString(),
+      trend: "+12% so với kỳ trước",
+      trendColor: "text-green-600",
+    },
+    {
+      label: "Sinh viên hoạt động",
+      value: loading ? "..." : stats.active_students.toString(),
+      trend: "+36 sinh viên mới",
+      trendColor: "text-blue-600",
+    },
+    {
+      label: "Điểm hài lòng trung bình",
+      value: loading ? "..." : `${stats.average_rating.toFixed(1)}/5`,
+      trend: "↑ 0.2 điểm",
+      trendColor: "text-purple-600",
+    },
+    {
+      label: "Giờ tutor đóng góp",
+      value: loading ? "..." : `${stats.total_hours}h`,
+      trend: "-18h so với mục tiêu",
+      trendColor: "text-yellow-600",
+    },
+  ];
+
+  const facultyOptions = [
+    { value: "all", label: "Tất cả khoa" },
+    { value: "CS", label: "Khoa Khoa học & Kỹ thuật Máy tính" },
+    { value: "EE", label: "Khoa Điện - Điện tử" },
+    { value: "BS", label: "Khoa Cơ khí" },
+  ];
+
+  const satisfactionByRole = [
+    { role: "Student", score: 4.6 },
+    { role: "Tutor", score: 4.8 },
+    { role: "Coordinator", score: 4.4 },
+  ];
+
+  const recentReports = [
+    {
+      name: "Tổng quan hoạt động tháng 11/2025",
+      createdAt: "2025-11-15",
+      author: "Nguyễn Thị Hằng",
+      status: "Hoàn thành",
+    },
+    {
+      name: "Tiến độ sinh viên khoa CSE",
+      createdAt: "2025-11-10",
+      author: "Phạm Quốc Bảo",
+      status: "Đang soạn",
+    },
+    {
+      name: "Đánh giá chất lượng tutor",
+      createdAt: "2025-11-02",
+      author: "Lê Mỹ Anh",
+      status: "Hoàn thành",
+    },
+  ];
 
   const formatDate = (value: string) =>
     new Date(value).toLocaleDateString("vi-VN", {
@@ -275,11 +308,10 @@ const Reports: React.FC = () => {
                 <div className="flex items-center justify-between mb-1">
                   <p className="font-semibold text-gray-900">{report.name}</p>
                   <span
-                    className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                      report.status === "Hoàn thành"
+                    className={`text-xs font-semibold px-2 py-1 rounded-full ${report.status === "Hoàn thành"
                         ? "bg-green-100 text-green-700"
                         : "bg-yellow-100 text-yellow-700"
-                    }`}
+                      }`}
                   >
                     {report.status}
                   </span>

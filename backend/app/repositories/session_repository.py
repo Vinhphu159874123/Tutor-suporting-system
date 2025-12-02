@@ -39,18 +39,31 @@ class SessionRepository:
         limit: int = 100,
         tutor_id: Optional[int] = None,
         student_id: Optional[int] = None,
+        subject_id: Optional[int] = None,
         status: Optional[str] = None
     ) -> List[SessionModel]:
         """Get all sessions with filters and eager loading"""
         query = select(SessionModel).options(
             selectinload(SessionModel.tutor).selectinload(Tutor.user),
-            selectinload(SessionModel.participants).selectinload(SessionParticipant.user)
+            selectinload(SessionModel.participants).selectinload(SessionParticipant.user),
+            selectinload(SessionModel.session_materials)  # Load uploaded materials
         )
         
         if tutor_id:
             query = query.where(SessionModel.tutor_id == tutor_id)
         if student_id:
-            query = query.where(SessionModel.student_id == student_id)
+            # Join with SessionParticipant to filter sessions the student is enrolled in
+            query = query.join(
+                SessionParticipant,
+                SessionModel.session_id == SessionParticipant.session_id
+            ).where(
+                and_(
+                    SessionParticipant.user_id == student_id,
+                    SessionParticipant.role == 'student'
+                )
+            ).distinct()
+        if subject_id:
+            query = query.where(SessionModel.subject_id == subject_id)
         if status:
             query = query.where(SessionModel.status == status)
         

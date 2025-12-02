@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, Foreign
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, ARRAY
 import enum
 from datetime import datetime
 
@@ -106,6 +106,7 @@ class NotificationType(str, Enum):
     ACHIEVEMENT_EARNED = "achievement_earned"
     REPORT_AVAILABLE = "report_available"
     SYSTEM_ANNOUNCEMENT = "system_announcement"
+    STUDENT_ENROLLED = "student_enrolled"  # Student enrolled in course
 
 class NotificationStatus(str, Enum):
     UNREAD = "unread"
@@ -182,6 +183,7 @@ class Student(Base):
     attendance_records = relationship("Attendance", back_populates="student")
     progress_trackings = relationship("ProgressTracking", back_populates="student")
     achievements = relationship("LearningAchievements", back_populates="student")
+    schedule_preferences = relationship("SchedulePreference", back_populates="student")
 
 class Tutor(Base):
     __tablename__ = "tutor"
@@ -255,6 +257,7 @@ class Subject(Base):
     course_reports = relationship("CourseReport", back_populates="subject")
     progress_trackings = relationship("ProgressTracking", back_populates="subject")
     schedules = relationship("SessionSchedule", back_populates="subject")
+    schedule_preferences = relationship("SchedulePreference", back_populates="subject")
 
 class SessionParticipant(Base):
     """Session participant - link between session and users (tutor/students)"""
@@ -306,6 +309,7 @@ class Session(Base):
     
     session_notes = Column(Text, nullable=True)
     max_students = Column(Integer, default=1)
+    materials = Column(JSONB, nullable=True, default=list)  # List of material file names
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -316,7 +320,7 @@ class Session(Base):
     subject = relationship("Subject", back_populates="sessions")
     coordinator = relationship("Coordinator", back_populates="coordinated_sessions")
     participants = relationship("SessionParticipant", back_populates="session", cascade="all, delete-orphan")
-    materials = relationship("SessionMaterial", back_populates="session", cascade="all, delete-orphan")
+    session_materials = relationship("SessionMaterial", back_populates="session", cascade="all, delete-orphan")
     feedbacks = relationship("SessionFeedback", back_populates="session")
     responses = relationship("SessionResponse", back_populates="session")
     attendance_records = relationship("Attendance", back_populates="session")
@@ -364,6 +368,13 @@ class TutorRegistration(Base):
     rejection_reason = Column(Text, nullable=True)
     registered_at = Column(DateTime(timezone=True), server_default=func.now())
     responded_at = Column(DateTime(timezone=True), nullable=True)
+    # Course schedule fields
+    total_sessions = Column(Integer, default=10, nullable=False)  # Số buổi học (mặc định 10)
+    start_date = Column(Date, nullable=True)  # Ngày bắt đầu dạy
+    end_date = Column(Date, nullable=True)  # Ngày kết thúc dự kiến
+    availability = Column(JSONB, nullable=True)  # Lịch rảnh theo tuần (JSONB format)
+    max_students = Column(Integer, default=25, nullable=False)  # Số sinh viên tối đa mỗi buổi (1-35)
+    selected_schedule_id = Column(Integer, ForeignKey("tutor_system.session_schedule.schedule_id"), nullable=True)  # Schedule coordinator chọn
     
     # Relationships
     tutor = relationship("Tutor", back_populates="registrations")
@@ -408,7 +419,7 @@ class SessionMaterial(Base):
     uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
-    session = relationship("Session", back_populates="materials")
+    session = relationship("Session", back_populates="session_materials")
     uploader = relationship("User", back_populates="uploaded_materials")
 
 class SessionFeedback(Base):
@@ -689,7 +700,7 @@ class ProgressTracking(Base):
     session_id = Column(Integer, ForeignKey("tutor_system.session.session_id"), nullable=False, unique=True)
     student_id = Column(Integer, ForeignKey("tutor_system.student.student_id"), nullable=False)
     subject_id = Column(Integer, ForeignKey("tutor_system.subject.subject_id"), nullable=False)
-    topics_covered = Column(JSONB, default=[])  # Array in PostgreSQL
+    topics_covered = Column(ARRAY(Text))  # text[] in PostgreSQL
     understanding_level = Column(Integer, CheckConstraint('understanding_level >= 1 AND understanding_level <= 5'))
     strengths = Column(Text)
     weaknesses = Column(Text)
@@ -838,6 +849,52 @@ class OverallAcademicReport(Base):
     # Relationships
     generator = relationship("User")
 
+
+class PreferenceStatus(str, Enum):
+    PENDING = "pending"
+    FULFILLED = "fulfilled"
+    CANCELLED = "cancelled"
+    EXPIRED = "expired"
+
+class SessionFormat(str, Enum):
+    ONLINE = "online"
+    OFFLINE = "offline"
+    BOTH = "both"
+
+class SchedulePreference(Base):
+    """Student schedule preferences for course requests"""
+    __tablename__ = "SchedulePreference"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    preference_id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, ForeignKey("tutor_system.student.student_id", ondelete="CASCADE"), nullable=False, index=True)
+    subject_id = Column(Integer, ForeignKey("tutor_system.subject.subject_id", ondelete="CASCADE"), nullable=False, index=True)
+    
+    # Scheduling details
+    preferred_start_date = Column(Date, nullable=False)
+    total_sessions = Column(Integer, nullable=False)
+    session_duration = Column(Integer, nullable=False)  # in minutes
+    session_format = Column(String(20), nullable=False, default='both')
+    
+    # Available time slots (JSON array)
+    # Format: [{"day": "monday", "start_time": "08:00", "end_time": "10:00"}, ...]
+    available_time_slots = Column(JSONB, nullable=False)
+    
+    # Additional info
+    notes = Column(Text)
+    status = Column(String(20), nullable=False, default='pending')
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    expires_at = Column(DateTime(timezone=True))
+    
+    # Relationships
+    student = relationship("Student", back_populates="schedule_preferences")
+    subject = relationship("Subject", back_populates="schedule_preferences")
 
 class TutorAvailability(Base):
     """Tutor availability schedule"""

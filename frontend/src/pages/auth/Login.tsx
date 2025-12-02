@@ -1,27 +1,55 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 import { toast } from "react-toastify";
+import { AlertCircle } from "lucide-react";
 import logoBK from "../../png/logobk.png";
 
 const Login: React.FC = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const { login, isLoading } = useAuthStore();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(""); // Clear previous errors
 
     if (!email || !password) {
-      toast.error("Vui lòng nhập đầy đủ thông tin");
+      setErrorMessage("Vui lòng nhập đầy đủ thông tin");
       return;
     }
 
     try {
       await login(email, password);
       toast.success("Đăng nhập thành công!");
+      
+      // Get user from store to determine redirect
+      const user = useAuthStore.getState().user;
+      
+      // Redirect based on role
+      switch (user?.role) {
+        case 'admin':
+          navigate('/admin');
+          break;
+        case 'coordinator':
+          navigate('/coor');
+          break;
+        case 'tutor':
+          navigate('/dashboard'); // Can create separate tutor dashboard later
+          break;
+        case 'student':
+          navigate('/dashboard');
+          break;
+        default:
+          navigate('/dashboard');
+      }
     } catch (error: any) {
-      toast.error(error?.response?.data?.detail || "Đăng nhập thất bại");
+      const errorMsg = error?.response?.data?.detail || "Đăng nhập thất bại";
+      setErrorMessage(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -43,6 +71,21 @@ const Login: React.FC = () => {
           <div className="flex flex-col lg:flex-row">
             {/* Left Panel - Login Form */}
             <div className="w-full lg:w-4/12 p-8 bg-white border-r border-gray-200">
+              {/* Error Alert Box */}
+              {errorMessage && (
+                <div className="bg-red-50 border-l-4 border-red-600 p-4 mb-6 flex items-start">
+                  <AlertCircle className="w-5 h-5 text-red-600 mr-3 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h2 className="text-red-700 font-bold text-base mb-1">
+                      Các thông tin mà bạn cung cấp không đúng
+                    </h2>
+                    <p className="text-red-600 text-sm">
+                      {errorMessage}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Red Alert Box */}
               <div className="bg-red-50 border-l-4 border-red-600 p-4 mb-6">
                 <h2 className="text-red-700 font-bold text-base">

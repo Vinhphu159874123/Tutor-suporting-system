@@ -1,6 +1,20 @@
-import React, { ReactNode } from "react";
+import React, { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuthStore } from "../stores/authStore";
+import { notificationsApi } from "../services/api";
+import { 
+  LayoutDashboard, 
+  BookOpen, 
+  Calendar, 
+  Clock, 
+  GraduationCap, 
+  Bell, 
+  Settings as SettingsIcon, 
+  MessageSquare, 
+  BarChart3, 
+  Shield,
+  Users
+} from "lucide-react";
 
 interface LayoutProps {
   children: ReactNode;
@@ -9,29 +23,79 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { user, logout } = useAuthStore();
   const location = useLocation();
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  const navigation = [
-    { name: "Dashboard", href: "/dashboard" },
-    { name: "Các khóa học của tôi", href: "/courses" },
-    { name: "Sessions", href: "/sessions", icon: "📅" },
-    { name: "Scheduling", href: "/scheduling", icon: "⏰" },
-    { name: "Tutors", href: "/tutors", icon: "🎓" },
-    { name: "Notifications", href: "/notifications", icon: "🔔" },
-    { name: "Settings", href: "/settings", icon: "⚙️" },
-    { name: "Forum", href: "/forum", icon: "💬" },
-    { name: "Review Sessions", href: "/review-sessions", icon: "✅", roles: ["coordinator"] },
-    {
-      name: "Reports",
-      href: "/reports",
-      icon: "📊",
-      roles: ["admin", "coordinator", "department_chair"],
-    },
-    { name: "Admin", href: "/admin", icon: "⚙️", roles: ["admin"] },
+  // Fetch unread notifications count
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const response: any = await notificationsApi.getUnreadCount();
+        setUnreadCount(response.data?.unread_count || 0);
+      } catch (error) {
+        console.error("Failed to fetch unread notifications:", error);
+      }
+    };
+
+    if (user) {
+      fetchUnreadCount();
+      // Poll every 30 seconds
+      const interval = setInterval(fetchUnreadCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  // Navigation for Coordinator
+  const coordinatorNavigation = [
+    { name: "Dashboard", href: "/coor", icon: <LayoutDashboard size={20} /> },
+    { name: "Duyệt Tutor", href: "/coor/review", icon: <GraduationCap size={20} /> },
+    { name: "Quản lý Giảng viên", href: "/coordinator/tutors", icon: <Users size={20} /> },
+    { name: "Quản lý Buổi học", href: "/coor/sessions", icon: <Calendar size={20} /> },
+    { name: "Báo cáo", href: "/reports", icon: <BarChart3 size={20} /> },
+    { name: "Thông báo", href: "/notifications", icon: <Bell size={20} /> },
+    { name: "Cài đặt", href: "/settings", icon: <SettingsIcon size={20} /> },
   ];
 
-  const filteredNavigation = navigation.filter(
-    (item) => !item.roles || item.roles.includes(user?.role || "")
-  );
+  // Navigation for Admin
+  const adminNavigation = [
+    { name: "Dashboard", href: "/admin", icon: <Shield size={20} /> },
+    { name: "Quản lý người dùng", href: "/admin/users", icon: <GraduationCap size={20} /> },
+    { name: "Báo cáo", href: "/reports", icon: <BarChart3 size={20} /> },
+    { name: "Cài đặt", href: "/settings", icon: <SettingsIcon size={20} /> },
+  ];
+
+  // Navigation for Students and Tutors (default)
+  const defaultNavigation = [
+    { name: "Dashboard", href: "/dashboard", icon: <LayoutDashboard size={20} /> },
+    { name: "Tìm kiếm khóa học", href: "/browse-courses", icon: <BookOpen size={20} /> },
+    { name: "Môn học của tôi", href: "/my-courses", icon: <BookOpen size={20} /> },
+    { name: "Đăng ký lịch học", href: "/student/scheduling", icon: <Calendar size={20} /> },
+    { name: "Tutors", href: "/tutors", icon: <GraduationCap size={20} /> },
+    { name: "Notifications", href: "/notifications", icon: <Bell size={20} /> },
+    { name: "Settings", href: "/settings", icon: <SettingsIcon size={20} /> },
+    { name: "Forum", href: "/forum", icon: <MessageSquare size={20} /> },
+  ];
+
+  // Navigation for Tutors (with session requests)
+  const tutorNavigation = [
+    { name: "Dashboard", href: "/dashboard", icon: <LayoutDashboard size={20} /> },
+    { name: "Môn học tôi dạy", href: "/my-courses", icon: <BookOpen size={20} /> },
+    { name: "Thống kê nguyện vọng", href: "/tutor/statistics", icon: <BarChart3 size={20} /> },
+    { name: "Yêu cầu đặt lịch", href: "/tutors/requests", icon: <Calendar size={20} /> },
+    { name: "Scheduling", href: "/scheduling", icon: <Clock size={20} /> },
+    { name: "Notifications", href: "/notifications", icon: <Bell size={20} /> },
+    { name: "Settings", href: "/settings", icon: <SettingsIcon size={20} /> },
+    { name: "Forum", href: "/forum", icon: <MessageSquare size={20} /> },
+  ];
+
+  // Select navigation based on role
+  let navigation = defaultNavigation;
+  if (user?.role === 'coordinator') {
+    navigation = coordinatorNavigation;
+  } else if (user?.role === 'admin') {
+    navigation = adminNavigation;
+  } else if (user?.role === 'tutor') {
+    navigation = tutorNavigation;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -45,8 +109,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         <nav className="mt-8">
           <div className="space-y-1">
-            {filteredNavigation.map((item) => {
+            {navigation.map((item) => {
               const isActive = location.pathname === item.href;
+              const isNotificationItem = item.href === "/notifications";
+              
               return (
                 <Link
                   key={item.name}
@@ -59,7 +125,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     }
                   `}
                 >
-                  <span className="mr-3 text-lg">{item.icon}</span>
+                  <span className="mr-3 relative">
+                    {item.icon}
+                    {isNotificationItem && unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </span>
                   {item.name}
                 </Link>
               );
@@ -85,11 +158,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
               <div className="relative group">
                 <button className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <img
-                    className="h-8 w-8 rounded-full bg-gray-300"
-                    src={user?.avatar_url || "/default-avatar.png"}
-                    alt={user?.full_name}
-                  />
+                  {user?.avatar_url ? (
+                    <img
+                      className="h-8 w-8 rounded-full bg-gray-300"
+                      src={user.avatar_url}
+                      alt={user?.full_name}
+                    />
+                  ) : (
+                    <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold">
+                      {user?.full_name?.charAt(0).toUpperCase() || 'U'}
+                    </div>
+                  )}
                 </button>
 
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">

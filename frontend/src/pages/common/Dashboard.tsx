@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   BookOpen,
@@ -12,16 +12,41 @@ import {
   UserRound,
 } from "lucide-react";
 import { useAuthStore } from "../../stores/authStore";
+import { usersApi } from "../../services/api";
+import { toast } from "react-toastify";
+import { AxiosResponse } from "axios";
 
 const Dashboard: React.FC = () => {
   const { user } = useAuthStore();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [statsData, setStatsData] = useState({
+    total_sessions: 0,
+    completed_sessions: 0,
+    upcoming_sessions: 0,
+    average_rating: 0
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await usersApi.getDashboardStats() as AxiosResponse<any>;
+        setStatsData(response.data);
+      } catch (error: any) {
+        console.error('Failed to fetch stats:', error);
+        toast.error('Không thể tải thống kê');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
 
   const stats = [
-    { name: "Tổng số phiên học", value: "24", icon: BookOpen },
-    { name: "Phiên hoàn thành", value: "18", icon: CheckCircle2 },
-    { name: "Phiên sắp tới", value: "6", icon: Clock3 },
-    { name: "Đánh giá trung bình", value: "4.8/5", icon: Star },
+    { name: "Tổng số phiên học", value: String(statsData.total_sessions || 0), icon: BookOpen },
+    { name: "Phiên hoàn thành", value: String(statsData.completed_sessions || 0), icon: CheckCircle2 },
+    { name: "Phiên sắp tới", value: String(statsData.upcoming_sessions || 0), icon: Clock3 },
+    { name: "Đánh giá trung bình", value: `${statsData.average_rating || 0}/5`, icon: Star },
   ];
 
   return (
@@ -47,9 +72,13 @@ const Dashboard: React.FC = () => {
                 <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center mr-4">
                   <Icon className="w-6 h-6 text-blue-600" />
                 </div>
-                <div>
+                <div className="flex-1">
                   <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                  {loading ? (
+                    <div className="h-8 w-20 bg-gray-200 animate-pulse rounded mt-1"></div>
+                  ) : (
+                    <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -114,7 +143,10 @@ const Dashboard: React.FC = () => {
           Hành động nhanh
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors">
+          <button 
+            onClick={() => navigate("/scheduling")}
+            className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
+          >
             <div className="text-2xl mr-3">
               <PlusCircle className="w-7 h-7 text-blue-600" />
             </div>
@@ -124,7 +156,10 @@ const Dashboard: React.FC = () => {
             </div>
           </button>
 
-          <button className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors">
+          <button 
+            onClick={() => navigate("/tutors/register")}
+            className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors"
+          >
             <div className="text-2xl mr-3">
               <NotebookPen className="w-7 h-7 text-green-600" />
             </div>

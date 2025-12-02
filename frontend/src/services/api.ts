@@ -1,9 +1,9 @@
 import axios from "axios";
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000/api/v1";
 
-// 🔴 MOCK MODE - Backend disabled for UI testing
-const MOCK_MODE = true;
+// 🟢 REAL MODE - Connect to backend API
+const MOCK_MODE = false;
 
 // Create axios instance
 const apiClient = axios.create({
@@ -66,7 +66,7 @@ export const authApi = {
     formData.append("username", email);
     formData.append("password", password);
 
-    return apiClient.post("/api/v1/auth/login", formData, {
+    return apiClient.post("/auth/login", formData, {
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
@@ -77,7 +77,7 @@ export const authApi = {
     if (MOCK_MODE) {
       return mockResponse({ message: "Registration successful" });
     }
-    return apiClient.post("/api/v1/auth/register", userData);
+    return apiClient.post("/auth/register", userData);
   },
 
   getProfile: (token?: string) => {
@@ -95,21 +95,21 @@ export const authApi = {
     const config = token
       ? { headers: { Authorization: `Bearer ${token}` } }
       : {};
-    return apiClient.get("/api/v1/auth/me", config);
+    return apiClient.get("/auth/me", config);
   },
 
   logout: () => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Logged out" });
     }
-    return apiClient.post("/api/v1/auth/logout");
+    return apiClient.post("/auth/logout");
   },
 
   refreshToken: () => {
     if (MOCK_MODE) {
       return mockResponse({ access_token: "new-mock-token" });
     }
-    return apiClient.post("/api/v1/auth/refresh-token");
+    return apiClient.post("/auth/refresh-token");
   },
 };
 
@@ -124,14 +124,14 @@ export const usersApi = {
         role: "student",
       });
     }
-    return apiClient.get("/api/v1/users/profile");
+    return apiClient.get("/users/profile");
   },
 
   updateProfile: (userData: any) => {
     if (MOCK_MODE) {
       return mockResponse({ ...userData, message: "Profile updated" });
     }
-    return apiClient.put("/api/v1/users/profile", userData);
+    return apiClient.put("/users/profile", userData);
   },
 
   getUsers: (params?: any) => {
@@ -151,7 +151,7 @@ export const usersApi = {
         },
       ]);
     }
-    return apiClient.get("/api/v1/users", { params });
+    return apiClient.get("/users", { params });
   },
 
   getUser: (userId: number) => {
@@ -163,20 +163,44 @@ export const usersApi = {
         role: "student",
       });
     }
-    return apiClient.get(`/api/v1/users/${userId}`);
+    return apiClient.get(`/users/${userId}`);
   },
 
   deleteUser: (userId: number) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "User deleted" });
     }
-    return apiClient.delete(`/api/v1/users/${userId}`);
+    return apiClient.delete(`/users/${userId}`);
+  },
+
+  getDashboardStats: () => {
+    if (MOCK_MODE) {
+      return mockResponse({
+        total_sessions: 24,
+        completed_sessions: 18,
+        upcoming_sessions: 6,
+        average_rating: 4.8
+      });
+    }
+    return apiClient.get("/users/stats/dashboard");
+  },
+
+  getCoordinatorStats: () => {
+    if (MOCK_MODE) {
+      return mockResponse({
+        total_sessions: 240,
+        pending_tutors: 2,
+        pending_sessions: 14,
+        average_rating: 4.8
+      });
+    }
+    return apiClient.get("/users/stats/coordinator");
   },
 };
 
 // Tutors API
 export const tutorsApi = {
-  getTutors: () => {
+  getTutors: (params?: any) => {
     if (MOCK_MODE) {
       return mockResponse([
         {
@@ -193,17 +217,33 @@ export const tutorsApi = {
         },
       ]);
     }
-    return apiClient.get("/api/v1/tutors");
+    return apiClient.get("/tutors", { params });
+  },
+
+  getTutor: (tutorId: number) => {
+    return apiClient.get(`/tutors/${tutorId}`);
+  },
+
+  getTutorAvailability: (tutorId: number) => {
+    return apiClient.get(`/tutors/${tutorId}/availability`);
+  },
+
+  getMyTutorProfile: () => {
+    return apiClient.get("/tutors/me");
   },
 
   registerTutor: (data: any) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Tutor registered" });
     }
-    return apiClient.post("/api/v1/tutors/register", data);
+    return apiClient.post("/tutors/register", data);
   },
 
-  getTutorSessions: () => {
+  updateTutor: (tutorId: number, data: any) => {
+    return apiClient.put(`/tutors/${tutorId}`, data);
+  },
+
+  getTutorSessions: (params?: any) => {
     if (MOCK_MODE) {
       return mockResponse([
         {
@@ -214,14 +254,51 @@ export const tutorsApi = {
         },
       ]);
     }
-    return apiClient.get("/api/v1/tutors/sessions");
+    return apiClient.get("/tutors/sessions", { params });
   },
 
   setAvailability: (data: any) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Availability set" });
     }
-    return apiClient.post("/api/v1/tutors/availability", data);
+    return apiClient.post("/tutors/availability", data);
+  },
+
+  registerSubject: (data: any) => {
+    if (MOCK_MODE) {
+      return mockResponse({ 
+        registration_id: 1,
+        status: "pending",
+        message: "Subject registration submitted" 
+      });
+    }
+    return apiClient.post("/tutors/register-subject", data);
+  },
+
+  getMyRegistrations: (status?: string) => {
+    return apiClient.get("/tutors/my-registrations", {
+      params: { status }
+    });
+  },
+
+  // Get available courses for students to browse
+  getAvailableCourses: () => {
+    return apiClient.get("/tutors/available-courses");
+  },
+
+  // Request to join a course
+  requestJoinCourse: (registrationId: number) => {
+    return apiClient.post(`/tutors/courses/${registrationId}/request-join`);
+  },
+
+  // Get enrolled students in tutor's courses
+  getEnrolledStudents: () => {
+    return apiClient.get("/tutors/courses/enrolled-students");
+  },
+
+  // Generate sessions for an approved course
+  generateSessionsForCourse: (subjectId: number) => {
+    return apiClient.post(`/tutors/courses/${subjectId}/generate-sessions`);
   },
 };
 
@@ -237,14 +314,14 @@ export const studentsApi = {
         },
       ]);
     }
-    return apiClient.get("/api/v1/students");
+    return apiClient.get("/students");
   },
 
   registerStudent: (data: any) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Student registered" });
     }
-    return apiClient.post("/api/v1/students/register", data);
+    return apiClient.post("/students/register", data);
   },
 
   getStudentSessions: () => {
@@ -258,14 +335,26 @@ export const studentsApi = {
         },
       ]);
     }
-    return apiClient.get("/api/v1/students/sessions");
+    return apiClient.get("/students/sessions");
   },
 
   submitFeedback: (data: any) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Feedback submitted" });
     }
-    return apiClient.post("/api/v1/students/feedback", data);
+    return apiClient.post("/students/feedback", data);
+  },
+
+  getStudentProfile: (studentId: number) => {
+    return apiClient.get(`/students/${studentId}`);
+  },
+
+  getStudentProfileByUserId: (userId: number) => {
+    return apiClient.get(`/students/by-user/${userId}`);
+  },
+
+  getStudentEnrolledCourses: (studentId: number) => {
+    return apiClient.get(`/students/${studentId}/enrolled-courses`);
   },
 };
 
@@ -290,7 +379,7 @@ export const sessionsApi = {
         },
       ]);
     }
-    return apiClient.get("/api/v1/sessions", { params });
+    return apiClient.get("/sessions", { params });
   },
 
   createSession: (data: any) => {
@@ -301,7 +390,7 @@ export const sessionsApi = {
         message: "Session created",
       });
     }
-    return apiClient.post("/api/v1/sessions", data);
+    return apiClient.post("/sessions", data);
   },
 
   getSession: (sessionId: number) => {
@@ -314,7 +403,7 @@ export const sessionsApi = {
         tutor_name: "Tutor 1",
       });
     }
-    return apiClient.get(`/api/v1/sessions/${sessionId}`);
+    return apiClient.get(`/sessions/${sessionId}`);
   },
 
   updateSession: (sessionId: number, data: any) => {
@@ -325,14 +414,102 @@ export const sessionsApi = {
         message: "Session updated",
       });
     }
-    return apiClient.put(`/api/v1/sessions/${sessionId}`, data);
+    return apiClient.put(`/sessions/${sessionId}`, data);
   },
 
-  uploadMaterials: (sessionId: number, data: any) => {
+  completeSession: (sessionId: number) => {
+    return apiClient.post(`/sessions/${sessionId}/complete`);
+  },
+
+  publishSession: (sessionId: number) => {
+    return apiClient.post(`/sessions/${sessionId}/publish`);
+  },
+
+  joinSession: (sessionId: number, data: any) => {
+    return apiClient.post(`/sessions/${sessionId}/join`, data);
+  },
+
+  acceptParticipant: (sessionId: number, participantId: number) => {
+    return apiClient.post(`/sessions/${sessionId}/participants/${participantId}/accept`);
+  },
+
+  rejectParticipant: (sessionId: number, participantId: number, data: any) => {
+    return apiClient.post(`/sessions/${sessionId}/participants/${participantId}/reject`, data);
+  },
+
+  uploadMaterials: (sessionId: number, formData: FormData) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Materials uploaded" });
     }
-    return apiClient.post(`/api/v1/sessions/${sessionId}/materials`, data);
+    return apiClient.post(`/sessions/${sessionId}/materials`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+
+  bulkSaveForSubject: (subjectId: number, sessionsData: any[]) => {
+    return apiClient.post(`/sessions/bulk-save-for-subject?subject_id=${subjectId}`, sessionsData);
+  },
+
+  // Feedback APIs
+  submitFeedback: (sessionId: number, feedbackData: { rating: number; comment?: string; is_anonymous: boolean }) => {
+    const formData = new FormData();
+    formData.append('rating', feedbackData.rating.toString());
+    if (feedbackData.comment) {
+      formData.append('comment', feedbackData.comment);
+    }
+    formData.append('is_anonymous', feedbackData.is_anonymous.toString());
+    
+    // Use a separate axios instance to avoid Content-Type override
+    const token = localStorage.getItem("auth-storage");
+    let authHeader = '';
+    if (token) {
+      const parsedToken = JSON.parse(token);
+      if (parsedToken.state?.token) {
+        authHeader = `Bearer ${parsedToken.state.token}`;
+      }
+    }
+    
+    return axios.post(`${API_BASE_URL}/sessions/${sessionId}/feedback`, formData, {
+      headers: {
+        'Authorization': authHeader
+      }
+    });
+  },
+
+  getFeedback: (sessionId: number) => {
+    return apiClient.get(`/sessions/${sessionId}/feedback`);
+  },
+
+  getBulkFeedbacks: (sessionIds: string) => {
+    return apiClient.get(`/sessions/feedback/bulk?session_ids=${sessionIds}`);
+  },
+
+  getSubjectFeedbacks: (subjectId: number, tutorId?: number) => {
+    const params = tutorId ? { tutor_id: tutorId } : {};
+    return apiClient.get(`/sessions/subject/${subjectId}/feedbacks`, { params });
+  },
+
+  // Attendance APIs
+  getParticipants: (sessionId: number) => {
+    return apiClient.get(`/sessions/${sessionId}/participants`);
+  },
+
+  markAttendance: (sessionId: number, attendanceData: Array<{user_id: number, is_present: boolean, is_late: boolean, is_excused: boolean}>) => {
+    return apiClient.post(`/sessions/${sessionId}/attendance`, attendanceData);
+  },
+
+  deleteMaterial: (sessionId: number, materialName: string) => {
+    return apiClient.delete(`/sessions/${sessionId}/materials/${materialName}`);
+  },
+
+  removeStudentFromSubject: (subjectId: number, studentId: number, tutorId: number) => {
+    return apiClient.delete(`/sessions/remove-student-from-subject`, {
+      params: {
+        subject_id: subjectId,
+        student_id: studentId,
+        tutor_id: tutorId,
+      },
+    });
   },
 };
 
@@ -359,7 +536,7 @@ export const schedulingApi = {
         ],
       });
     }
-    return apiClient.get(`/api/v1/scheduling/availability/${tutorId}`);
+    return apiClient.get(`/scheduling/availability/${tutorId}`);
   },
 
   createAvailability: (data: any) => {
@@ -369,7 +546,7 @@ export const schedulingApi = {
         ...data,
       });
     }
-    return apiClient.post("/api/v1/scheduling/availability", data);
+    return apiClient.post("/scheduling/availability", data);
   },
 
   updateAvailability: (availabilityId: number, data: any) => {
@@ -379,14 +556,14 @@ export const schedulingApi = {
         ...data,
       });
     }
-    return apiClient.put(`/api/v1/scheduling/availability/${availabilityId}`, data);
+    return apiClient.put(`/scheduling/availability/${availabilityId}`, data);
   },
 
   deleteAvailability: (availabilityId: number) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Availability removed" });
     }
-    return apiClient.delete(`/api/v1/scheduling/availability/${availabilityId}`);
+    return apiClient.delete(`/scheduling/availability/${availabilityId}`);
   },
 
   findSlots: (data: any) => {
@@ -398,7 +575,7 @@ export const schedulingApi = {
         ],
       });
     }
-    return apiClient.post("/api/v1/scheduling/find-slots", data);
+    return apiClient.post("/scheduling/find-slots", data);
   },
 
   scheduleSession: (data: any) => {
@@ -409,7 +586,7 @@ export const schedulingApi = {
         message: "Session scheduled",
       });
     }
-    return apiClient.post("/api/v1/scheduling/sessions", data);
+    return apiClient.post("/scheduling/sessions", data);
   },
 
   rescheduleSession: (sessionId: number, data: any) => {
@@ -417,7 +594,7 @@ export const schedulingApi = {
       return mockResponse({ message: "Session rescheduled", session_id: sessionId, ...data });
     }
     return apiClient.put(
-      `/api/v1/scheduling/sessions/${sessionId}/reschedule`,
+      `/scheduling/sessions/${sessionId}/reschedule`,
       data
     );
   },
@@ -426,7 +603,7 @@ export const schedulingApi = {
     if (MOCK_MODE) {
       return mockResponse({ message: "Session cancelled", session_id: sessionId });
     }
-    return apiClient.delete(`/api/v1/scheduling/sessions/${sessionId}`);
+    return apiClient.delete(`/scheduling/sessions/${sessionId}`);
   },
 };
 
@@ -436,28 +613,28 @@ export const reportsApi = {
     if (MOCK_MODE) {
       return mockResponse({ reports: [] });
     }
-    return apiClient.get("/api/v1/reports/courses", { params });
+    return apiClient.get("/reports/courses", { params });
   },
 
   getAcademicReports: (params?: any) => {
     if (MOCK_MODE) {
       return mockResponse({ reports: [] });
     }
-    return apiClient.get("/api/v1/reports/academic", { params });
+    return apiClient.get("/reports/academic", { params });
   },
 
   getTutorActivityReports: (params?: any) => {
     if (MOCK_MODE) {
       return mockResponse({ reports: [] });
     }
-    return apiClient.get("/api/v1/reports/tutor-activities", { params });
+    return apiClient.get("/reports/tutor-activities", { params });
   },
 
   generateReport: (data: any) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Report generated" });
     }
-    return apiClient.post("/api/v1/reports/generate", data);
+    return apiClient.post("/reports/generate", data);
   },
 };
 
@@ -470,21 +647,34 @@ export const adminApi = {
         { user_id: 2, email: "user2@example.com", role: "tutor" },
       ]);
     }
-    return apiClient.get("/api/v1/admin/users", { params });
+    return apiClient.get("/admin/users", { params });
+  },
+
+  getAdminStats: () => {
+    if (MOCK_MODE) {
+      return mockResponse({
+        total_users: 1004,
+        total_students: 986,
+        total_tutors: 18,
+        total_sessions: 120,
+        average_rating: 4.8
+      });
+    }
+    return apiClient.get("/admin/stats");
   },
 
   updateUserRole: (userId: number, data: any) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Role updated" });
     }
-    return apiClient.put(`/api/v1/admin/users/${userId}/role`, data);
+    return apiClient.put(`/admin/users/${userId}/role`, data);
   },
 
   getPendingRegistrations: () => {
     if (MOCK_MODE) {
       return mockResponse([]);
     }
-    return apiClient.get("/api/v1/admin/registrations");
+    return apiClient.get("/admin/registrations");
   },
 
   approveRegistration: (registrationId: number) => {
@@ -492,8 +682,55 @@ export const adminApi = {
       return mockResponse({ message: "Registration approved" });
     }
     return apiClient.put(
-      `/api/v1/admin/registrations/${registrationId}/approve`
+      `/admin/registrations/${registrationId}/approve`
     );
+  },
+};
+
+// Notifications API
+export const notificationsApi = {
+  getNotifications: (params?: any) => {
+    if (MOCK_MODE) {
+      return mockResponse([
+        {
+          id: 1,
+          type: 'session',
+          title: 'PhiÃªn há»c sáº¯p diá»…n ra',
+          message: 'Báº¡n cÃ³ phiÃªn há»c vÃ o ngÃ y mai',
+          time: '2 giá» trÆ°á»›c',
+          read: false
+        }
+      ]);
+    }
+    return apiClient.get("/notifications", { params });
+  },
+
+  getUnreadCount: () => {
+    if (MOCK_MODE) {
+      return mockResponse({ unread_count: 5 });
+    }
+    return apiClient.get("/notifications/unread-count");
+  },
+
+  markAsRead: (notificationId: number) => {
+    if (MOCK_MODE) {
+      return mockResponse({ message: "Marked as read" });
+    }
+    return apiClient.put(`/notifications/${notificationId}/read`);
+  },
+
+  markAllAsRead: () => {
+    if (MOCK_MODE) {
+      return mockResponse({ message: "All marked as read" });
+    }
+    return apiClient.put("/notifications/mark-all-read");
+  },
+
+  deleteReadNotifications: () => {
+    if (MOCK_MODE) {
+      return mockResponse({ message: "Read notifications deleted" });
+    }
+    return apiClient.delete("/notifications/delete-read");
   },
 };
 
@@ -503,35 +740,165 @@ export const forumApi = {
     if (MOCK_MODE) {
       return mockResponse([]);
     }
-    return apiClient.get("/api/v1/forum");
+    return apiClient.get("/forum");
   },
 
   createForum: (data: any) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Forum created" });
     }
-    return apiClient.post("/api/v1/forum", data);
+    return apiClient.post("/forum", data);
   },
 
   getForumPosts: (forumId: number) => {
     if (MOCK_MODE) {
       return mockResponse([]);
     }
-    return apiClient.get(`/api/v1/forum/${forumId}/posts`);
+    return apiClient.get(`/forum/${forumId}/posts`);
   },
 
   createPost: (forumId: number, data: any) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Post created" });
     }
-    return apiClient.post(`/api/v1/forum/${forumId}/posts`, data);
+    return apiClient.post(`/forum/${forumId}/posts`, data);
   },
 
   createStudyGroup: (data: any) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Study group created" });
     }
-    return apiClient.post("/api/v1/forum/study-groups", data);
+    return apiClient.post("/forum/study-groups", data);
+  },
+};
+
+// Courses API
+export const coursesApi = {
+  getMyCourses: () => {
+    if (MOCK_MODE) {
+      return mockResponse([
+        {
+          code: "CO3001",
+          name: "Software Engineering",
+          credits: 4
+        }
+      ]);
+    }
+    return apiClient.get("/courses/my-courses");
+  },
+
+  getCourseInfo: (courseCode: string) => {
+    if (MOCK_MODE) {
+      return mockResponse({
+        code: courseCode,
+        name: "Mock Course",
+        credits: 4
+      });
+    }
+    return apiClient.get(`/courses/${courseCode}`);
+  },
+
+  getCourseByCode: (subjectId: string) => {
+    if (MOCK_MODE) {
+      return mockResponse({
+        subject_id: parseInt(subjectId),
+        subject_code: "MT1001",
+        subject_name: "Mock Course",
+        department: "KHMT",
+        credits: 4
+      });
+    }
+    return apiClient.get(`/courses/subjects/${subjectId}`);
+  },
+
+  getAllSubjects: () => {
+    if (MOCK_MODE) {
+      return mockResponse([
+        { subject_id: 1, subject_code: "MT1001", subject_name: "Giải tích 1", department: "Toán", credits: 4 },
+        { subject_id: 2, subject_code: "PH1001", subject_name: "Vật lý đại cương 1", department: "Vật lý", credits: 3 },
+        { subject_id: 3, subject_code: "CO1001", subject_name: "Nhập môn lập trình", department: "KHMT", credits: 4 },
+      ]);
+    }
+    return apiClient.get("/courses/subjects");
+  },
+};
+
+// Coordinator API
+export const coordinatorApi = {
+  // Tutor Registration Approval
+  getTutorRegistrations: (status: string = "pending", skip: number = 0, limit: number = 50) => {
+    return apiClient.get("/coordinator/tutor-registrations", {
+      params: { status_filter: status, skip, limit }
+    });
+  },
+
+  getRegistrationSchedules: (registrationId: number) => {
+    return apiClient.get(`/coordinator/tutor-registrations/${registrationId}/schedules`);
+  },
+
+  approveTutorRegistration: (registrationId: number, scheduleId?: number) => {
+    return apiClient.put(`/coordinator/tutor-registrations/${registrationId}/approve`, {
+      schedule_id: scheduleId
+    });
+  },
+
+  rejectTutorRegistration: (registrationId: number, reason: string) => {
+    return apiClient.put(`/coordinator/tutor-registrations/${registrationId}/reject`, null, {
+      params: { reason }
+    });
+  },
+
+  // Session Approval
+  getPendingSessions: (skip: number = 0, limit: number = 50) => {
+    return apiClient.get("/coordinator/sessions/pending", {
+      params: { skip, limit }
+    });
+  },
+
+  approveSession: (sessionId: number) => {
+    return apiClient.put(`/coordinator/sessions/${sessionId}/approve`);
+  },
+
+  rejectSession: (sessionId: number, reason: string) => {
+    return apiClient.put(`/coordinator/sessions/${sessionId}/reject`, null, {
+      params: { reason }
+    });
+  },
+
+  // Tutor Management & Reports
+  getTutors: (skip: number = 0, limit: number = 50) => {
+    return apiClient.get("/coordinator/tutors", {
+      params: { skip, limit }
+    });
+  },
+
+  searchTutors: (search: string, skip: number = 0, limit: number = 50) => {
+    return apiClient.get("/coordinator/tutors", {
+      params: { search, skip, limit }
+    });
+  },
+
+  getTutorCourses: (tutorId: number) => {
+    return apiClient.get(`/coordinator/tutors/${tutorId}/courses`);
+  },
+
+  getCourseDetails: (tutorId: number, subjectId: number) => {
+    return apiClient.get(`/coordinator/tutors/${tutorId}/courses/${subjectId}/details`);
+  },
+
+  exportCourseReport: (tutorId: number, subjectId: number, format: string = 'csv') => {
+    return apiClient.get(`/coordinator/tutors/${tutorId}/courses/${subjectId}/export`, {
+      params: { format },
+      responseType: format === 'csv' ? 'blob' : 'json'
+    });
+  },
+
+  updateTutorRating: (tutorId: number) => {
+    return apiClient.post(`/coordinator/tutors/${tutorId}/update-rating`);
+  },
+
+  updateAllTutorsRatings: () => {
+    return apiClient.post("/coordinator/tutors/update-all-ratings");
   },
 };
 

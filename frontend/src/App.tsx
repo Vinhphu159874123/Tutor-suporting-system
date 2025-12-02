@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -10,6 +10,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 import { useAuthStore } from "./stores/authStore";
+import { authApi } from "./services/api";
 import Layout from "./components/Layout";
 
 // Auth pages
@@ -28,6 +29,7 @@ import ForumDetail from "./pages/common/ForumDetail";
 import CreateForum from "./pages/common/CreateForum";
 import ExportReport from "./pages/common/ExportReport";
 import StudyGroups from "./pages/common/StudyGroups";
+import CreateStudyGroup from "./pages/common/CreateStudyGroup";
 import StudyGroupDetail from "./pages/common/StudyGroupDetail";
 
 // User pages
@@ -38,19 +40,28 @@ import Settings from "./pages/user/Settings";
 // Tutor pages
 import TutorList from "./pages/tutor/TutorList";
 import TutorDetail from "./pages/tutor/TutorDetail";
+import RegisterTutor from "./pages/tutor/RegisterTutor";
+import SessionRequests from "./pages/tutor/SessionRequests";
 
-// Session pages
-import Sessions from "./pages/session/Sessions";
-import SessionDetail from "./pages/session/SessionDetail";
-import SessionHistory from "./pages/session/SessionHistory";
+// Scheduling page (kept for availability management)
 import Scheduling from "./pages/session/Scheduling";
-import UploadMaterials from "./pages/session/UploadMaterials";
-import MaterialsList from "./pages/session/MaterialsList";
-import OnlineSession from "./pages/session/OnlineSession";
-import LearningProgress from "./pages/session/LearningProgress";
 
 // Course pages
-import MyCourses from "./pages/courses/MyCourses";
+import MyCourses from "./pages/course/MyCourses";
+import CourseDetail from "./pages/course/CourseDetail";
+import CourseProgress from "./pages/course/CourseProgress";
+
+// Tutor pages
+import TutorStatistics from "./pages/tutor/TutorStatistics";
+
+// Coordinator pages
+import TutorsList from "./pages/coordinator/TutorsList";
+import TutorCourses from "./pages/coordinator/TutorCourses";
+import CourseReport from "./pages/coordinator/CourseReport";
+
+// Student pages
+import BrowseCourses from "./pages/student/BrowseCourses";
+import StudentScheduling from "./pages/student/StudentScheduling";
 
 // Admin pages
 import Admin from "./pages/admin/Admin";
@@ -73,7 +84,24 @@ const queryClient = new QueryClient({
 });
 
 function App() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, token, setUser } = useAuthStore();
+
+  // Refresh user profile on app load if authenticated
+  useEffect(() => {
+    const refreshUserProfile = async () => {
+      if (isAuthenticated && token) {
+        try {
+          const response: any = await authApi.getProfile(token);
+          setUser(response.data);
+        } catch (error) {
+          console.error("Failed to refresh user profile:", error);
+        }
+      }
+    };
+    
+    refreshUserProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -142,28 +170,32 @@ function App() {
                     <Routes>
                       <Route path="/dashboard" element={<Dashboard />} />
                       <Route path="/profile" element={<Profile />} />
-                      <Route path="/courses" element={<MyCourses />} />
-                      <Route path="/sessions" element={<Sessions />} />
-                      <Route path="/sessions/:id" element={<SessionDetail />} />
-                      <Route path="/history" element={<SessionHistory />} />
+                      <Route path="/my-courses" element={<MyCourses />} />
+                      <Route path="/my-courses/:subjectId" element={<CourseDetail />} />
+                      <Route path="/courses/:subjectId/progress" element={<CourseProgress />} />
                       <Route path="/scheduling" element={<Scheduling />} />
-                      <Route path="/upload-materials" element={<UploadMaterials />} />
-                      <Route path="/materials" element={<MaterialsList />} />
-                      <Route path="/online-session/:id" element={<OnlineSession />} />
-                      <Route path="/learning-progress" element={<LearningProgress />} />
                       <Route path="/reports" element={<Reports />} />
                       <Route path="/export-report" element={<ExportReport />} />
                       <Route path="/forum" element={<Forum />} />
                       <Route path="/forum/:id" element={<ForumDetail />} />
                       <Route path="/forum/create" element={<CreateForum />} />
                       <Route path="/study-groups" element={<StudyGroups />} />
+                      <Route path="/study-groups/create" element={<CreateStudyGroup />} />
                       <Route path="/study-groups/:id" element={<StudyGroupDetail />} />
                       <Route path="/admin" element={<Admin />} />
                       <Route path="/coor" element={<CoordinatorDashboard />} />
                       <Route path="/coor/review" element={<CoordinatorReview />} />
                       <Route path="/coor/sessions" element={<CoordinatorSessions />} />
+                      <Route path="/coordinator/tutors" element={<TutorsList />} />
+                      <Route path="/coordinator/tutors/:tutorId/courses" element={<TutorCourses />} />
+                      <Route path="/coordinator/tutors/:tutorId/courses/:subjectId" element={<CourseReport />} />
                       <Route path="/tutors" element={<TutorList />} />
+                      <Route path="/tutors/register" element={<RegisterTutor />} />
                       <Route path="/tutors/:id" element={<TutorDetail />} />
+                      <Route path="/tutors/requests" element={<SessionRequests />} />
+                      <Route path="/browse-courses" element={<BrowseCourses />} />
+                      <Route path="/student/scheduling" element={<StudentScheduling />} />
+                      <Route path="/tutor/statistics" element={<TutorStatistics />} />
                       <Route
                         path="/notifications"
                         element={<Notifications />}

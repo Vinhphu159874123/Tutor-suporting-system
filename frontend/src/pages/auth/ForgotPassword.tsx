@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { Mail } from "lucide-react";
 import { toast } from "react-toastify";
 import api from "../../services/api";
 
@@ -33,7 +34,9 @@ const ForgotPassword: React.FC = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-xl shadow-xl p-8 text-center">
-          <div className="text-6xl mb-4">📧</div>
+          <div className="flex justify-center mb-4">
+            <Mail className="w-20 h-20 text-blue-600" />
+          </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-4">
             Email đã được gửi!
           </h1>

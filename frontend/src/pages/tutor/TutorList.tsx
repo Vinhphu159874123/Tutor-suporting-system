@@ -1,87 +1,138 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle, Star } from 'lucide-react';
+import { MessageCircle, Star, Search, RefreshCw } from 'lucide-react';
+import { tutorsApi, coursesApi } from '../../services/api';
+import { toast } from 'react-toastify';
+import { AxiosResponse } from 'axios';
 
 interface Tutor {
-  id: number;
+  tutor_id: number;
   user_id: number;
   full_name: string;
-  faculty: string;
+  faculty?: string;
   subjects: string[];
   hourly_rate: number;
   rating: number;
   total_sessions: number;
   bio: string;
-  avatar?: string;
+  avatar_url?: string;
+}
+
+interface Subject {
+  subject_id: number;
+  subject_code: string;
+  subject_name: string;
 }
 
 const TutorList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [minRating, setMinRating] = useState(0);
+  const [tutors, setTutors] = useState<Tutor[]>([]);
+  const [allTutors, setAllTutors] = useState<Tutor[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Mock data - sẽ thay bằng API call
-  const tutors: Tutor[] = [
-    {
-      id: 1,
-      user_id: 1,
-      full_name: 'Nguyễn Văn A',
-      faculty: 'Khoa KHMT',
-      subjects: ['Toán cao cấp', 'Cấu trúc dữ liệu', 'Giải tích'],
-      hourly_rate: 150000,
-      rating: 4.8,
-      total_sessions: 45,
-      bio: 'Sinh viên năm 4, có kinh nghiệm dạy kèm 2 năm',
-    },
-    {
-      id: 2,
-      user_id: 2,
-      full_name: 'Trần Thị B',
-      faculty: 'Khoa Cơ khí',
-      subjects: ['Vật lý đại cương', 'Cơ học kỹ thuật'],
-      hourly_rate: 120000,
-      rating: 4.5,
-      total_sessions: 30,
-      bio: 'Có nhiều kinh nghiệm giảng dạy vật lý',
-    },
-    {
-      id: 3,
-      user_id: 3,
-      full_name: 'Lê Văn C',
-      faculty: 'Khoa Điện - Điện tử',
-      subjects: ['Mạch điện', 'Điện tử số', 'Vi xử lý'],
-      hourly_rate: 180000,
-      rating: 4.9,
-      total_sessions: 60,
-      bio: 'Giảng viên thỉnh giảng, 5 năm kinh nghiệm',
-    },
-  ];
+  const fetchData = async (showLoading = true) => {
+    try {
+      if (showLoading) setLoading(true);
 
-  const allSubjects = Array.from(new Set(tutors.flatMap(t => t.subjects)));
+      // Fetch subjects
+      const subjectsResponse = await coursesApi.getAllSubjects() as AxiosResponse<any>;
+      setSubjects(subjectsResponse.data || []);
 
-  const filteredTutors = tutors.filter(tutor => {
-    const matchesSearch = tutor.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         tutor.subjects.some(s => s.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesSubject = selectedSubject === 'all' || tutor.subjects.includes(selectedSubject);
-    const matchesRating = tutor.rating >= minRating;
-    
-    return matchesSearch && matchesSubject && matchesRating;
-  });
+      // Fetch all tutors
+      const tutorsResponse = await tutorsApi.getTutors({}) as AxiosResponse<any>;
+      setAllTutors(tutorsResponse.data || []);
+      setTutors(tutorsResponse.data || []);
+    } catch (error: any) {
+      toast.error('Không thể tải danh sách gia sư');
+      console.error(error);
+    } finally {
+      if (showLoading) setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchData(false);
+    setRefreshing(false);
+    toast.success('Đã cập nhật danh sách gia sư');
+  };
+
+  useEffect(() => {
+    fetchData();
+
+    // Auto refresh every 30 seconds
+    const interval = setInterval(() => {
+      fetchData(false);
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Apply filters whenever filter values change
+  useEffect(() => {
+    let filtered = [...allTutors];
+
+    // Filter by subject
+    if (selectedSubject !== 'all') {
+      filtered = filtered.filter(tutor =>
+        (tutor.subjects || []).includes(selectedSubject)
+      );
+    }
+
+    // Filter by rating
+    if (minRating > 0) {
+      filtered = filtered.filter(tutor => tutor.rating >= minRating);
+    }
+
+    // Filter by search term
+    if (searchTerm.trim()) {
+      filtered = filtered.filter(tutor =>
+        tutor.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (tutor.subjects || []).some(s => s.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+
+    setTutors(filtered);
+  }, [selectedSubject, minRating, searchTerm, allTutors]);
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg p-6 text-white">
-        <h1 className="text-3xl font-bold mb-2">Danh sách Gia sư</h1>
-        <p className="text-blue-100">
-          Tìm kiếm gia sư phù hợp với nhu cầu học tập của bạn
-        </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Danh sách Gia sư</h1>
+            <p className="text-blue-100">
+              Tìm kiếm gia sư phù hợp với nhu cầu học tập của bạn
+            </p>
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center gap-2 bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-colors"
+            title="Làm mới danh sách"
+          >
+            <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Làm mới</span>
+          </button>
+        </div>
       </div>
+
+      {loading && (
+        <div className="text-center py-8">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <p className="mt-2 text-gray-600">Đang tải danh sách gia sư...</p>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="card">
         <h2 className="text-xl font-bold text-gray-900 mb-4">Tìm kiếm & Lọc</h2>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Search */}
           <div>
@@ -108,8 +159,10 @@ const TutorList: React.FC = () => {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">Tất cả môn học</option>
-              {allSubjects.map(subject => (
-                <option key={subject} value={subject}>{subject}</option>
+              {subjects.map((subject: Subject) => (
+                <option key={subject.subject_id} value={subject.subject_name}>
+                  {subject.subject_code} - {subject.subject_name}
+                </option>
               ))}
             </select>
           </div>
@@ -133,14 +186,14 @@ const TutorList: React.FC = () => {
         </div>
 
         <div className="mt-4 text-sm text-gray-600">
-          Tìm thấy <span className="font-semibold text-blue-600">{filteredTutors.length}</span> gia sư
+          Tìm thấy <span className="font-semibold text-blue-600">{tutors.length}</span> gia sư
         </div>
       </div>
 
       {/* Tutor Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredTutors.map(tutor => (
-          <div key={tutor.id} className="card hover:shadow-lg transition-shadow">
+        {tutors.map((tutor: Tutor) => (
+          <div key={tutor.tutor_id} className="card hover:shadow-lg transition-shadow">
             {/* Avatar */}
             <div className="flex items-center mb-4">
               <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
@@ -155,9 +208,11 @@ const TutorList: React.FC = () => {
             {/* Rating */}
             <div className="flex items-center mb-3">
               <Star className="w-5 h-5 text-yellow-500" />
-              <span className="ml-1 font-semibold text-gray-900">{tutor.rating.toFixed(1)}</span>
+              <span className="ml-1 font-semibold text-gray-900">
+                {typeof tutor.rating === 'number' ? tutor.rating.toFixed(1) : '0.0'}
+              </span>
               <span className="ml-2 text-sm text-gray-600">
-                ({tutor.total_sessions} phiên)
+                ({tutor.total_sessions || 0} phiên)
               </span>
             </div>
 
@@ -165,12 +220,12 @@ const TutorList: React.FC = () => {
             <div className="mb-3">
               <p className="text-sm font-medium text-gray-700 mb-2">Môn dạy:</p>
               <div className="flex flex-wrap gap-2">
-                {tutor.subjects.slice(0, 3).map(subject => (
-                  <span key={subject} className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+                {(tutor.subjects || []).slice(0, 3).map((subject: string, idx: number) => (
+                  <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
                     {subject}
                   </span>
                 ))}
-                {tutor.subjects.length > 3 && (
+                {(tutor.subjects || []).length > 3 && (
                   <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
                     +{tutor.subjects.length - 3}
                   </span>
@@ -186,7 +241,7 @@ const TutorList: React.FC = () => {
             {/* Actions */}
             <div className="flex gap-2">
               <Link
-                to={`/tutors/${tutor.id}`}
+                to={`/tutors/${tutor.tutor_id}`}
                 className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg text-center font-medium hover:bg-blue-700 transition-colors"
               >
                 Xem chi tiết
@@ -201,9 +256,11 @@ const TutorList: React.FC = () => {
       </div>
 
       {/* Empty State */}
-      {filteredTutors.length === 0 && (
+      {tutors.length === 0 && !loading && (
         <div className="card text-center py-12">
-          <div className="text-6xl mb-4">🔍</div>
+          <div className="flex justify-center mb-4">
+            <Search className="w-16 h-16 text-gray-400" />
+          </div>
           <h3 className="text-xl font-bold text-gray-900 mb-2">
             Không tìm thấy gia sư
           </h3>
