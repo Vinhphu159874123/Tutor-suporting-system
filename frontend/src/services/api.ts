@@ -481,11 +481,11 @@ export const sessionsApi = {
     return apiClient.get(`/sessions/${sessionId}/materials`);
   },
 
-  downloadMaterial: (materialId: number) => {
+  downloadMaterial: (sessionId: number, materialId: number) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Download initiated" });
     }
-    return apiClient.get(`/materials/${materialId}/download`, {
+    return apiClient.get(`/sessions/${sessionId}/materials/${materialId}/download`, {
       responseType: 'blob'
     });
   },

@@ -224,8 +224,8 @@ async def delete_material(
     
     # Only tutors can delete materials
     user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
-    if 'tutor' not in user_roles:
-        raise HTTPException(status_code=403, detail="Only tutors can delete materials")
+    if 'tutor' not in user_roles and 'admin' not in user_roles and 'coordinator' not in user_roles:
+        raise HTTPException(status_code=403, detail="Only tutors/coordinators/admins can delete materials")
     
     # Try to parse as integer first (material_id)
     try:
@@ -248,43 +248,22 @@ async def delete_material(
         material = result.scalar_one_or_none()
     
     if not material:
-        # Fallback: Try to find and delete file in uploads directory (for old materials)
-        upload_dir = Path("uploads/session_materials")
-        deleted = False
-        
-        if upload_dir.exists():
-            matching_files = list(upload_dir.glob(f"session_{session_id}_*"))
-            
-            for file_path in matching_files:
-                if material_identifier in file_path.name or file_path.name.endswith(material_identifier):
-                    try:
-                        os.remove(file_path)
-                        deleted = True
-                        return {
-                            "message": "Material deleted from filesystem (no database record)",
-                            "file_name": material_identifier
-                        }
-                    except Exception as e:
-                        raise HTTPException(
-                            status_code=500,
-                            detail=f"Could not delete file: {str(e)}"
-                        )
-        
-        if not deleted:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Material '{material_identifier}' not found in database or filesystem. Upload dir exists: {upload_dir.exists()}"
-            )
+        raise HTTPException(
+            status_code=404,
+            detail=f"Material '{material_identifier}' not found"
+        )
     
-    # Delete file from disk
-    file_path = Path(material.file_url)
-    if file_path.exists():
-        try:
-            os.remove(file_path)
-        except Exception as e:
-            print(f"Warning: Could not delete file {file_path}: {e}")
+    # Delete legacy file from disk if exists (backward compatibility)
+    if material.file_url:
+        file_path = Path(material.file_url.replace('\\', '/'))
+        if file_path.exists():
+            try:
+                os.remove(file_path)
+                print(f"Deleted legacy file: {file_path}")
+            except Exception as e:
+                print(f"Warning: Could not delete legacy file {file_path}: {e}")
     
-    # Delete from database
+    # Delete from database (file_data will be deleted automatically)
     await session_service.session_repo.db.delete(material)
     await session_service.session_repo.db.commit()
     
@@ -297,11 +276,11 @@ async def download_material(
     material_identifier: str,
     inline: bool = Query(False, description="Display inline in browser instead of download"),
     session_service: SessionService = Depends(get_session_service)
-    # Remove auth requirement for direct browser access
 ):
-    """Download or preview a session material file - accepts material_id (int) or filename (str) - PUBLIC"""
+    """Download or preview a session material file from database - accepts material_id (int) or filename (str)"""
     from app.models.database import SessionMaterial
     from sqlalchemy import select
+    from fastapi.responses import Response
     
     # Try to parse as integer first (material_id)
     try:
@@ -319,50 +298,51 @@ async def download_material(
             select(SessionMaterial).where(
                 SessionMaterial.session_id == session_id,
                 SessionMaterial.file_name == material_identifier
-            ).order_by(SessionMaterial.uploaded_at.desc())  # Get latest if multiple
+            ).order_by(SessionMaterial.uploaded_at.desc())
         )
-        material = result.scalars().first()  # Get first result instead of scalar_one_or_none
+        material = result.scalars().first()
     
     if not material:
-        # Fallback: Try to find file in uploads directory (for old materials)
-        upload_dir = Path("uploads/session_materials")
-        
-        # Try to find file with pattern session_{session_id}_*{filename}
-        if upload_dir.exists():
-            matching_files = list(upload_dir.glob(f"session_{session_id}_*"))
-            for file_path in matching_files:
-                if material_identifier in file_path.name or file_path.name.endswith(material_identifier):
-                    return FileResponse(
-                        path=str(file_path),
-                        filename=material_identifier,
-                        media_type='application/octet-stream'
-                    )
-        
-        raise HTTPException(status_code=404, detail=f"Material '{material_identifier}' not found in database or uploads folder")
+        raise HTTPException(status_code=404, detail=f"Material '{material_identifier}' not found")
     
-    # Check if file exists
-    file_path = Path(material.file_url)
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail="File not found on server")
+    # Check if file data exists in database
+    if not material.file_data:
+        # Fallback to file_url (legacy files on disk)
+        if material.file_url:
+            file_path = Path(material.file_url.replace('\\', '/'))
+            if file_path.exists():
+                if inline:
+                    media_type = 'application/pdf' if material.file_name.lower().endswith('.pdf') else 'application/octet-stream'
+                    response = FileResponse(path=str(file_path), media_type=media_type, filename=material.file_name)
+                    response.headers["Content-Disposition"] = f'inline; filename="{material.file_name}"'
+                    return response
+                else:
+                    return FileResponse(path=str(file_path), filename=material.file_name, media_type='application/octet-stream')
+        
+        raise HTTPException(status_code=404, detail="File data not found in database or disk")
     
-    # Determine media type and content disposition
+    # Return file from database
+    media_type = 'application/pdf' if material.file_name.lower().endswith('.pdf') else 'application/octet-stream'
+    
     if inline:
         # For inline display (preview in browser)
-        media_type = 'application/pdf' if material.file_name.lower().endswith('.pdf') else 'application/octet-stream'
-        response = FileResponse(
-            path=str(file_path),
+        return Response(
+            content=material.file_data,
             media_type=media_type,
-            filename=material.file_name
+            headers={
+                "Content-Disposition": f'inline; filename="{material.file_name}"',
+                "Content-Length": str(len(material.file_data))
+            }
         )
-        # Set Content-Disposition to inline for browser preview
-        response.headers["Content-Disposition"] = f'inline; filename="{material.file_name}"'
-        return response
     else:
         # For download
-        return FileResponse(
-            path=str(file_path),
-            filename=material.file_name,
-            media_type='application/octet-stream'
+        return Response(
+            content=material.file_data,
+            media_type='application/octet-stream',
+            headers={
+                "Content-Disposition": f'attachment; filename="{material.file_name}"',
+                "Content-Length": str(len(material.file_data))
+            }
         )
 
 

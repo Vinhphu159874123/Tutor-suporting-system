@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey, Enum, Float, Numeric, Date, Time, BigInteger, CheckConstraint
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text, ForeignKey, Enum, Float, Numeric, Date, Time, BigInteger, CheckConstraint, LargeBinary
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -413,7 +413,8 @@ class SessionMaterial(Base):
     session_id = Column(Integer, ForeignKey("tutor_system.session.session_id"), nullable=False)
     uploaded_by = Column(Integer, ForeignKey("tutor_system.User.user_id"), nullable=False)
     file_name = Column(String, nullable=False)
-    file_url = Column(Text, nullable=False)
+    file_url = Column(Text, nullable=True)  # External URL (optional if file_data exists)
+    file_data = Column(LargeBinary, nullable=True)  # Store actual file in database (BYTEA)
     file_type = Column(String, nullable=True)
     file_size = Column(BigInteger, nullable=True)
     description = Column(Text, nullable=True)

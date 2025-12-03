@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import {Pencil, Trash2, User as UserIcon, Users, Calendar, Star, Plus, X} from "lucide-react";
+import { Pencil, Trash2, User as UserIcon, Users, Calendar, Star, Plus, X } from "lucide-react";
 import { adminApi, authApi } from "../../services/api";
 import { toast } from "react-toastify";
 import { AxiosResponse } from "axios";
@@ -31,7 +31,7 @@ interface SyncService {
 const Admin: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   // Determine initial tab from URL
   const getInitialTab = () => {
     const path = location.pathname;
@@ -39,7 +39,7 @@ const Admin: React.FC = () => {
     if (path.includes('/sync')) return 'sync';
     return 'overview';
   };
-  
+
   const [activeTab, setActiveTab] = useState(getInitialTab());
   const [loading, setLoading] = useState(true);
   const [showCreateUserModal, setShowCreateUserModal] = useState(false);
@@ -113,7 +113,7 @@ const Admin: React.FC = () => {
       await authApi.register(userData) as AxiosResponse<any>;
       toast.success('Tạo tài khoản thành công!');
       setShowCreateUserModal(false);
-      
+
       // Reset form
       setNewUser({
         email: "",
@@ -140,11 +140,11 @@ const Admin: React.FC = () => {
     if (!window.confirm('Bạn có chắc muốn xóa người dùng này?')) {
       return;
     }
-    
+
     try {
       await adminApi.deleteUser(userId) as AxiosResponse<any>;
       toast.success('Xóa người dùng thành công!');
-      
+
       // Refresh users list
       const usersRes = await adminApi.getAllUsers() as AxiosResponse<any>;
       setUsers(usersRes.data);
@@ -170,11 +170,11 @@ const Admin: React.FC = () => {
         role: editingUser.role,
         is_active: editingUser.is_active
       }) as AxiosResponse<any>;
-      
+
       toast.success('Cập nhật thành công!');
       setShowEditUserModal(false);
       setEditingUser(null);
-      
+
       // Refresh users list
       const usersRes = await adminApi.getAllUsers() as AxiosResponse<any>;
       setUsers(usersRes.data);
@@ -185,7 +185,7 @@ const Admin: React.FC = () => {
   };
 
   const stats = [
-    { name: "Tổng số người dùng", value: loading ? "..." : String(statsData.total_users), icon: <UserIcon size={24} className="text-blue-500" />},
+    { name: "Tổng số người dùng", value: loading ? "..." : String(statsData.total_users), icon: <UserIcon size={24} className="text-blue-500" /> },
     { name: "Tổng số tutor", value: loading ? "..." : String(statsData.total_tutors), icon: <Users size={24} className="text-green-500" /> },
     { name: "Tổng số phiên học", value: loading ? "..." : String(statsData.total_sessions), icon: <Calendar size={24} className="text-yellow-500" /> },
     { name: "Đánh giá trung bình", value: loading ? "..." : `${statsData.average_rating}/5`, icon: <Star size={24} className="text-orange-400" /> },
@@ -198,10 +198,10 @@ const Admin: React.FC = () => {
   ];
 
   const services: SyncService[] = [
-  { id: 'sso', name: 'HCMUT_SSO', status: 'connected', lastSync: '2025-11-21T14:30:00Z', recordsCount: 1247 },
-  { id: 'datacore', name: 'HCMUT_DATACORE', status: 'connected', lastSync: '2025-11-21T14:15:00Z', recordsCount: 5432 },
-  { id: 'library', name: 'HCMUT_LIBRARY', status: 'error', lastSync: '2025-11-21T13:00:00Z', recordsCount: 12458 },
-];
+    { id: 'sso', name: 'HCMUT_SSO', status: 'connected', lastSync: '2025-11-21T14:30:00Z', recordsCount: 1247 },
+    { id: 'datacore', name: 'HCMUT_DATACORE', status: 'connected', lastSync: '2025-11-21T14:15:00Z', recordsCount: 5432 },
+    { id: 'library', name: 'HCMUT_LIBRARY', status: 'error', lastSync: '2025-11-21T13:00:00Z', recordsCount: 12458 },
+  ];
 
   return (
     <div className="bg-gray-50 min-h-screen p-6 space-y-8">
@@ -221,10 +221,9 @@ const Admin: React.FC = () => {
           <button
             key={tab.id}
             className={`px-4 py-2 text-sm rounded 
-              ${
-                activeTab === tab.id
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              ${activeTab === tab.id
+                ? "bg-blue-600 text-white"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
               }`}
             onClick={() => handleTabChange(tab.id)}
           >
@@ -269,19 +268,19 @@ const Admin: React.FC = () => {
                     <span className="text-sm font-semibold text-gray-900">{statsData.total_students}</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-blue-600 h-2 rounded-full" 
+                    <div
+                      className="bg-blue-600 h-2 rounded-full"
                       style={{ width: `${statsData.total_users > 0 ? (statsData.total_students / statsData.total_users) * 100 : 0}%` }}
                     ></div>
                   </div>
-                  
+
                   <div className="flex items-center justify-between mt-4">
                     <span className="text-sm text-gray-600">Tutors</span>
                     <span className="text-sm font-semibold text-gray-900">{statsData.total_tutors}</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-green-600 h-2 rounded-full" 
+                    <div
+                      className="bg-green-600 h-2 rounded-full"
                       style={{ width: `${statsData.total_users > 0 ? (statsData.total_tutors / statsData.total_users) * 100 : 0}%` }}
                     ></div>
                   </div>
@@ -334,12 +333,11 @@ const Admin: React.FC = () => {
                         <td className="px-4 py-3 text-sm text-gray-900">{user.full_name}</td>
                         <td className="px-4 py-3 text-sm text-gray-600">{user.email}</td>
                         <td className="px-4 py-3 text-sm">
-                          <span className={`px-2 py-1 rounded text-xs ${
-                            user.role?.includes('admin') ? 'bg-red-100 text-red-700' :
-                            user.role?.includes('coordinator') ? 'bg-purple-100 text-purple-700' :
-                            user.role?.includes('tutor') ? 'bg-blue-100 text-blue-700' :
-                            'bg-gray-100 text-gray-700'
-                          }`}>
+                          <span className={`px-2 py-1 rounded text-xs ${user.role?.includes('admin') ? 'bg-red-100 text-red-700' :
+                              user.role?.includes('coordinator') ? 'bg-purple-100 text-purple-700' :
+                                user.role?.includes('tutor') ? 'bg-blue-100 text-blue-700' :
+                                  'bg-gray-100 text-gray-700'
+                            }`}>
                             {Array.isArray(user.role) ? user.role.join(', ') : user.role}
                           </span>
                         </td>
@@ -401,12 +399,11 @@ const Admin: React.FC = () => {
                       <td className="px-4 py-2 text-sm text-gray-900">{user.full_name}</td>
                       <td className="px-4 py-2 text-sm text-gray-900">{user.email}</td>
                       <td className="px-4 py-2 text-sm text-gray-900">
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          user.role?.includes('admin') ? 'bg-red-100 text-red-700' :
-                          user.role?.includes('coordinator') ? 'bg-purple-100 text-purple-700' :
-                          user.role?.includes('tutor') ? 'bg-blue-100 text-blue-700' :
-                          'bg-gray-100 text-gray-700'
-                        }`}>
+                        <span className={`px-2 py-1 rounded text-xs ${user.role?.includes('admin') ? 'bg-red-100 text-red-700' :
+                            user.role?.includes('coordinator') ? 'bg-purple-100 text-purple-700' :
+                              user.role?.includes('tutor') ? 'bg-blue-100 text-blue-700' :
+                                'bg-gray-100 text-gray-700'
+                          }`}>
                           {Array.isArray(user.role) ? user.role.join(', ') : user.role}
                         </span>
                       </td>
@@ -414,16 +411,16 @@ const Admin: React.FC = () => {
                       <td className="px-4 py-2 text-sm text-gray-900">{user.student_code || '-'}</td>
                       <td className="px-4 py-2 text-sm text-gray-900">
                         <div className="flex gap-2">
-                          <button 
+                          <button
                             onClick={() => handleEditUser(user)}
-                            className="text-blue-600 hover:text-blue-800 transition-colors" 
+                            className="text-blue-600 hover:text-blue-800 transition-colors"
                             title="Edit"
                           >
                             <Pencil size={18} />
                           </button>
-                          <button 
+                          <button
                             onClick={() => handleDeleteUser(user.user_id)}
-                            className="text-red-600 hover:text-red-800 transition-colors" 
+                            className="text-red-600 hover:text-red-800 transition-colors"
                             title="Delete"
                           >
                             <Trash2 size={18} />
@@ -443,7 +440,7 @@ const Admin: React.FC = () => {
           <div>
             <h2 className="text-lg font-semibold text-gray-800 mb-4">
               Trạng thái đồng bộ
-             </h2>
+            </h2>
 
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 border border-gray-200 rounded">
@@ -463,9 +460,9 @@ const Admin: React.FC = () => {
                       <td className="px-4 py-2 text-sm">
                         <span
                           className={`px-2 py-1 rounded-full text-xs font-medium
-                            ${ s.status === "connected" ? "bg-green-100 text-green-800"
-                            : s.status === "syncing"? "bg-blue-100 text-blue-800 animate-pulse"
-                            : "bg-red-100 text-red-800"}`}>
+                            ${s.status === "connected" ? "bg-green-100 text-green-800"
+                              : s.status === "syncing" ? "bg-blue-100 text-blue-800 animate-pulse"
+                                : "bg-red-100 text-red-800"}`}>
                           {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
                         </span>
                       </td>
@@ -478,7 +475,7 @@ const Admin: React.FC = () => {
                         </button>
                       </td>
                     </tr>
-                    ))}
+                  ))}
                 </tbody>
               </table>
             </div>

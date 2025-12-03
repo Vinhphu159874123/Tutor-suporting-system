@@ -102,6 +102,7 @@ const UploadMaterials: React.FC = () => {
         
         const formData = new FormData();
         formData.append("file", file);
+        formData.append("uploaded_by", user?.user_id?.toString() || "");
         if (description) {
           formData.append("description", description);
         }
@@ -141,8 +142,13 @@ const UploadMaterials: React.FC = () => {
   };
 
   const handleDownload = async (materialId: number, fileName: string) => {
+    if (!sessionId) {
+      toast.error("Không tìm thấy session ID");
+      return;
+    }
+    
     try {
-      const response: any = await sessionsApi.downloadMaterial(materialId);
+      const response: any = await sessionsApi.downloadMaterial(parseInt(sessionId), materialId);
       
       // Create a download link
       const url = window.URL.createObjectURL(new Blob([response.data]));
