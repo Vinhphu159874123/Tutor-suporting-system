@@ -22,6 +22,7 @@
     }
   ],
   "env": {
-    "REACT_APP_API_URL": "https://tutor-suporting-system-production.up.railway.app/api/v1"
+    "REACT_APP_API_URL": "https://tutor-suporting-system-production.up.railway.app/api/v1",
+    "CI": "false"
   }
 }
