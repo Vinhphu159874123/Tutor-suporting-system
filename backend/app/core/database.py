@@ -14,24 +14,18 @@ if database_url.startswith("postgresql://"):
 elif database_url.startswith("sqlite"):
     database_url = database_url.replace("sqlite:///", "sqlite+aiosqlite:///")
 
-# Remove the prepared_statement_cache_size parameter from URL if present
-# We'll set it in connect_args instead
-if "prepared_statement_cache_size" in database_url:
-    database_url = database_url.split("?")[0]
+# Add statement_cache_size=0 to URL for pgbouncer compatibility
+if "?" in database_url:
+    database_url += "&statement_cache_size=0"
+else:
+    database_url += "?statement_cache_size=0"
 
 engine = create_async_engine(
     database_url,
     echo=False,  # Disable SQL logging for cleaner output
     future=True,
     pool_pre_ping=True,  # Enable connection health checks
-    poolclass=NullPool,  # Disable connection pooling to avoid prepared statement issues
-    connect_args={
-        "server_settings": {
-            "jit": "off"
-        },
-        "statement_cache_size": 0,
-        "prepared_statement_cache_size": 0
-    }
+    poolclass=NullPool  # Disable connection pooling to avoid prepared statement issues
 )
 
 # Create session factory
