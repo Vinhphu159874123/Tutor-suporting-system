@@ -490,11 +490,11 @@ export const sessionsApi = {
     });
   },
 
-  deleteMaterial: (materialId: number) => {
+  deleteMaterial: (sessionId: number, materialId: number) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Material deleted" });
     }
-    return apiClient.delete(`/materials/${materialId}`);
+    return apiClient.delete(`/sessions/${sessionId}/materials/${materialId}`);
   },
 
   bulkSaveForSubject: (subjectId: number, sessionsData: any[]) => {
