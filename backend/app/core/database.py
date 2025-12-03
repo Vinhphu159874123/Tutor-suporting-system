@@ -19,18 +19,19 @@ elif database_url.startswith("sqlite"):
 if "prepared_statement_cache_size" in database_url:
     database_url = database_url.split("?")[0]
 
-# Add query parameter to disable prepared statement cache for Supabase pooler
-if "?" in database_url:
-    database_url += "&prepared_statement_cache_size=0"
-else:
-    database_url += "?prepared_statement_cache_size=0"
-
 engine = create_async_engine(
     database_url,
     echo=False,  # Disable SQL logging for cleaner output
     future=True,
     pool_pre_ping=True,  # Enable connection health checks
     poolclass=NullPool,  # Disable connection pooling to avoid prepared statement issues
+    connect_args={
+        "server_settings": {
+            "jit": "off"
+        },
+        "statement_cache_size": 0,
+        "prepared_statement_cache_size": 0
+    }
 )
 
 # Create session factory
