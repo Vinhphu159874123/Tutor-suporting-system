@@ -47,10 +47,6 @@ USER appuser
 # Expose port (Railway will override with $PORT)
 EXPOSE 8000
 
-# Health check (use PORT env or fallback to 8000)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
-
 # Production command using gunicorn with uvicorn workers
 # Use shell form to allow PORT variable expansion
 CMD sh -c "gunicorn app.main:app \
