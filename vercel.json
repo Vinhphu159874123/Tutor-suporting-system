@@ -1,6 +1,8 @@
 {
+  "version": 2,
   "buildCommand": "cd frontend && npm install && npm run build",
   "outputDirectory": "frontend/build",
+  "installCommand": "cd frontend && npm install",
   "framework": null,
   "rewrites": [
     {
@@ -18,5 +20,8 @@
         }
       ]
     }
-  ]
+  ],
+  "env": {
+    "REACT_APP_API_URL": "https://tutor-suporting-system-production.up.railway.app/api/v1"
+  }
 }
