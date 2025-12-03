@@ -680,24 +680,29 @@ async def get_tutor_courses(
     result = await db.execute(courses_query)
     courses_data = result.all()
     
-    courses_list = []
-    for subject, total_sessions, completed_sessions, avg_rating in courses_data:
-        # Count unique students
-        students_query = select(func.count(func.distinct(SessionParticipant.user_id))).where(
+    # OPTIMIZATION: Get student counts for all courses in ONE query
+    subject_ids = [subject.subject_id for subject, _, _, _ in courses_data]
+    
+    students_count_query = (
+        select(
+            SessionModel.subject_id,
+            func.count(func.distinct(SessionParticipant.user_id)).label('student_count')
+        )
+        .join(SessionParticipant, SessionParticipant.session_id == SessionModel.session_id)
+        .where(
             and_(
-                SessionParticipant.session_id.in_(
-                    select(SessionModel.session_id).where(
-                        and_(
-                            SessionModel.subject_id == subject.subject_id,
-                            SessionModel.tutor_id == tutor_id
-                        )
-                    )
-                ),
+                SessionModel.tutor_id == tutor_id,
+                SessionModel.subject_id.in_(subject_ids),
                 SessionParticipant.role == 'student'
             )
         )
-        student_count = (await db.execute(students_query)).scalar() or 0
-        
+        .group_by(SessionModel.subject_id)
+    )
+    students_count_result = await db.execute(students_count_query)
+    students_counts = {row.subject_id: row.student_count for row in students_count_result.all()}
+    
+    courses_list = []
+    for subject, total_sessions, completed_sessions, avg_rating in courses_data:
         courses_list.append({
             "subject_id": subject.subject_id,
             "subject_code": subject.subject_code,
@@ -705,7 +710,7 @@ async def get_tutor_courses(
             "department": subject.department,
             "total_sessions": total_sessions or 0,
             "completed_sessions": completed_sessions or 0,
-            "student_count": student_count,
+            "student_count": students_counts.get(subject.subject_id, 0),
             "average_rating": round(float(avg_rating), 2) if avg_rating else 0.0
         })
     
@@ -768,64 +773,65 @@ async def get_course_details_with_feedbacks(
     sessions_result = await db.execute(sessions_query)
     sessions = sessions_result.scalars().all()
     
-    # Get student participants and their progress
-    students_data = {}
-    feedbacks_list = []
+    # OPTIMIZATION: Get all data in batch queries instead of loop
+    session_ids = [s.session_id for s in sessions]
     
-    for session in sessions:
-        # Get participants
-        participants_query = (
-            select(SessionParticipant, User)
-            .join(User, SessionParticipant.user_id == User.user_id)
-            .where(and_(
-                SessionParticipant.session_id == session.session_id,
+    # Get all participants for all sessions in ONE query
+    all_participants_query = (
+        select(SessionParticipant, User)
+        .join(User, SessionParticipant.user_id == User.user_id)
+        .where(
+            and_(
+                SessionParticipant.session_id.in_(session_ids),
                 SessionParticipant.role == 'student'
-            ))
+            )
         )
-        participants_result = await db.execute(participants_query)
-        participants = participants_result.all()
-        
-        for participant, student_user in participants:
-            if student_user.user_id not in students_data:
-                # Count sessions this student participated in
-                participation_query = select(func.count(SessionParticipant.participant_id)).where(
-                    and_(
-                        SessionParticipant.user_id == student_user.user_id,
-                        SessionParticipant.session_id.in_([s.session_id for s in sessions]),
-                        SessionParticipant.role == 'student'
-                    )
-                )
-                attended = (await db.execute(participation_query)).scalar() or 0
-                
-                students_data[student_user.user_id] = {
-                    "user_id": student_user.user_id,
-                    "full_name": student_user.full_name,
-                    "email": student_user.email,
-                    "total_sessions": len(sessions),
-                    "attended_sessions": attended,
-                    "attendance_rate": round((attended / len(sessions) * 100) if len(sessions) > 0 else 0, 1)
-                }
-        
-        # Get feedbacks for this session
-        feedbacks_query = (
-            select(SessionFeedback, User)
-            .join(User, SessionFeedback.reviewer_id == User.user_id)
-            .where(SessionFeedback.session_id == session.session_id)
-        )
-        feedbacks_result = await db.execute(feedbacks_query)
-        feedbacks = feedbacks_result.all()
-        
-        for feedback, feedback_user in feedbacks:
-            feedbacks_list.append({
-                "session_id": session.session_id,
-                "session_title": session.title,
-                "session_date": session.scheduled_date.isoformat() if session.scheduled_date else None,
-                "student_name": feedback_user.full_name,
-                "student_email": feedback_user.email,
-                "rating": feedback.rating,
-                "comment": feedback.comment,
-                "created_at": feedback.created_at.isoformat() if feedback.created_at else None
-            })
+    )
+    all_participants_result = await db.execute(all_participants_query)
+    all_participants = all_participants_result.all()
+    
+    # Count participation per student
+    students_data = {}
+    for participant, student_user in all_participants:
+        if student_user.user_id not in students_data:
+            students_data[student_user.user_id] = {
+                "user_id": student_user.user_id,
+                "full_name": student_user.full_name,
+                "email": student_user.email,
+                "total_sessions": len(sessions),
+                "attended_sessions": 0,
+                "attendance_rate": 0
+            }
+        students_data[student_user.user_id]["attended_sessions"] += 1
+    
+    # Calculate attendance rates
+    for student_id in students_data:
+        attended = students_data[student_id]["attended_sessions"]
+        total = students_data[student_id]["total_sessions"]
+        students_data[student_id]["attendance_rate"] = round((attended / total * 100) if total > 0 else 0, 1)
+    
+    # Get all feedbacks for all sessions in ONE query
+    all_feedbacks_query = (
+        select(SessionFeedback, User, SessionModel)
+        .join(User, SessionFeedback.reviewer_id == User.user_id)
+        .join(SessionModel, SessionFeedback.session_id == SessionModel.session_id)
+        .where(SessionFeedback.session_id.in_(session_ids))
+    )
+    all_feedbacks_result = await db.execute(all_feedbacks_query)
+    all_feedbacks = all_feedbacks_result.all()
+    
+    feedbacks_list = []
+    for feedback, feedback_user, session in all_feedbacks:
+        feedbacks_list.append({
+            "session_id": session.session_id,
+            "session_title": session.title,
+            "session_date": session.scheduled_date.isoformat() if session.scheduled_date else None,
+            "student_name": feedback_user.full_name,
+            "student_email": feedback_user.email,
+            "rating": feedback.rating,
+            "comment": feedback.comment,
+            "created_at": feedback.created_at.isoformat() if feedback.created_at else None
+        })
     
     # Calculate overall statistics
     total_sessions = len(sessions)
