@@ -25,7 +25,10 @@ engine = create_async_engine(
     connect_args={
         "prepared_statement_cache_size": 0,
         "statement_cache_size": 0,
-        "prepared_statement_name_func": lambda: None  # Disable prepared statement names
+        "server_settings": {
+            "jit": "off",
+            "application_name": "tutor_system"
+        }
     }
 )
 
