@@ -118,6 +118,14 @@ class SessionService:
         except:
             pass
         
+        # Add subject info from relationship
+        try:
+            if session.subject:
+                data['subject_name'] = session.subject.subject_name
+                data['subject_code'] = session.subject.subject_code
+        except:
+            pass
+        
         return SessionResponse(**data)
     
     async def get_all_sessions(

@@ -15,6 +15,7 @@ export interface User {
   faculty?: string;
   major?: string;
   phone?: string;
+  bio?: string;
   avatar_url?: string;
   is_active: boolean;
   is_verified: boolean;

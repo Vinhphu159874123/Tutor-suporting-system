@@ -40,6 +40,7 @@ class UserResponse(BaseModel):
     email: EmailStr
     full_name: str
     phone: Optional[str] = None
+    bio: Optional[str] = None
     role: List[str]  # Array of roles user has
     is_active: bool
     is_verified: bool
@@ -74,4 +75,5 @@ class UserUpdate(BaseModel):
     """User profile update"""
     full_name: Optional[str] = None
     phone: Optional[str] = None
+    bio: Optional[str] = None
     avatar_url: Optional[str] = None

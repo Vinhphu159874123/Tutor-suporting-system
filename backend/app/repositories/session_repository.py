@@ -27,7 +27,8 @@ class SessionRepository:
             select(SessionModel)
             .options(
                 selectinload(SessionModel.tutor).selectinload(Tutor.user),
-                selectinload(SessionModel.participants).selectinload(SessionParticipant.user)
+                selectinload(SessionModel.participants).selectinload(SessionParticipant.user),
+                selectinload(SessionModel.subject)
             )
             .where(SessionModel.session_id == session_id)
         )
@@ -46,7 +47,8 @@ class SessionRepository:
         query = select(SessionModel).options(
             selectinload(SessionModel.tutor).selectinload(Tutor.user),
             selectinload(SessionModel.participants).selectinload(SessionParticipant.user),
-            selectinload(SessionModel.session_materials)  # Load uploaded materials
+            selectinload(SessionModel.session_materials),  # Load uploaded materials
+            selectinload(SessionModel.subject)  # Load subject info for subject_name and subject_code
         )
         
         if tutor_id:
