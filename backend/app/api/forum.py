@@ -38,22 +38,31 @@ async def get_posts(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> List[Dict[str, Any]]:
-    """Get forum posts with threads"""
+    """Get forum posts with threads - OPTIMIZED"""
     
-    # Get all posts with author and forum info
+    # OPTIMIZATION: Get posts with reply count in ONE query using LEFT JOIN and GROUP BY
+    from sqlalchemy.orm import aliased
+    
+    ReplyPost = aliased(ForumPost)
+    
     query = select(
         ForumPost,
         User,
-        Forum
+        Forum,
+        func.count(ReplyPost.post_id).label('reply_count')
     ).join(
         User, ForumPost.author_id == User.user_id
     ).join(
         Forum, ForumPost.forum_id == Forum.forum_id
+    ).outerjoin(
+        ReplyPost, ReplyPost.parent_post_id == ForumPost.post_id
     ).where(
         ForumPost.parent_post_id == None  # Only top-level posts (threads)
-    )
-    
-    query = query.order_by(
+    ).group_by(
+        ForumPost.post_id,
+        User.user_id,
+        Forum.forum_id
+    ).order_by(
         ForumPost.is_pinned.desc(),
         ForumPost.created_at.desc()
     ).offset(skip).limit(limit)
@@ -62,15 +71,7 @@ async def get_posts(
     rows = result.all()
     
     posts_list = []
-    for post, author, forum in rows:
-        # Count replies
-        reply_result = await db.execute(
-            select(func.count(ForumPost.post_id)).where(
-                ForumPost.parent_post_id == post.post_id
-            )
-        )
-        reply_count = reply_result.scalar() or 0
-        
+    for post, author, forum, reply_count in rows:
         posts_list.append({
             "id": str(post.post_id),
             "title": post.title or "Untitled",
@@ -79,7 +80,7 @@ async def get_posts(
             "createdAt": post.created_at.isoformat() if post.created_at else None,
             "excerpt": post.content[:200] if post.content else "",
             "likes": post.upvote_count or 0,
-            "replies": reply_count,
+            "replies": reply_count or 0,
             "views": 0,  # TODO: Add view tracking
             "isPinned": post.is_pinned or False,
             "isSolved": False,  # TODO: Add solved status

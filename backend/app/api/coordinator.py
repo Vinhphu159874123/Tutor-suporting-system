@@ -416,26 +416,33 @@ async def get_pending_sessions(
     result = await db.execute(query)
     rows = result.all()
     
+    # OPTIMIZATION: Get participant counts for all sessions in ONE query
+    session_ids = [session.session_id for session, _, _, _ in rows]
+    
+    participant_counts_query = (
+        select(
+            SessionParticipant.session_id,
+            func.count(SessionParticipant.participant_id).label('count')
+        )
+        .where(SessionParticipant.session_id.in_(session_ids))
+        .group_by(SessionParticipant.session_id)
+    )
+    participant_counts_result = await db.execute(participant_counts_query)
+    participant_counts = {row.session_id: row.count for row in participant_counts_result.all()}
+    
     sessions = []
     for session, tutor, tutor_user, subject in rows:
-        # Get participant count
-        participant_query = select(func.count(SessionParticipant.participant_id)).where(
-            SessionParticipant.session_id == session.session_id
-        )
-        participant_result = await db.execute(participant_query)
-        participant_count = participant_result.scalar() or 0
-        
         sessions.append({
             "session_id": session.session_id,
-            "subject_name": subject.name,
-            "subject_code": subject.code,
+            "subject_name": subject.subject_name,
+            "subject_code": subject.subject_code,
             "tutor_name": tutor_user.full_name,
             "tutor_email": tutor_user.email,
             "start_time": session.start_time,
             "end_time": session.end_time,
             "location": session.location,
             "max_participants": session.max_participants,
-            "current_participants": participant_count,
+            "current_participants": participant_counts.get(session.session_id, 0),
             "status": session.status,
             "created_at": session.created_at
         })
@@ -570,23 +577,40 @@ async def get_all_tutors(
     result = await db.execute(query)
     tutors_data = result.all()
     
-    tutors_list = []
-    for tutor, user in tutors_data:
-        # Count sessions
-        sessions_query = select(func.count(SessionModel.session_id)).where(
-            SessionModel.tutor_id == tutor.tutor_id
+    # OPTIMIZATION: Get all tutor IDs first
+    tutor_ids = [tutor.tutor_id for tutor, _ in tutors_data]
+    
+    # Get session counts for all tutors in ONE query
+    sessions_stats_query = (
+        select(
+            SessionModel.tutor_id,
+            func.count(SessionModel.session_id).label('session_count')
         )
-        total_sessions = (await db.execute(sessions_query)).scalar() or 0
-        
-        # Count courses
-        courses_query = select(func.count(func.distinct(TutorRegistration.subject_id))).where(
+        .where(SessionModel.tutor_id.in_(tutor_ids))
+        .group_by(SessionModel.tutor_id)
+    )
+    sessions_stats_result = await db.execute(sessions_stats_query)
+    sessions_stats = {row.tutor_id: row.session_count for row in sessions_stats_result.all()}
+    
+    # Get course counts for all tutors in ONE query
+    courses_stats_query = (
+        select(
+            TutorRegistration.tutor_id,
+            func.count(func.distinct(TutorRegistration.subject_id)).label('course_count')
+        )
+        .where(
             and_(
-                TutorRegistration.tutor_id == tutor.tutor_id,
+                TutorRegistration.tutor_id.in_(tutor_ids),
                 TutorRegistration.status == 'approved'
             )
         )
-        total_courses = (await db.execute(courses_query)).scalar() or 0
-        
+        .group_by(TutorRegistration.tutor_id)
+    )
+    courses_stats_result = await db.execute(courses_stats_query)
+    courses_stats = {row.tutor_id: row.course_count for row in courses_stats_result.all()}
+    
+    tutors_list = []
+    for tutor, user in tutors_data:
         tutors_list.append({
             "tutor_id": tutor.tutor_id,
             "user_id": user.user_id,
@@ -595,8 +619,8 @@ async def get_all_tutors(
             "staff_code": tutor.staff_code,
             "faculty": tutor.faculty,
             "rating": float(tutor.rating) if tutor.rating else 0.0,
-            "total_sessions": total_sessions,
-            "total_courses": total_courses,
+            "total_sessions": sessions_stats.get(tutor.tutor_id, 0),
+            "total_courses": courses_stats.get(tutor.tutor_id, 0),
             "is_verified": tutor.is_verified,
             "created_at": user.created_at.isoformat() if user.created_at else None
         })
