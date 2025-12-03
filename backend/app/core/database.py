@@ -3,7 +3,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import MetaData
 from app.core.config import settings
 from sqlalchemy.pool import NullPool
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 # Create async engine with proper URL handling
 database_url = settings.DATABASE_URL
@@ -14,26 +13,20 @@ if database_url.startswith("postgresql://"):
 elif database_url.startswith("sqlite"):
     database_url = database_url.replace("sqlite:///", "sqlite+aiosqlite:///")
 
-# Parse URL and add statement_cache_size parameter
-parsed = urlparse(database_url)
-query_params = parse_qs(parsed.query)
-query_params['prepared_statement_cache_size'] = ['0']
-new_query = urlencode(query_params, doseq=True)
-database_url = urlunparse((
-    parsed.scheme,
-    parsed.netloc,
-    parsed.path,
-    parsed.params,
-    new_query,
-    parsed.fragment
-))
-
 engine = create_async_engine(
     database_url,
     echo=False,
     future=True,
-    pool_pre_ping=True,
-    poolclass=NullPool
+    pool_pre_ping=False,  # Disable pre-ping for pooler
+    poolclass=NullPool,
+    execution_options={
+        "isolation_level": "AUTOCOMMIT"
+    },
+    connect_args={
+        "prepared_statement_cache_size": 0,
+        "statement_cache_size": 0,
+        "prepared_statement_name_func": lambda: None  # Disable prepared statement names
+    }
 )
 
 # Create session factory
