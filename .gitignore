@@ -13,7 +13,10 @@ ENV/
 # Environment
 .env
 .env.local
+.env.prod
 *.env
+!.env.prod.template
+!.env.example
 
 # Database
 *.db

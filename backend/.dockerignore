@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment files
+.env
+.env.*
+
+# Documentation
+docs/_build/
+
+# Git
+.git/
+.gitignore
+
+# MacOS
+.DS_Store
+
+# Uploads directory
+uploads/
+
+# Development scripts (optional - uncomment if you don't need them in prod)
+# create_*.py
+# populate_*.py
+# test_*.py
+# run_dev.py
+
+# Test cases
+testcases/
+
+# Migrations (if you handle them separately)
+# migrations/

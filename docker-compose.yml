@@ -8,14 +8,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    environment:
-      - DATABASE_URL=postgresql://postgres:password@db:5432/tutor_system
-      - SUPABASE_URL=your_supabase_url
-      - SUPABASE_ANON_KEY=your_supabase_anon_key
-      - JWT_SECRET_KEY=your_jwt_secret_key
-      - HCMUT_SSO_URL=http://mock-sso:3001
-      - HCMUT_DATACORE_URL=http://mock-datacore:3002
-      - HCMUT_LIBRARY_URL=http://mock-library:3003
+    env_file:
+      - .env
     depends_on:
       - db
       - redis
@@ -31,9 +25,11 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - REACT_APP_API_URL=http://localhost:8000
-      - REACT_APP_SUPABASE_URL=your_supabase_url
-      - REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
+      - REACT_APP_API_URL=http://localhost:8000/api/v1
+      - REACT_APP_SUPABASE_URL=${SUPABASE_URL}
+      - REACT_APP_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+    env_file:
+      - .env
     volumes:
       - ./frontend:/app
       - /app/node_modules

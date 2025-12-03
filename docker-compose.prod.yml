@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  # Backend API - Production
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - HCMUT_SSO_URL=${HCMUT_SSO_URL:-http://mock-sso:3001}
+      - HCMUT_DATACORE_URL=${HCMUT_DATACORE_URL:-http://mock-datacore:3002}
+      - HCMUT_LIBRARY_URL=${HCMUT_LIBRARY_URL:-http://mock-library:3003}
+      - ENVIRONMENT=production
+    depends_on:
+      - redis
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend React App - Production (with Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost:8000}
+    restart: always
+    depends_on:
+      - backend
+
+  # Redis for caching and sessions
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Mock Services (Optional - remove in production if using real services)
+  mock-sso:
+    build:
+      context: ./backend/mock_services/sso
+    ports:
+      - "3001:3001"
+    restart: unless-stopped
+    profiles:
+      - mock
+
+  mock-datacore:
+    build:
+      context: ./backend/mock_services/datacore
+    ports:
+      - "3002:3002"
+    restart: unless-stopped
+    profiles:
+      - mock
+
+  mock-library:
+    build:
+      context: ./backend/mock_services/library
+    ports:
+      - "3003:3003"
+    restart: unless-stopped
+    profiles:
+      - mock
+
+volumes:
+  redis_data:
