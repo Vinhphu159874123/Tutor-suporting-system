@@ -12,6 +12,7 @@ class UserBase(BaseModel):
     full_name: str
     role: str  # student, tutor, coordinator, admin
     phone: Optional[str] = None
+    bio: Optional[str] = None
     avatar_url: Optional[str] = None
 
 class UserCreate(UserBase):
@@ -25,6 +26,7 @@ class UserResponse(BaseModel):
     full_name: str
     role: str
     phone: Optional[str] = None
+    bio: Optional[str] = None
     avatar_url: Optional[str] = None
     is_active: bool
     is_verified: bool
@@ -38,6 +40,7 @@ class UserUpdate(BaseModel):
     """User profile update"""
     full_name: Optional[str] = None
     phone: Optional[str] = None
+    bio: Optional[str] = None
     avatar_url: Optional[str] = None
 
 class UserInDB(UserBase):

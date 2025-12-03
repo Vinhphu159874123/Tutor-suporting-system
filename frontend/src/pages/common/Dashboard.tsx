@@ -7,8 +7,6 @@ import {
   Clock3,
   MessageSquareText,
   NotebookPen,
-  PlusCircle,
-  Star,
   UserRound,
 } from "lucide-react";
 import { useAuthStore } from "../../stores/authStore";
@@ -18,7 +16,9 @@ import { AxiosResponse } from "axios";
 
 interface Session {
   session_id: number;
+  subject_id: number;
   subject_name: string;
+  subject_code: string;
   scheduled_date: string;
   start_time: string;
   end_time: string;
@@ -159,18 +159,20 @@ const Dashboard: React.FC = () => {
               upcomingSessions.map((session) => (
                 <div
                   key={session.session_id}
-                  className="flex items-center p-3 bg-gray-50 rounded-lg"
+                  onClick={() => navigate(`/my-courses/${session.subject_id}`)}
+                  className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
                 >
                   <div className="text-2xl mr-3">
                     <CalendarDays className="w-8 h-8 text-indigo-600" />
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium">{session.subject_name}</p>
+                    <p className="font-semibold text-blue-600">{session.subject_name}</p>
+                    <p className="text-xs text-gray-500 mb-1">{session.subject_code}</p>
                     <p className="text-sm text-gray-600">
                       {new Date(session.scheduled_date).toLocaleDateString('vi-VN')}, {session.start_time} - {session.end_time}
                     </p>
                   </div>
-                  <div className="text-blue-600 font-medium">Đã lên lịch</div>
+                  <div className="text-blue-600 font-medium text-sm">Đã lên lịch</div>
                 </div>
               ))
             ) : (

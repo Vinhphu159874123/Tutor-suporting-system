@@ -7,7 +7,7 @@ import { Edit3, Save, Ban, KeyRound, LockKeyhole, ShieldCheck, ShieldAlert, Chec
 // Faculty and Major data structure
 const FACULTY_STRUCTURE: Record<string, { name: string; majors: string[] }> = {
   CSE: {
-    name: "Khoa Khoa học và Kỹ thuật Máy tính",
+    name: "Khoa học và Kỹ thuật Máy tính",
     majors: [
       "Khoa học máy tính",
       "Kỹ thuật máy tính",
@@ -17,7 +17,7 @@ const FACULTY_STRUCTURE: Record<string, { name: string; majors: string[] }> = {
     ],
   },
   EE: {
-    name: "Khoa Điện - Điện tử",
+    name: "Điện - Điện tử",
     majors: [
       "Kỹ thuật điện",
       "Kỹ thuật điện tử - Viễn thông",
@@ -26,7 +26,7 @@ const FACULTY_STRUCTURE: Record<string, { name: string; majors: string[] }> = {
     ],
   },
   ME: {
-    name: "Khoa Cơ khí",
+    name: "Cơ khí",
     majors: [
       "Kỹ thuật cơ khí",
       "Kỹ thuật cơ điện tử",
@@ -35,7 +35,7 @@ const FACULTY_STRUCTURE: Record<string, { name: string; majors: string[] }> = {
     ],
   },
   CE: {
-    name: "Khoa Xây dựng",
+    name: "Xây dựng",
     majors: [
       "Kỹ thuật xây dựng",
       "Kỹ thuật xây dựng công trình giao thông",
@@ -43,7 +43,7 @@ const FACULTY_STRUCTURE: Record<string, { name: string; majors: string[] }> = {
     ],
   },
   CHEM: {
-    name: "Khoa Kỹ thuật Hóa học",
+    name: "Kỹ thuật Hóa học",
     majors: [
       "Kỹ thuật hóa học",
       "Công nghệ thực phẩm",
@@ -79,7 +79,21 @@ const Profile: React.FC = () => {
     faculty: user?.faculty || "",
     major: user?.major || "",
     phone: user?.phone || "",
+    bio: user?.bio || "",
   });
+
+  // Fetch fresh profile data on mount
+  React.useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const response: any = await usersApi.getProfile();
+        setUser(response.data);
+      } catch (error) {
+        console.error("Failed to fetch profile:", error);
+      }
+    };
+    fetchProfile();
+  }, [setUser]);
 
   // Update formData when user data changes
   React.useEffect(() => {
@@ -90,6 +104,7 @@ const Profile: React.FC = () => {
         faculty: user.faculty || "",
         major: user.major || "",
         phone: user.phone || "",
+        bio: user.bio || "",
       });
     }
   }, [user]);
@@ -119,7 +134,7 @@ const Profile: React.FC = () => {
   });
 
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     setFormData({
       ...formData,
@@ -146,7 +161,9 @@ const Profile: React.FC = () => {
     setLoading(true);
     try {
       const response: any = await usersApi.updateProfile(formData);
-      setUser(response.data);
+      // Fetch fresh profile to get all fields including student data
+      const profileResponse: any = await usersApi.getProfile();
+      setUser(profileResponse.data);
       toast.success("Cập nhật thông tin thành công!");
       setIsEditing(false);
     } catch (error: any) {
@@ -264,36 +281,39 @@ const Profile: React.FC = () => {
             </p>
           </div>
 
-          <div>
-            <label
-              htmlFor="profile-program"
-              className="block text-sm font-medium text-gray-700 mb-2"
-            >
-              Chương trình đào tạo
-            </label>
-            {isEditing ? (
-              <select
-                id="profile-program"
-                name="program"
-                value={formData.program}
-                onChange={handleInputChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          {/* Only show program field for students */}
+          {user?.role?.includes('student') && (
+            <div>
+              <label
+                htmlFor="profile-program"
+                className="block text-sm font-medium text-gray-700 mb-2"
               >
-                <option value="" disabled>
-                  Chọn chương trình
-                </option>
-                {TRAINING_PROGRAMS.map((program) => (
-                  <option key={program} value={program}>
-                    {program}
+                Chương trình đào tạo
+              </label>
+              {isEditing ? (
+                <select
+                  id="profile-program"
+                  name="program"
+                  value={formData.program}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="" disabled>
+                    Chọn chương trình
                   </option>
-                ))}
-              </select>
-            ) : (
-              <p className="text-gray-900 font-medium">
-                {formData.program || "-"}
-              </p>
-            )}
-          </div>
+                  {TRAINING_PROGRAMS.map((program) => (
+                    <option key={program} value={program}>
+                      {program}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-gray-900 font-medium">
+                  {formData.program || "-"}
+                </p>
+              )}
+            </div>
+          )}
 
           <div>
             <label htmlFor="profile-faculty" className="block text-sm font-medium text-gray-700 mb-2">
@@ -330,34 +350,37 @@ const Profile: React.FC = () => {
             )}
           </div>
 
-          <div>
-            <label htmlFor="profile-major" className="block text-sm font-medium text-gray-700 mb-2">
-              Ngành
-            </label>
-            {isEditing ? (
-              <select
-                id="profile-major"
-                name="major"
-                value={formData.major}
-                onChange={handleInputChange}
-                disabled={!formData.faculty}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
-              >
-                <option value="" disabled>
-                  {formData.faculty
-                    ? "Chọn ngành"
-                    : "Chọn khoa trước để xem ngành"}
-                </option>
-                {availableMajors.map((major: string) => (
-                  <option key={major} value={major}>
-                    {major}
+          {/* Only show major field for students */}
+          {user?.role?.includes('student') && (
+            <div>
+              <label htmlFor="profile-major" className="block text-sm font-medium text-gray-700 mb-2">
+                Ngành
+              </label>
+              {isEditing ? (
+                <select
+                  id="profile-major"
+                  name="major"
+                  value={formData.major}
+                  onChange={handleInputChange}
+                  disabled={!formData.faculty}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:text-gray-500"
+                >
+                  <option value="" disabled>
+                    {formData.faculty
+                      ? "Chọn ngành"
+                      : "Chọn khoa trước để xem ngành"}
                   </option>
-                ))}
-              </select>
-            ) : (
-              <p className="text-gray-900 font-medium">{formData.major || "-"}</p>
-            )}
-          </div>
+                  {availableMajors.map((major: string) => (
+                    <option key={major} value={major}>
+                      {major}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-gray-900 font-medium">{formData.major || "-"}</p>
+              )}
+            </div>
+          )}
 
           <div>
             <label htmlFor="profile-phone" className="block text-sm font-medium text-gray-700 mb-2">
@@ -392,6 +415,25 @@ const Profile: React.FC = () => {
                 </span>
               ) */}
             </div>
+          </div>
+
+          <div className="md:col-span-2">
+            <label htmlFor="profile-bio" className="block text-sm font-medium text-gray-700 mb-2">
+              Giới thiệu bản thân
+            </label>
+            {isEditing ? (
+              <textarea
+                id="profile-bio"
+                name="bio"
+                value={formData.bio}
+                onChange={handleInputChange}
+                rows={4}
+                placeholder="Viết vài dòng giới thiệu về bản thân, sở thích, kỹ năng..."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              />
+            ) : (
+              <p className="text-gray-900 whitespace-pre-wrap">{user?.bio || "Chưa có thông tin giới thiệu"}</p>
+            )}
           </div>
         </div>
 

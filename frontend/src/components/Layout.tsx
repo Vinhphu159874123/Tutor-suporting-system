@@ -27,10 +27,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
 
   // Determine active mode (use currentMode if available, fallback to user.role)
-  const activeMode = currentMode || (user?.role && user.role[0]) || 'student';
+  const userRoles = user ? (Array.isArray(user.role) ? user.role : [user.role]) : ['student'];
+  const activeMode = currentMode || userRoles[0] || 'student';
 
   // Check if user has multiple roles
-  const hasMultipleRoles = user?.role && user.role.length > 1;
+  const hasMultipleRoles = userRoles.length > 1;
 
   // Fetch unread notifications count
   useEffect(() => {
@@ -76,7 +77,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: "Tìm kiếm khóa học", href: "/browse-courses", icon: <BookOpen size={20} /> },
     { name: "Môn học của tôi", href: "/my-courses", icon: <BookOpen size={20} /> },
     { name: "Đăng ký lịch học", href: "/student/scheduling", icon: <Calendar size={20} /> },
-    { name: "Tutors", href: "/tutors", icon: <GraduationCap size={20} /> },
     { name: "Notifications", href: "/notifications", icon: <Bell size={20} /> },
     { name: "Settings", href: "/settings", icon: <SettingsIcon size={20} /> },
     { name: "Forum", href: "/forum", icon: <MessageSquare size={20} /> },
@@ -87,7 +87,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: "Dashboard", href: "/dashboard", icon: <LayoutDashboard size={20} /> },
     { name: "Môn học tôi dạy", href: "/my-courses", icon: <BookOpen size={20} /> },
     { name: "Thống kê nguyện vọng", href: "/tutor/statistics", icon: <BarChart3 size={20} /> },
-    { name: "Yêu cầu đặt lịch", href: "/tutors/requests", icon: <Calendar size={20} /> },
     { name: "Notifications", href: "/notifications", icon: <Bell size={20} /> },
     { name: "Settings", href: "/settings", icon: <SettingsIcon size={20} /> },
     { name: "Forum", href: "/forum", icon: <MessageSquare size={20} /> },
@@ -109,11 +108,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     <div className="min-h-screen bg-gray-50">
       {/* Sidebar */}
       <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg">
-        <div className="flex h-16 items-center justify-center border-b border-gray-200">
+        <Link to="/dashboard" className="flex h-16 items-center justify-center border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
           <h1 className="text-xl font-bold text-blue-600">
             HCMUT Tutor System
           </h1>
-        </div>
+        </Link>
 
         <nav className="mt-8">
           <div className="space-y-1">
@@ -173,7 +172,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                   </button>
 
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-                    {user?.role?.map((role) => (
+                    {userRoles.map((role) => (
                       <button
                         key={role}
                         onClick={() => switchMode(role)}

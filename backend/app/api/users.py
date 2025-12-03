@@ -14,6 +14,7 @@ router = APIRouter()
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
     phone: Optional[str] = None
+    bio: Optional[str] = None
     avatar_url: Optional[str] = None
     program: Optional[str] = None
     faculty: Optional[str] = None
@@ -23,8 +24,9 @@ class UserResponse(BaseModel):
     user_id: int
     email: str
     full_name: str
-    role: str  # Changed from UserRole enum to str
+    role: List[str]  # Array of roles
     phone: Optional[str]
+    bio: Optional[str] = None
     avatar_url: Optional[str]
     is_active: bool
     is_verified: bool
@@ -48,6 +50,7 @@ async def get_user_profile(
         "full_name": current_user.full_name,
         "role": current_user.role,
         "phone": current_user.phone,
+        "bio": current_user.bio,
         "avatar_url": current_user.avatar_url,
         "is_active": current_user.is_active,
         "is_verified": current_user.is_verified,
@@ -57,8 +60,9 @@ async def get_user_profile(
         "major": None
     }
     
-    # Get student-specific fields if user is a student
+    # Get role-specific fields
     user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    
     if 'student' in user_roles:
         result = await db.execute(select(Student).where(Student.user_id == current_user.user_id))
         student = result.scalar_one_or_none()
@@ -68,6 +72,13 @@ async def get_user_profile(
             # Get program from preferences
             if student.preferences and 'program' in student.preferences:
                 response_data["program"] = student.preferences['program']
+    
+    elif 'tutor' in user_roles:
+        result = await db.execute(select(Tutor).where(Tutor.user_id == current_user.user_id))
+        tutor = result.scalar_one_or_none()
+        if tutor:
+            response_data["faculty"] = tutor.faculty
+            # Tutor doesn't have major/program, but has faculty
     
     return response_data
 
@@ -84,14 +95,18 @@ async def update_user_profile(
         current_user.full_name = user_update.full_name
     if user_update.phone is not None:
         current_user.phone = user_update.phone
+    if user_update.bio is not None:
+        current_user.bio = user_update.bio
     if user_update.avatar_url is not None:
         current_user.avatar_url = user_update.avatar_url
     
     current_user.updated_at = datetime.utcnow()
     
-    # Update student profile if user is a student and student-specific fields are provided
+    # Update role-specific profile fields
     student = None
+    tutor = None
     user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    
     if 'student' in user_roles and (user_update.program or user_update.faculty or user_update.major):
         result = await db.execute(select(Student).where(Student.user_id == current_user.user_id))
         student = result.scalar_one_or_none()
@@ -107,6 +122,14 @@ async def update_user_profile(
                 preferences['program'] = user_update.program
                 student.preferences = preferences
     
+    elif 'tutor' in user_roles and user_update.faculty:
+        result = await db.execute(select(Tutor).where(Tutor.user_id == current_user.user_id))
+        tutor = result.scalar_one_or_none()
+        
+        if tutor:
+            if user_update.faculty is not None:
+                tutor.faculty = user_update.faculty
+    
     await db.commit()
     await db.refresh(current_user)
     
@@ -117,6 +140,7 @@ async def update_user_profile(
         "full_name": current_user.full_name,
         "role": current_user.role,
         "phone": current_user.phone,
+        "bio": current_user.bio,
         "avatar_url": current_user.avatar_url,
         "is_active": current_user.is_active,
         "is_verified": current_user.is_verified,
@@ -126,7 +150,7 @@ async def update_user_profile(
         "major": None
     }
     
-    # Add student-specific fields if user is a student
+    # Add role-specific fields
     if 'student' in user_roles:
         if not student:
             result = await db.execute(select(Student).where(Student.user_id == current_user.user_id))
@@ -137,6 +161,14 @@ async def update_user_profile(
             response_data["major"] = student.major
             if student.preferences and 'program' in student.preferences:
                 response_data["program"] = student.preferences['program']
+    
+    elif 'tutor' in user_roles:
+        if not tutor:
+            result = await db.execute(select(Tutor).where(Tutor.user_id == current_user.user_id))
+            tutor = result.scalar_one_or_none()
+        
+        if tutor:
+            response_data["faculty"] = tutor.faculty
     
     return response_data
 
@@ -275,8 +307,6 @@ async def get_user_dashboard_stats(
                 from datetime import date
                 today = date.today()
                 
-                print(f"DEBUG: student_id={student.student_id}, user_id={student.user_id}, today={today}")
-                
                 # Total sessions from enrolled courses
                 total_result = await db.execute(
                     select(func.count(SessionParticipant.participant_id))
@@ -288,7 +318,6 @@ async def get_user_dashboard_stats(
                     )
                 )
                 stats["total_sessions"] = total_result.scalar() or 0
-                print(f"DEBUG: After total query - {stats['total_sessions']}")
                 
                 # Completed sessions = sessions with attendance records
                 completed_result = await db.execute(
@@ -296,10 +325,8 @@ async def get_user_dashboard_stats(
                     .where(Attendance.student_id == student.student_id)
                 )
                 stats["completed_sessions"] = completed_result.scalar() or 0
-                print(f"DEBUG: After completed query - {stats['completed_sessions']}")
                 
                 # Upcoming sessions = sessions from today onwards
-                print(f"DEBUG: About to query upcoming with user_id={student.user_id}, today={today}")
                 upcoming_result = await db.execute(
                     select(func.count(SessionParticipant.participant_id))
                     .select_from(SessionParticipant)
