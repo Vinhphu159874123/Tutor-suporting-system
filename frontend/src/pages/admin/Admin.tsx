@@ -105,6 +105,7 @@ const Admin: React.FC = () => {
       // Prepare data for registration
       const userData = {
         ...newUser,
+        role: [newUser.role], // Convert to array
         year: newUser.year ? parseInt(newUser.year) : undefined,
         student_code: newUser.student_code || undefined
       };
