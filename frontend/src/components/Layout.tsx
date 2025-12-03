@@ -13,7 +13,8 @@ import {
   MessageSquare, 
   BarChart3, 
   Shield,
-  Users
+  Users,
+  RefreshCw
 } from "lucide-react";
 
 interface LayoutProps {
@@ -21,9 +22,15 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { user, logout } = useAuthStore();
+  const { user, logout, currentMode, switchMode } = useAuthStore();
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // Determine active mode (use currentMode if available, fallback to user.role)
+  const activeMode = currentMode || (user?.role && user.role[0]) || 'student';
+
+  // Check if user has multiple roles
+  const hasMultipleRoles = user?.role && user.role.length > 1;
 
   // Fetch unread notifications count
   useEffect(() => {
@@ -81,20 +88,21 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: "Môn học tôi dạy", href: "/my-courses", icon: <BookOpen size={20} /> },
     { name: "Thống kê nguyện vọng", href: "/tutor/statistics", icon: <BarChart3 size={20} /> },
     { name: "Yêu cầu đặt lịch", href: "/tutors/requests", icon: <Calendar size={20} /> },
-    { name: "Scheduling", href: "/scheduling", icon: <Clock size={20} /> },
     { name: "Notifications", href: "/notifications", icon: <Bell size={20} /> },
     { name: "Settings", href: "/settings", icon: <SettingsIcon size={20} /> },
     { name: "Forum", href: "/forum", icon: <MessageSquare size={20} /> },
   ];
 
-  // Select navigation based on role
+  // Select navigation based on active mode
   let navigation = defaultNavigation;
-  if (user?.role === 'coordinator') {
+  if (activeMode === 'coordinator') {
     navigation = coordinatorNavigation;
-  } else if (user?.role === 'admin') {
+  } else if (activeMode === 'admin') {
     navigation = adminNavigation;
-  } else if (user?.role === 'tutor') {
+  } else if (activeMode === 'tutor') {
     navigation = tutorNavigation;
+  } else {
+    navigation = defaultNavigation; // student mode
   }
 
   return (
@@ -155,6 +163,35 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <div className="text-sm text-gray-600">
                 Xin chào, {user?.full_name}
               </div>
+
+              {/* Role Switcher */}
+              {hasMultipleRoles && (
+                <div className="relative group">
+                  <button className="flex items-center space-x-2 px-3 py-2 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors">
+                    <RefreshCw className="w-4 h-4" />
+                    <span className="font-medium capitalize">{activeMode}</span>
+                  </button>
+
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                    {user?.role?.map((role) => (
+                      <button
+                        key={role}
+                        onClick={() => switchMode(role)}
+                        className={`block w-full text-left px-4 py-2 text-sm transition-colors ${
+                          activeMode === role
+                            ? 'bg-blue-50 text-blue-700 font-medium'
+                            : 'text-gray-700 hover:bg-gray-100'
+                        }`}
+                      >
+                        <span className="capitalize">{role}</span>
+                        {activeMode === role && (
+                          <span className="ml-2 text-xs">✓</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="relative group">
                 <button className="flex items-center text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500">

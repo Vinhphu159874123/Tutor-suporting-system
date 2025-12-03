@@ -88,11 +88,12 @@ class TutorSubjectRegistrationListener(BaseListener):
             logger.info(f"New subject registration: {full_name} for {subject_code} - {subject_name}")
             
             from app.models.database import User, Notifications
+            from sqlalchemy import any_
             
             async with AsyncSessionLocal() as db:
                 # Find all coordinators
                 result = await db.execute(
-                    select(User).where(User.role == 'coordinator')
+                    select(User).where('coordinator' == any_(User.role))
                 )
                 coordinators = result.scalars().all()
                 

@@ -7,10 +7,12 @@ from datetime import datetime, timedelta
 from jose import jwt
 import bcrypt
 from typing import Optional
+from sqlalchemy import select
 
 from app.repositories.user_repository import UserRepository
 from app.schemas.auth import UserCreate, UserResponse, Token
 from app.core.config import settings
+from app.models.database import Student
 
 class AuthService:
     """Handle authentication business logic"""
@@ -110,7 +112,7 @@ class AuthService:
         return Token(access_token=access_token, token_type="bearer")
     
     async def login_with_sso(self, sso_user: dict) -> Token:
-        """Login or create user from HCMUT SSO data"""
+        """Login or create user from HCMUT SSO data, auto-create Student profile"""
         # Check if user exists
         user = await self.user_repo.get_by_email(sso_user["email"])
         
@@ -119,7 +121,7 @@ class AuthService:
             user_data = {
                 "email": sso_user["email"],
                 "full_name": sso_user["full_name"],
-                "role": "student",  # Default role
+                "role": ["student"],  # Default role as array
                 "faculty": sso_user.get("faculty"),
                 "major": sso_user.get("major"),
                 "sso_id": sso_user["id"],
@@ -127,6 +129,42 @@ class AuthService:
                 "is_active": True
             }
             user = await self.user_repo.create(user_data)
+            
+            # Auto-create Student profile for SSO users
+            from app.core.database import AsyncSessionLocal
+            async with AsyncSessionLocal() as db:
+                new_student = Student(
+                    user_id=user.user_id,
+                    student_code=f'SV{user.user_id:06d}',
+                    faculty=sso_user.get("faculty") or 'Computer Science',
+                    major=sso_user.get("major") or 'Computer Science',
+                    year=1
+                )
+                db.add(new_student)
+                await db.commit()
+                print(f"✅ Auto-created student profile for SSO user {user.email}")
+        else:
+            # Check if existing user has student profile
+            if 'student' in user.role:  # Check if student in role array
+                from app.core.database import AsyncSessionLocal
+                async with AsyncSessionLocal() as db:
+                    result = await db.execute(
+                        select(Student).where(Student.user_id == user.user_id)
+                    )
+                    existing_student = result.scalar_one_or_none()
+                    
+                    if not existing_student:
+                        # Create missing student profile
+                        new_student = Student(
+                            user_id=user.user_id,
+                            student_code=f'SV{user.user_id:06d}',
+                            faculty=sso_user.get("faculty") or 'Computer Science',
+                            major=sso_user.get("major") or 'Computer Science',
+                            year=1
+                        )
+                        db.add(new_student)
+                        await db.commit()
+                        print(f"✅ Created missing student profile for existing user {user.email}")
         
         # Update last login
         await self.user_repo.update(user.user_id, {"updated_at": datetime.utcnow()})
@@ -143,7 +181,7 @@ class AuthService:
         return Token(access_token=access_token, token_type="bearer")
     
     async def register(self, user_data: UserCreate) -> UserResponse:
-        """Register new user"""
+        """Register new user and auto-create Student profile if role is student"""
         # Check if user already exists
         if await self.user_repo.exists_by_email(user_data.email):
             raise HTTPException(
@@ -157,6 +195,9 @@ class AuthService:
         # Remove fields that belong to Student/Tutor tables, not User table
         faculty = user_dict.pop('faculty', None)
         major = user_dict.pop('major', None)
+        student_code = user_dict.pop('student_code', None)
+        year = user_dict.pop('year', None)
+        role = user_dict.get('role', 'student')
         
         # Hash the password
         password = user_dict.pop('password')
@@ -167,8 +208,42 @@ class AuthService:
         
         user = await self.user_repo.create(user_dict)
         
-        # TODO: Create Student or Tutor record with faculty/major based on role
-        # This should be implemented when we have Student/Tutor repositories
+        # Auto-create Student profile for student role
+        if 'student' in (role if isinstance(role, list) else [role]):  # Support both array and string
+            from app.core.database import AsyncSessionLocal
+            async with AsyncSessionLocal() as db:
+                # Check if student profile already exists
+                result = await db.execute(
+                    select(Student).where(Student.user_id == user.user_id)
+                )
+                existing_student = result.scalar_one_or_none()
+                
+                if not existing_student:
+                    # Validate student_code uniqueness if provided
+                    final_student_code = student_code or f'SV{user.user_id:06d}'
+                    
+                    if student_code:
+                        # Check if student_code already exists
+                        code_check = await db.execute(
+                            select(Student).where(Student.student_code == student_code)
+                        )
+                        if code_check.scalar_one_or_none():
+                            raise HTTPException(
+                                status_code=status.HTTP_400_BAD_REQUEST,
+                                detail=f"Mã số sinh viên {student_code} đã tồn tại!"
+                            )
+                    
+                    # Create student profile with user-provided or auto-generated data
+                    new_student = Student(
+                        user_id=user.user_id,
+                        student_code=final_student_code,
+                        faculty=faculty or 'Computer Science',
+                        major=major or 'Computer Science',
+                        year=int(year) if year else 1
+                    )
+                    db.add(new_student)
+                    await db.commit()
+                    print(f"✅ Auto-created student profile for user {user.email} with code {new_student.student_code}")
         
         return UserResponse.model_validate(user)
     

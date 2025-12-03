@@ -2,10 +2,10 @@
 Courses API
 Integration with HCMUT DataCore for course information
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import httpx
 
 from app.core.dependencies import get_current_user
@@ -22,18 +22,39 @@ DATACORE_URL = os.getenv("HCMUT_DATACORE_URL", "http://localhost:3002")
 
 @router.get("/my-courses")
 async def get_my_courses(
+    mode: Optional[str] = None,  # Add mode parameter
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> List[Dict[str, Any]]:
     """
     Get courses for current user from database
     Returns subjects the user is enrolled in (student) or teaching (tutor)
+    
+    Args:
+        mode: Optional role to get courses for ('student' or 'tutor').
+              If not provided, uses current_user.role.
     """
+    
+    # Determine which role to fetch courses for
+    active_role = mode or current_user.role
+    
+    # Validate user has the requested role
+    if mode:
+        if mode == 'student' and not current_user.student_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a student"
+            )
+        if mode == 'tutor' and not current_user.tutor_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a tutor"
+            )
     
     courses = []
     
     try:
-        if current_user.role == 'student':
+        if active_role == 'student':
             # Get distinct subjects from sessions student is enrolled in
             # No need to check Student table - enrollment creates SessionParticipant directly
             from app.models.database import Session, SessionParticipant
@@ -67,7 +88,7 @@ async def get_my_courses(
                 for subject, tutor_id, session_count in results
             ]
         
-        elif current_user.role == 'tutor':
+        elif active_role == 'tutor':
             # Get tutor record
             from app.models.database import Tutor, Session, TutorRegistration
             

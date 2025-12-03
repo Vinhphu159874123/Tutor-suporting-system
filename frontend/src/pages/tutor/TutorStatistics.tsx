@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart, Users, Clock, Calendar, TrendingUp, MapPin, BookOpen, Eye } from 'lucide-react';
+import { BarChart, Users, Clock, Calendar, TrendingUp, MapPin, BookOpen, Eye, Monitor, Building2, RefreshCw } from 'lucide-react';
 import api from '../../services/api';
 import { toast } from 'react-toastify';
+import { useAuthStore } from '../../stores/authStore';
 
 interface TimeSlotStat {
   time_slot: string;
@@ -21,6 +22,7 @@ interface PreferenceStatistics {
   average_sessions: number;
   earliest_start_date: string | null;
   latest_start_date: string | null;
+  existing_sessions_count?: number;
 }
 
 interface PreferenceDetail {
@@ -41,21 +43,50 @@ interface PreferenceDetail {
 }
 
 const TutorStatistics: React.FC = () => {
+  const { user, currentMode } = useAuthStore();
   const [statistics, setStatistics] = useState<PreferenceStatistics[]>([]);
   const [loading, setLoading] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<PreferenceStatistics | null>(null);
   const [subjectDetails, setSubjectDetails] = useState<PreferenceDetail[]>([]);
+  
+  // Determine active mode
+  const activeMode = currentMode || (user?.role && user.role[0]) || 'tutor';
 
   useEffect(() => {
     loadStatistics();
-  }, []);
+  }, [activeMode]);
 
   const loadStatistics = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/schedule-preferences/statistics');
-      setStatistics(response.data);
+      const response = await api.get('/schedule-preferences/statistics', {
+        params: { mode: activeMode }
+      });
+      const stats = response.data;
+      
+      // Fetch existing sessions count for each subject
+      const statsWithSessions = await Promise.all(
+        stats.map(async (stat: PreferenceStatistics) => {
+          try {
+            const sessionsResponse = await api.get('/sessions', {
+              params: { subject_id: stat.subject_id }
+            });
+            return {
+              ...stat,
+              existing_sessions_count: sessionsResponse.data?.length || 0
+            };
+          } catch (error) {
+            console.error(`Error fetching sessions for subject ${stat.subject_id}:`, error);
+            return {
+              ...stat,
+              existing_sessions_count: 0
+            };
+          }
+        })
+      );
+      
+      setStatistics(statsWithSessions);
     } catch (error: any) {
       console.error('Error loading statistics:', error);
       toast.error('Không thể tải thống kê');
@@ -66,7 +97,9 @@ const TutorStatistics: React.FC = () => {
 
   const loadSubjectDetails = async (subjectId: number) => {
     try {
-      const response = await api.get(`/schedule-preferences/statistics/${subjectId}/details`);
+      const response = await api.get(`/schedule-preferences/statistics/${subjectId}/details`, {
+        params: { mode: activeMode }
+      });
       setSubjectDetails(response.data.preferences);
       setShowDetails(true);
     } catch (error: any) {
@@ -82,10 +115,19 @@ const TutorStatistics: React.FC = () => {
 
   const getFormatLabel = (format: string) => {
     switch (format) {
-      case 'online': return 'Online 💻';
-      case 'offline': return 'Offline 🏫';
-      case 'both': return 'Cả hai 🔄';
+      case 'online': return 'Online';
+      case 'offline': return 'Offline';
+      case 'both': return 'Cả hai';
       default: return format;
+    }
+  };
+
+  const getFormatIcon = (format: string) => {
+    switch (format) {
+      case 'online': return <Monitor className="w-4 h-4" />;
+      case 'offline': return <Building2 className="w-4 h-4" />;
+      case 'both': return <RefreshCw className="w-4 h-4" />;
+      default: return null;
     }
   };
 
@@ -145,7 +187,17 @@ const TutorStatistics: React.FC = () => {
                 </div>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                  {/* Existing Sessions Count */}
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg">
+                    <div className="flex items-center mb-2">
+                      <BookOpen className="text-blue-600 mr-2" size={20} />
+                      <span className="text-sm font-medium text-blue-900">Courses đã có</span>
+                    </div>
+                    <p className="text-2xl font-bold text-blue-900">{stat.existing_sessions_count || 0}</p>
+                    <p className="text-xs text-blue-700 mt-1">sessions đang mở</p>
+                  </div>
+
                   {/* Average Duration */}
                   <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg">
                     <div className="flex items-center mb-2">
@@ -187,7 +239,10 @@ const TutorStatistics: React.FC = () => {
                   <div className="grid grid-cols-3 gap-3">
                     {Object.entries(stat.format_distribution).map(([format, count]) => (
                       <div key={format} className="bg-gray-50 p-3 rounded-lg text-center">
-                        <p className="text-sm text-gray-600">{getFormatLabel(format)}</p>
+                        <div className="flex items-center justify-center gap-1 text-sm text-gray-600 mb-1">
+                          {getFormatIcon(format)}
+                          <span>{getFormatLabel(format)}</span>
+                        </div>
                         <p className="text-2xl font-bold text-gray-900">{count}</p>
                         <p className="text-xs text-gray-500">
                           {Math.round((count / stat.total_requests) * 100)}%
@@ -311,7 +366,10 @@ const TutorStatistics: React.FC = () => {
                       </div>
                       <div className="text-sm">
                         <p className="text-gray-500">Hình thức</p>
-                        <p className="font-medium text-gray-900">{getFormatLabel(detail.session_format)}</p>
+                        <p className="flex items-center gap-1 font-medium text-gray-900">
+                          {getFormatIcon(detail.session_format)}
+                          {getFormatLabel(detail.session_format)}
+                        </p>
                       </div>
                     </div>
 

@@ -49,15 +49,6 @@ const sessionGroups: SessionGroup[] = [
         href: "/sessions/demo",
         icon: FileText,
       },
-      {
-        key: "scheduling",
-        title: "Quản lý lịch học",
-        description:
-          "Đề xuất thời gian mới, xác nhận lịch và nhận thông báo khi có thay đổi từ gia sư.",
-        actionText: "Quản lý lịch học",
-        href: "/scheduling",
-        icon: CalendarClock,
-      },
     ],
   },
   {
@@ -111,7 +102,7 @@ const sessionGroups: SessionGroup[] = [
 
 const Sessions: React.FC = () => {
   const { user } = useAuthStore();
-  const role = user?.role || "";
+  const role = (user?.role && user.role[0]) || "";  // Get first role from array
 
   return (
     <div className="space-y-10">

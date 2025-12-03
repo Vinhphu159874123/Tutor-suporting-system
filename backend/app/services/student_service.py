@@ -111,7 +111,8 @@ class StudentService:
             )
         
         # Validate user role (optional - should be student)
-        if user.role not in ['student', 'admin']:
+        user_roles = user.role if isinstance(user.role, list) else [user.role]
+        if 'student' not in user_roles and 'admin' not in user_roles:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="User must have student role"

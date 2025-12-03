@@ -189,6 +189,7 @@ async def get_student_progress(
 async def get_course_study_progress(
     subject_id: int,
     tutor_id: Optional[int] = Query(None, description="Filter by tutor (for students with multiple tutors)"),
+    mode: Optional[str] = Query(None, description="Force mode: student or tutor"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
@@ -200,6 +201,10 @@ async def get_course_study_progress(
     from app.models.database import Tutor, SessionParticipant, Attendance
     from datetime import timezone, timedelta
     
+    # Determine effective mode
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    effective_mode = mode or ('tutor' if 'tutor' in user_roles else user_roles[0])
+    
     # Verify subject exists
     subject_result = await db.execute(
         select(Subject).where(Subject.subject_id == subject_id)
@@ -208,7 +213,7 @@ async def get_course_study_progress(
     if not subject:
         raise HTTPException(status_code=404, detail="Subject not found")
     
-    if current_user.role == 'tutor':
+    if effective_mode == 'tutor' and 'tutor' in user_roles:
         # Get tutor record
         tutor_result = await db.execute(
             select(Tutor).where(Tutor.user_id == current_user.user_id)
@@ -306,7 +311,7 @@ async def get_course_study_progress(
             "students": students_data
         }
         
-    elif current_user.role == 'student':
+    elif effective_mode == 'student' and 'student' in user_roles:
         # Get student record
         student_result = await db.execute(
             select(Student).where(Student.user_id == current_user.user_id)

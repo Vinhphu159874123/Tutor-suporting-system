@@ -14,6 +14,8 @@ const Register: React.FC = () => {
     faculty: "",
     major: "",
     phone: "",
+    student_code: "",
+    year: "",
   });
   const [loading, setLoading] = useState(false);
 
@@ -152,20 +154,59 @@ const Register: React.FC = () => {
             </div>
           </div>
 
+          {/* Student Code & Year (for students only) */}
+          {formData.role === "student" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Mã số sinh viên <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="student_code"
+                  value={formData.student_code}
+                  onChange={handleChange}
+                  placeholder="2152001"
+                  required={formData.role === "student"}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Năm học <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="year"
+                  value={formData.year}
+                  onChange={handleChange}
+                  required={formData.role === "student"}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Chọn năm học</option>
+                  <option value="1">Năm 1</option>
+                  <option value="2">Năm 2</option>
+                  <option value="3">Năm 3</option>
+                  <option value="4">Năm 4</option>
+                  <option value="5">Năm 5</option>
+                </select>
+              </div>
+            </div>
+          )}
+
           {/* Phone */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Số điện thoại
             </label>
-            <input
-              type="tel"
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              placeholder="0912345678"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                placeholder="0912345678"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
 
           {/* Password */}
           <div>
@@ -182,6 +223,7 @@ const Register: React.FC = () => {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
+
 
           {/* Confirm Password */}
           <div>

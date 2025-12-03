@@ -498,7 +498,7 @@ async def generate_sessions_for_course(
         )
     
     schedule_result = await db.execute(schedule_query)
-    schedule = schedule_result.scalar_one_or_none()
+    schedule = schedule_result.scalars().first()  # Get first active schedule instead of expecting only one
     
     if not schedule:
         raise HTTPException(

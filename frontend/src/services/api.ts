@@ -30,9 +30,14 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Clear auth storage on 401
-      localStorage.removeItem("auth-storage");
-      window.location.href = "/login";
+      // Only redirect if NOT on login page (to avoid reload loop)
+      const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/';
+      
+      if (!isLoginPage) {
+        // Clear auth storage on 401
+        localStorage.removeItem("auth-storage");
+        window.location.href = "/login";
+      }
     }
     return Promise.reject(error);
   }
@@ -173,7 +178,7 @@ export const usersApi = {
     return apiClient.delete(`/users/${userId}`);
   },
 
-  getDashboardStats: () => {
+  getDashboardStats: (mode?: string) => {
     if (MOCK_MODE) {
       return mockResponse({
         total_sessions: 24,
@@ -182,7 +187,8 @@ export const usersApi = {
         average_rating: 4.8
       });
     }
-    return apiClient.get("/users/stats/dashboard");
+    const params = mode ? { mode } : {};
+    return apiClient.get("/users/stats/dashboard", { params });
   },
 
   getCoordinatorStats: () => {
@@ -360,6 +366,28 @@ export const studentsApi = {
 
 // Sessions API
 export const sessionsApi = {
+  getMySessions: (params?: any) => {
+    if (MOCK_MODE) {
+      return mockResponse([
+        {
+          session_id: 1,
+          subject: "Math",
+          date: "2025-11-20",
+          status: "scheduled",
+          tutor_name: "Tutor 1",
+        },
+        {
+          session_id: 2,
+          subject: "Physics",
+          date: "2025-11-21",
+          status: "completed",
+          tutor_name: "Tutor 2",
+        },
+      ]);
+    }
+    return apiClient.get("/sessions/my-sessions", { params });
+  },
+
   getSessions: (params?: any) => {
     if (MOCK_MODE) {
       return mockResponse([
@@ -446,6 +474,29 @@ export const sessionsApi = {
     });
   },
 
+  getSessionMaterials: (sessionId: number) => {
+    if (MOCK_MODE) {
+      return mockResponse([]);
+    }
+    return apiClient.get(`/sessions/${sessionId}/materials`);
+  },
+
+  downloadMaterial: (materialId: number) => {
+    if (MOCK_MODE) {
+      return mockResponse({ message: "Download initiated" });
+    }
+    return apiClient.get(`/materials/${materialId}/download`, {
+      responseType: 'blob'
+    });
+  },
+
+  deleteMaterial: (materialId: number) => {
+    if (MOCK_MODE) {
+      return mockResponse({ message: "Material deleted" });
+    }
+    return apiClient.delete(`/materials/${materialId}`);
+  },
+
   bulkSaveForSubject: (subjectId: number, sessionsData: any[]) => {
     return apiClient.post(`/sessions/bulk-save-for-subject?subject_id=${subjectId}`, sessionsData);
   },
@@ -496,10 +547,6 @@ export const sessionsApi = {
 
   markAttendance: (sessionId: number, attendanceData: Array<{user_id: number, is_present: boolean, is_late: boolean, is_excused: boolean}>) => {
     return apiClient.post(`/sessions/${sessionId}/attendance`, attendanceData);
-  },
-
-  deleteMaterial: (sessionId: number, materialName: string) => {
-    return apiClient.delete(`/sessions/${sessionId}/materials/${materialName}`);
   },
 
   removeStudentFromSubject: (subjectId: number, studentId: number, tutorId: number) => {
@@ -685,6 +732,20 @@ export const adminApi = {
       `/admin/registrations/${registrationId}/approve`
     );
   },
+
+  deleteUser: (userId: number) => {
+    if (MOCK_MODE) {
+      return mockResponse({ message: "User deleted" });
+    }
+    return apiClient.delete(`/admin/users/${userId}`);
+  },
+
+  updateUser: (userId: number, data: any) => {
+    if (MOCK_MODE) {
+      return mockResponse({ message: "User updated" });
+    }
+    return apiClient.put(`/admin/users/${userId}`, data);
+  },
 };
 
 // Notifications API
@@ -774,7 +835,7 @@ export const forumApi = {
 
 // Courses API
 export const coursesApi = {
-  getMyCourses: () => {
+  getMyCourses: (mode?: string) => {
     if (MOCK_MODE) {
       return mockResponse([
         {
@@ -784,7 +845,8 @@ export const coursesApi = {
         }
       ]);
     }
-    return apiClient.get("/courses/my-courses");
+    const params = mode ? { mode } : {};
+    return apiClient.get("/courses/my-courses", { params });
   },
 
   getCourseInfo: (courseCode: string) => {

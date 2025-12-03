@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, CheckCircle, XCircle, Clock, AlertCircle, User } from 'lucide-react';
+import { ArrowLeft, TrendingUp, CheckCircle, XCircle, Clock, AlertCircle, User, Calendar } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../../services/api';
+import { useAuthStore } from '../../stores/authStore';
 
 interface AttendanceStats {
   present: number;
@@ -60,25 +61,26 @@ interface ProgressData {
 const CourseProgress: React.FC = () => {
   const { subjectId } = useParams<{ subjectId: string }>();
   const navigate = useNavigate();
+  const { user, currentMode } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [progressData, setProgressData] = useState<ProgressData | null>(null);
-  const [isTutor, setIsTutor] = useState(false);
+  
+  // Determine active mode
+  const activeMode = currentMode || (user?.role && user.role[0]) || 'student';
+  const isTutor = activeMode === 'tutor';
 
   useEffect(() => {
     fetchProgressData();
-  }, [subjectId]);
+  }, [subjectId, activeMode]);
 
   const fetchProgressData = async () => {
     try {
       setLoading(true);
-      
-      // Check user role
-      const userResponse = await api.get('/auth/me');
-      const userRole = userResponse.data.role;
-      setIsTutor(userRole === 'tutor');
 
-      // Fetch progress data
-      const response = await api.get(`/progress/courses/${subjectId}/study-progress`);
+      // Fetch progress data with mode parameter
+      const response = await api.get(`/progress/courses/${subjectId}/study-progress`, {
+        params: { mode: activeMode }
+      });
       setProgressData(response.data);
     } catch (error: any) {
       console.error('Error fetching progress:', error);
@@ -315,8 +317,9 @@ const CourseProgress: React.FC = () => {
                         <h3 className="font-bold text-gray-900 mb-2">{session.title}</h3>
                         <div className="space-y-1 text-sm text-gray-600">
                           {session.scheduled_date && (
-                            <p>
-                              📅 {new Date(session.scheduled_date).toLocaleDateString('vi-VN')}
+                            <p className="flex items-center gap-1">
+                              <Calendar className="w-4 h-4" />
+                              {new Date(session.scheduled_date).toLocaleDateString('vi-VN')}
                               {session.start_time && ` • ${session.start_time.substring(0, 5)}`}
                               {session.end_time && ` - ${session.end_time.substring(0, 5)}`}
                             </p>

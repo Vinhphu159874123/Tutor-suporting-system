@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, case
+from sqlalchemy import select, func, and_, case, distinct
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 from app.core.database import get_db
-from app.models.database import User, Session, SessionParticipant, SessionFeedback, Student, Tutor
+from app.models.database import User, Session, SessionParticipant, SessionFeedback, Student, Tutor, Attendance
 from app.api.auth import get_current_user
 
 router = APIRouter()
@@ -58,7 +58,8 @@ async def get_user_profile(
     }
     
     # Get student-specific fields if user is a student
-    if current_user.role == 'student':
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    if 'student' in user_roles:
         result = await db.execute(select(Student).where(Student.user_id == current_user.user_id))
         student = result.scalar_one_or_none()
         if student:
@@ -90,7 +91,8 @@ async def update_user_profile(
     
     # Update student profile if user is a student and student-specific fields are provided
     student = None
-    if current_user.role == 'student' and (user_update.program or user_update.faculty or user_update.major):
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    if 'student' in user_roles and (user_update.program or user_update.faculty or user_update.major):
         result = await db.execute(select(Student).where(Student.user_id == current_user.user_id))
         student = result.scalar_one_or_none()
         
@@ -125,7 +127,7 @@ async def update_user_profile(
     }
     
     # Add student-specific fields if user is a student
-    if current_user.role == 'student':
+    if 'student' in user_roles:
         if not student:
             result = await db.execute(select(Student).where(Student.user_id == current_user.user_id))
             student = result.scalar_one_or_none()
@@ -145,11 +147,12 @@ async def get_users(
     role: Optional[str] = None,  # Changed from UserRole to str
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
-):
+):  
     """Get users list (admin only)"""
     
     # Check permissions
-    if current_user.role not in ['admin', 'coordinator']:  # Changed from enum to str
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    if 'admin' not in user_roles and 'coordinator' not in user_roles:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
@@ -175,7 +178,8 @@ async def get_user(
     """Get user by ID"""
     
     # Users can only view their own profile, or admins can view any profile
-    if current_user.user_id != user_id and current_user.role not in ['admin', 'coordinator']:  # Changed from enum to str
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    if current_user.user_id != user_id and 'admin' not in user_roles and 'coordinator' not in user_roles:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
@@ -197,10 +201,11 @@ async def delete_user(
     user_id: int,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
-):
+):  
     """Delete user (admin only)"""
     
-    if current_user.role != 'admin':  # Changed from enum to str
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    if 'admin' not in user_roles:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
@@ -223,10 +228,33 @@ async def delete_user(
 
 @router.get("/stats/dashboard")
 async def get_user_dashboard_stats(
+    mode: Optional[str] = None,  # Add mode parameter to allow switching
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
-    """Get dashboard statistics for current user - OPTIMIZED"""
+    """Get dashboard statistics for current user - OPTIMIZED
+    
+    Args:
+        mode: Optional role to get stats for ('student' or 'tutor'). 
+              If not provided, uses current_user.role.
+              User must have the requested role (student_id or tutor_id must exist).
+    """
+    
+    # Determine which role to fetch stats for
+    active_role = mode or current_user.role
+    
+    # Validate user has the requested role
+    if mode:
+        if mode == 'student' and not current_user.student_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a student"
+            )
+        if mode == 'tutor' and not current_user.tutor_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a tutor"
+            )
     
     stats = {
         "total_sessions": 0,
@@ -236,7 +264,7 @@ async def get_user_dashboard_stats(
     }
     
     try:
-        if current_user.role == 'student':
+        if active_role == 'student':
             # Get student record
             student_result = await db.execute(
                 select(Student).where(Student.user_id == current_user.user_id)
@@ -244,32 +272,51 @@ async def get_user_dashboard_stats(
             student = student_result.scalar_one_or_none()
             
             if student:
-                # Single query with CASE aggregation
-                result = await db.execute(
-                    select(
-                        func.count(SessionParticipant.participant_id).label('total'),
-                        func.sum(case((Session.status == 'completed', 1), else_=0)).label('completed'),
-                        func.sum(case((Session.status.in_(['confirmed', 'ongoing', 'published']), 1), else_=0)).label('upcoming')
-                    )
-                    .select_from(SessionParticipant)
-                    .outerjoin(Session, SessionParticipant.session_id == Session.session_id)
-                    .where(SessionParticipant.student_id == student.student_id)
-                )
-                row = result.first()
-                if row:
-                    stats["total_sessions"] = row.total or 0
-                    stats["completed_sessions"] = int(row.completed or 0)
-                    stats["upcoming_sessions"] = int(row.upcoming or 0)
+                from datetime import date
+                today = date.today()
                 
-                # Average rating (separate query)
-                rating_result = await db.execute(
-                    select(func.avg(SessionFeedback.rating))
-                    .where(SessionFeedback.student_id == student.student_id)
+                print(f"DEBUG: student_id={student.student_id}, user_id={student.user_id}, today={today}")
+                
+                # Total sessions from enrolled courses
+                total_result = await db.execute(
+                    select(func.count(SessionParticipant.participant_id))
+                    .where(
+                        and_(
+                            SessionParticipant.user_id == student.user_id,
+                            SessionParticipant.role == 'student'
+                        )
+                    )
                 )
-                avg_rating = rating_result.scalar()
-                stats["average_rating"] = round(float(avg_rating), 1) if avg_rating else 0.0
+                stats["total_sessions"] = total_result.scalar() or 0
+                print(f"DEBUG: After total query - {stats['total_sessions']}")
+                
+                # Completed sessions = sessions with attendance records
+                completed_result = await db.execute(
+                    select(func.count(distinct(Attendance.session_id)))
+                    .where(Attendance.student_id == student.student_id)
+                )
+                stats["completed_sessions"] = completed_result.scalar() or 0
+                print(f"DEBUG: After completed query - {stats['completed_sessions']}")
+                
+                # Upcoming sessions = sessions from today onwards
+                print(f"DEBUG: About to query upcoming with user_id={student.user_id}, today={today}")
+                upcoming_result = await db.execute(
+                    select(func.count(SessionParticipant.participant_id))
+                    .select_from(SessionParticipant)
+                    .join(Session, SessionParticipant.session_id == Session.session_id)
+                    .where(
+                        and_(
+                            SessionParticipant.user_id == student.user_id,
+                            SessionParticipant.role == 'student',
+                            Session.scheduled_date >= today
+                        )
+                    )
+                )
+                stats["upcoming_sessions"] = upcoming_result.scalar() or 0
+                
+                print(f"DEBUG: FINAL - total={stats['total_sessions']}, completed={stats['completed_sessions']}, upcoming={stats['upcoming_sessions']}")
         
-        elif current_user.role == 'tutor':
+        elif active_role == 'tutor':
             # Get tutor record
             tutor_result = await db.execute(
                 select(Tutor).where(Tutor.user_id == current_user.user_id)
@@ -315,7 +362,9 @@ async def get_coordinator_dashboard_stats(
 ) -> Dict[str, Any]:
     """Get coordinator dashboard statistics"""
     
-    if current_user.role not in ['coordinator', 'admin']:
+    # Check if user has coordinator or admin role (support array)
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    if 'coordinator' not in user_roles and 'admin' not in user_roles:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
@@ -323,9 +372,14 @@ async def get_coordinator_dashboard_stats(
     
     stats = {
         "total_sessions": 0,
+        "active_students": 0,
+        "total_tutors": 0,
         "pending_tutors": 0,
         "pending_sessions": 0,
-        "average_rating": 0.0
+        "completed_sessions": 0,
+        "average_rating": 0.0,
+        "total_hours": 0,
+        "attendance_rate": 0.0
     }
     
     try:
@@ -352,6 +406,38 @@ async def get_coordinator_dashboard_stats(
         rating_result = await db.execute(select(func.avg(SessionFeedback.rating)))
         avg_rating = rating_result.scalar()
         stats["average_rating"] = round(float(avg_rating), 1) if avg_rating else 0.0
+        
+        # Active students (distinct students with sessions)
+        active_students_result = await db.execute(
+            select(func.count(distinct(SessionParticipant.user_id)))
+            .where(SessionParticipant.role == 'student')
+        )
+        stats["active_students"] = active_students_result.scalar() or 0
+        
+        # Total tutors
+        total_tutors_result = await db.execute(select(func.count(Tutor.tutor_id)))
+        stats["total_tutors"] = total_tutors_result.scalar() or 0
+        
+        # Completed sessions
+        completed_result = await db.execute(
+            select(func.count(Session.session_id))
+            .where(Session.status == 'completed')
+        )
+        stats["completed_sessions"] = completed_result.scalar() or 0
+        
+        # Total hours (estimate 2h per session)
+        stats["total_hours"] = stats["total_sessions"] * 2
+        
+        # Attendance rate
+        total_attendance_result = await db.execute(
+            select(func.count(Attendance.attendance_id))
+        )
+        total_attendance = total_attendance_result.scalar() or 0
+        
+        # Expected attendance = completed sessions * average students per session
+        if stats["completed_sessions"] > 0 and stats["active_students"] > 0:
+            expected_attendance = stats["completed_sessions"] * (stats["active_students"] / max(stats["total_sessions"], 1))
+            stats["attendance_rate"] = round((total_attendance / max(expected_attendance, 1)) * 100, 1) if expected_attendance > 0 else 0.0
         
         return stats
         

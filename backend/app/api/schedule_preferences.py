@@ -78,13 +78,19 @@ class PreferenceStatistics(BaseModel):
 @router.post("/", response_model=SchedulePreferenceResponse)
 async def create_schedule_preference(
     preference_data: SchedulePreferenceCreate,
+    mode: Optional[str] = Query(None, description="Force mode: student or tutor"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Create a new schedule preference (Student only)
+    Support mode parameter for dual-role users
     """
-    if current_user.role != 'student':
+    # Check if user has student role or is in student mode
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    effective_mode = mode or ('student' if 'student' in user_roles else user_roles[0])
+    
+    if effective_mode != 'student' and 'student' not in user_roles:
         raise HTTPException(status_code=403, detail="Only students can create schedule preferences")
     
     # Get student profile
@@ -162,13 +168,19 @@ async def create_schedule_preference(
 @router.get("/my-preferences", response_model=List[SchedulePreferenceResponse])
 async def get_my_preferences(
     status: Optional[str] = Query(None, description="Filter by status: pending, fulfilled, cancelled, expired"),
+    mode: Optional[str] = Query(None, description="Force mode: student or tutor"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get all schedule preferences for current student
+    Support mode parameter for dual-role users
     """
-    if current_user.role != 'student':
+    # Check if user has student role or is in student mode
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    effective_mode = mode or ('student' if 'student' in user_roles else user_roles[0])
+    
+    if effective_mode != 'student' and 'student' not in user_roles:
         raise HTTPException(status_code=403, detail="Only students can view their preferences")
     
     # Get student profile
@@ -222,11 +234,12 @@ async def update_schedule_preference(
     update_data: SchedulePreferenceUpdate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
-):
+):  
     """
     Update a schedule preference (Student only, own preferences)
     """
-    if current_user.role != 'student':
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    if 'student' not in user_roles:
         raise HTTPException(status_code=403, detail="Only students can update preferences")
     
     # Get student profile
@@ -296,11 +309,12 @@ async def delete_schedule_preference(
     preference_id: int,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
-):
+):  
     """
     Delete a schedule preference (Student only, own preferences)
     """
-    if current_user.role != 'student':
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    if 'student' not in user_roles:
         raise HTTPException(status_code=403, detail="Only students can delete preferences")
     
     # Get student profile
@@ -334,13 +348,18 @@ async def delete_schedule_preference(
 async def get_preferences_statistics(
     subject_id: Optional[int] = Query(None, description="Filter by specific subject"),
     min_requests: int = Query(1, description="Minimum number of requests to include"),
+    mode: Optional[str] = Query(None, description="Force mode: student or tutor"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get statistics of schedule preferences for tutors to decide which courses to open
     """
-    if current_user.role != 'tutor':
+    # Check if user has tutor role or is in tutor mode
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    effective_mode = mode or ('tutor' if 'tutor' in user_roles else user_roles[0])
+    
+    if effective_mode != 'tutor' and 'tutor' not in user_roles:
         raise HTTPException(status_code=403, detail="Only tutors can view statistics")
     
     # Build base query
@@ -458,13 +477,18 @@ async def get_preferences_statistics(
 @router.get("/statistics/{subject_id}/details")
 async def get_subject_preference_details(
     subject_id: int,
+    mode: Optional[str] = Query(None, description="Force mode: student or tutor"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Get detailed list of all preferences for a specific subject (Tutor only)
     """
-    if current_user.role != 'tutor':
+    # Check if user has tutor role or is in tutor mode
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    effective_mode = mode or ('tutor' if 'tutor' in user_roles else user_roles[0])
+    
+    if effective_mode != 'tutor' and 'tutor' not in user_roles:
         raise HTTPException(status_code=403, detail="Only tutors can view preference details")
     
     # Get all pending preferences for this subject

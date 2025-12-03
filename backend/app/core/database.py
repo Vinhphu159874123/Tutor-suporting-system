@@ -2,6 +2,8 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import MetaData
 from app.core.config import settings
+import asyncpg
+from sqlalchemy.pool import NullPool
 
 # Create async engine with proper URL handling
 database_url = settings.DATABASE_URL
@@ -12,11 +14,17 @@ if database_url.startswith("postgresql://"):
 elif database_url.startswith("sqlite"):
     database_url = database_url.replace("sqlite:///", "sqlite+aiosqlite:///")
 
+# Remove the prepared_statement_cache_size parameter from URL if present
+# We'll set it in connect_args instead
+if "prepared_statement_cache_size" in database_url:
+    database_url = database_url.split("?")[0]
+
 engine = create_async_engine(
     database_url,
     echo=False,  # Disable SQL logging for cleaner output
     future=True,
-    pool_pre_ping=True  # Enable connection health checks
+    pool_pre_ping=True,  # Enable connection health checks
+    poolclass=NullPool,  # Disable connection pooling to avoid prepared statement issues
 )
 
 # Create session factory

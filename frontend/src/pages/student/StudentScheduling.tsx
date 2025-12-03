@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, BookOpen, Plus, X, MapPin, FileText, Trash2, Edit2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, BookOpen, Plus, X, MapPin, FileText, Trash2, Edit2, CheckCircle, AlertCircle, Monitor, Building2, RefreshCw } from 'lucide-react';
 import api from '../../services/api';
 import { toast } from 'react-toastify';
 
@@ -46,9 +46,9 @@ const DAYS_OF_WEEK = [
 ];
 
 const SESSION_FORMATS = [
-  { value: 'online', label: 'Online', icon: '💻' },
-  { value: 'offline', label: 'Offline', icon: '🏫' },
-  { value: 'both', label: 'Cả hai', icon: '🔄' }
+  { value: 'online', label: 'Online', icon: Monitor },
+  { value: 'offline', label: 'Offline', icon: Building2 },
+  { value: 'both', label: 'Cả hai', icon: RefreshCw }
 ];
 
 const StudentScheduling: React.FC = () => {
@@ -309,21 +309,24 @@ const StudentScheduling: React.FC = () => {
                   Hình thức học
                 </label>
                 <div className="flex gap-2">
-                  {SESSION_FORMATS.map(format => (
-                    <button
-                      key={format.value}
-                      type="button"
-                      onClick={() => setSessionFormat(format.value)}
-                      className={`flex-1 px-4 py-2 rounded-lg border-2 transition-all ${
-                        sessionFormat === format.value
-                          ? 'border-blue-500 bg-blue-50 text-blue-700'
-                          : 'border-gray-300 hover:border-gray-400'
-                      }`}
-                    >
-                      <span className="text-2xl">{format.icon}</span>
-                      <div className="text-sm mt-1">{format.label}</div>
-                    </button>
-                  ))}
+                  {SESSION_FORMATS.map(format => {
+                    const Icon = format.icon;
+                    return (
+                      <button
+                        key={format.value}
+                        type="button"
+                        onClick={() => setSessionFormat(format.value)}
+                        className={`flex-1 px-4 py-2 rounded-lg border-2 transition-all ${
+                          sessionFormat === format.value
+                            ? 'border-blue-500 bg-blue-50 text-blue-700'
+                            : 'border-gray-300 hover:border-gray-400'
+                        }`}
+                      >
+                        <Icon className="w-6 h-6 mx-auto" />
+                        <div className="text-sm mt-1">{format.label}</div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>

@@ -139,15 +139,16 @@ async def reschedule_session(
     
     # 2. Check permissions (tutor or coordinator)
     is_authorized = False
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
     
     # Check if user is the session tutor
-    if current_user.role == "tutor":
+    if 'tutor' in user_roles:
         tutor = await tutor_repo.get_by_user_id(current_user.user_id)
         if tutor and tutor.tutor_id == session.tutor_id:
             is_authorized = True
     
     # Check if user is coordinator/admin
-    if current_user.role in ["coordinator", "admin"]:
+    if 'coordinator' in user_roles or 'admin' in user_roles:
         is_authorized = True
     
     if not is_authorized:
@@ -214,15 +215,16 @@ async def cancel_session(
     
     # 2. Check permissions (tutor or coordinator)
     is_authorized = False
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
     
     # Check if user is the session tutor
-    if current_user.role == "tutor":
+    if 'tutor' in user_roles:
         tutor = await tutor_repo.get_by_user_id(current_user.user_id)
         if tutor and tutor.tutor_id == session.tutor_id:
             is_authorized = True
     
     # Check if user is coordinator/admin
-    if current_user.role in ["coordinator", "admin"]:
+    if 'coordinator' in user_roles or 'admin' in user_roles:
         is_authorized = True
     
     if not is_authorized:

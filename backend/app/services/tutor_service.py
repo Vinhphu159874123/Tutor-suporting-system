@@ -223,9 +223,11 @@ class TutorService:
             
             return await self.get_tutor(tutor.tutor_id)
         
-        # Auto-upgrade student to tutor role if needed
-        if user.role == 'student':
-            await self.user_repo.update(user.user_id, {"role": "tutor"})
+        # Add 'tutor' role to user if not already present
+        user_roles = user.role if isinstance(user.role, list) else [user.role]
+        if 'tutor' not in user_roles:
+            user_roles.append('tutor')
+            await self.user_repo.update(user.user_id, {"role": user_roles})
         
         # Create new tutor profile
         tutor_dict = tutor_data.model_dump()

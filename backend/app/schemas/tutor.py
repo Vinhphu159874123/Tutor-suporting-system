@@ -36,7 +36,7 @@ class TutorResponse(TutorBase):
     """Tutor response DTO"""
     tutor_id: int
     user_id: int
-    rating: Decimal
+    rating: float
     total_sessions: int
     is_verified: bool
     verified_at: Optional[datetime]

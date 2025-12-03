@@ -213,13 +213,14 @@ async def create_post(
         forum = default_forum
     
     # Create the post
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
     new_post = ForumPost(
         forum_id=forum.forum_id,
         author_id=current_user.user_id,
         title=post_data.title,
         content=post_data.content,
         parent_post_id=None,  # Top-level thread
-        is_pinned=post_data.is_pinned if current_user.role in ['admin', 'coordinator'] else False,
+        is_pinned=post_data.is_pinned if ('admin' in user_roles or 'coordinator' in user_roles) else False,
         upvote_count=0
     )
     
