@@ -54,6 +54,7 @@ app.include_router(courses.router, prefix="/api/v1/courses", tags=["courses"])
 app.include_router(study_groups.router, prefix="/api/v1/study-groups", tags=["study-groups"])
 app.include_router(progress.router, prefix="/api/v1/progress", tags=["progress"])
 app.include_router(schedule_preferences.router, prefix="/api/v1/schedule-preferences", tags=["schedule-preferences"])
+# Materials endpoints are in sessions.py router (/{session_id}/materials)
 
 @app.on_event("startup")
 async def startup_event():

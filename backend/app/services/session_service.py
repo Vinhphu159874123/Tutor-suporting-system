@@ -273,11 +273,9 @@ class SessionService:
         uploaded_by: int,
         description: Optional[str] = None
     ) -> dict:
-        """Upload session material - Supports PDF, images, text, Word, Excel files"""
+        """Upload session material - Store file in database as BYTEA"""
         from fastapi import UploadFile
-        import os
-        import shutil
-        from pathlib import Path
+        from app.models.database import SessionMaterial
         
         session = await self.session_repo.get_by_id(session_id)
         if not session:
@@ -305,36 +303,25 @@ class SessionService:
                 detail=f"File type {file.content_type} not supported. Allowed: PDF, images (JPEG/PNG/GIF), text, Word, Excel"
             )
         
-        # Create upload directory
-        upload_dir = Path("uploads/session_materials")
-        upload_dir.mkdir(parents=True, exist_ok=True)
+        # Read file data into memory
+        file_data = await file.read()
+        file_size = len(file_data)
         
-        # Generate unique filename
-        file_extension = Path(file.filename).suffix
-        unique_filename = f"session_{session_id}_{datetime.utcnow().timestamp()}{file_extension}"
-        file_path = upload_dir / unique_filename
-        
-        # Save file to disk
-        try:
-            with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
-            
-            file_size = os.path.getsize(file_path)
-            
-        except Exception as e:
+        # Check file size limit (50MB)
+        MAX_SIZE = 50 * 1024 * 1024
+        if file_size > MAX_SIZE:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to save file: {str(e)}"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File too large. Maximum size is 50MB"
             )
         
-        # Create SessionMaterial record
-        from app.models.database import SessionMaterial
-        
+        # Create SessionMaterial record with file data
         material = SessionMaterial(
             session_id=session_id,
             uploaded_by=uploaded_by,
             file_name=file.filename,
-            file_url=str(file_path),  # In production: replace with S3/Azure Blob URL
+            file_url=None,  # No disk path needed
+            file_data=file_data,  # Store binary data in database
             file_type=allowed_types[file.content_type],
             file_size=file_size,
             description=description,
@@ -346,7 +333,7 @@ class SessionService:
         await self.session_repo.db.refresh(material)
         
         return {
-            "message": "Material uploaded successfully",
+            "message": "Material uploaded successfully to database",
             "material_id": material.material_id,
             "session_id": session_id,
             "file_name": file.filename,
@@ -378,9 +365,9 @@ class SessionService:
             session_id=session_id,
             uploaded_by=uploaded_by,
             file_name=file_name,
-            file_url=file_url,
+            file_url=file_url.replace('\\', '/'),  # Normalize path separators
             file_type=file_type,
-            file_size=None,  # Unknown for external URLs
+            file_size=0,  # External file, size unknown
             description=description,
             uploaded_at=datetime.utcnow()
         )
