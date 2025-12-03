@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "HCMUT Tutor Support System"
     
+    # CORS
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:80"
+    CORS_ALLOW_CREDENTIALS: bool = True
+    
     class Config:
         env_file = ".env"
 

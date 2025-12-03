@@ -228,67 +228,79 @@ async def get_available_courses(
     joined_result = await db.execute(joined_courses_query)
     joined_courses = set((row.subject_id, row.tutor_id) for row in joined_result.all())
     
+    # OPTIMIZATION: Get all session stats in ONE query instead of N queries
+    from sqlalchemy.orm import aliased
+    from app.models.database import SessionFeedback
+    
+    # Get session counts, start dates, student counts for all registrations at once
+    session_stats_query = (
+        select(
+            Session.subject_id,
+            Session.tutor_id,
+            func.count(func.distinct(Session.session_id)).label('session_count'),
+            func.min(Session.scheduled_date).label('start_date'),
+            func.count(func.distinct(SessionParticipant.user_id)).label('student_count')
+        )
+        .outerjoin(SessionParticipant, 
+            (SessionParticipant.session_id == Session.session_id) & 
+            (SessionParticipant.role == "student")
+        )
+        .group_by(Session.subject_id, Session.tutor_id)
+    )
+    stats_result = await db.execute(session_stats_query)
+    session_stats = {
+        (row.subject_id, row.tutor_id): {
+            'session_count': row.session_count,
+            'start_date': row.start_date,
+            'student_count': row.student_count or 0
+        }
+        for row in stats_result.all()
+    }
+    
+    # Get rating stats for all courses in ONE query
+    rating_stats_query = (
+        select(
+            Session.subject_id,
+            Session.tutor_id,
+            func.avg(SessionFeedback.rating).label('avg_rating'),
+            func.count(SessionFeedback.feedback_id).label('feedback_count')
+        )
+        .join(Session, SessionFeedback.session_id == Session.session_id)
+        .group_by(Session.subject_id, Session.tutor_id)
+    )
+    rating_result = await db.execute(rating_stats_query)
+    rating_stats = {
+        (row.subject_id, row.tutor_id): {
+            'avg_rating': float(row.avg_rating) if row.avg_rating else 0.0,
+            'feedback_count': row.feedback_count or 0
+        }
+        for row in rating_result.all()
+    }
+    
     courses = []
     for reg in registrations:
-        # Count sessions for this registration
-        session_count_query = select(func.count(Session.session_id)).where(
-            Session.subject_id == reg.subject_id,
-            Session.tutor_id == reg.tutor_id
-        )
-        session_count = await db.scalar(session_count_query)
-        
-        # Get earliest session date
-        start_date_query = select(func.min(Session.scheduled_date)).where(
-            Session.subject_id == reg.subject_id,
-            Session.tutor_id == reg.tutor_id
-        )
-        start_date = await db.scalar(start_date_query)
-        
-        # Count current students (participants with role='student' across all sessions)
-        # Using DISTINCT to count unique students
-        student_count_query = (
-            select(func.count(func.distinct(SessionParticipant.user_id)))
-            .join(Session, SessionParticipant.session_id == Session.session_id)
-            .where(
-                Session.subject_id == reg.subject_id,
-                Session.tutor_id == reg.tutor_id,
-                SessionParticipant.role == "student"
-            )
-        )
-        current_students = await db.scalar(student_count_query) or 0
-        
-        available_slots = reg.max_students - current_students
-        
         # Skip courses that user has already joined
         if (reg.subject_id, reg.tutor_id) in joined_courses:
             continue
         
-        # If no sessions in DB yet, use total_sessions from registration (planned sessions)
-        # Otherwise use actual session count from database
-        if session_count and session_count > 0:
-            total_sessions_display = session_count
-            start_date_display = start_date
+        # Get pre-computed stats
+        stats = session_stats.get((reg.subject_id, reg.tutor_id))
+        ratings = rating_stats.get((reg.subject_id, reg.tutor_id), {'avg_rating': 0.0, 'feedback_count': 0})
+        
+        if stats and stats['session_count'] > 0:
+            # Use actual sessions from database
+            total_sessions_display = stats['session_count']
+            start_date_display = stats['start_date']
+            current_students = stats['student_count']
         else:
-            # No sessions saved yet, but registration approved - show planned sessions
+            # No sessions saved yet - use planned sessions from registration
             total_sessions_display = reg.total_sessions or 0
             start_date_display = reg.start_date
+            current_students = 0
         
-        # Get average rating for this subject/tutor combination
-        from app.models.database import SessionFeedback
-        avg_rating_query = (
-            select(func.avg(SessionFeedback.rating), func.count(SessionFeedback.feedback_id))
-            .join(Session, SessionFeedback.session_id == Session.session_id)
-            .where(
-                Session.subject_id == reg.subject_id,
-                Session.tutor_id == reg.tutor_id
-            )
-        )
-        rating_result = await db.execute(avg_rating_query)
-        avg_rating_row = rating_result.first()
-        avg_rating = float(avg_rating_row[0]) if avg_rating_row[0] else 0.0
-        total_feedbacks = avg_rating_row[1] if avg_rating_row[1] else 0
+        available_slots = reg.max_students - current_students
         
-        # Only include courses that have planned sessions (either saved or from registration)
+        # Only include courses that have planned sessions
         if total_sessions_display > 0:
             courses.append({
                 "registration_id": reg.registration_id,
@@ -304,8 +316,8 @@ async def get_available_courses(
                 "available_slots": max(0, available_slots),
                 "start_date": start_date_display.isoformat() if start_date_display else None,
                 "status": reg.status,
-                "average_rating": round(avg_rating, 1),
-                "total_feedbacks": total_feedbacks
+                "average_rating": round(ratings['avg_rating'], 1),
+                "total_feedbacks": ratings['feedback_count']
             })
     
     return {"data": courses}

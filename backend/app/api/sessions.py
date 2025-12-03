@@ -21,6 +21,115 @@ router = APIRouter()
 # SESSION ENDPOINTS - Migrated to Layered Architecture
 # ============================================================================
 
+@router.get("/my-sessions/dashboard")
+async def get_my_sessions_dashboard(
+    mode: Optional[str] = None,
+    current_user: User = Depends(get_current_user),
+    session_service: SessionService = Depends(get_session_service)
+):
+    """OPTIMIZED: Get only recent and upcoming sessions for dashboard
+    
+    Returns:
+        - 3 most recent completed sessions
+        - 3 upcoming sessions (confirmed/published)
+    
+    This is much faster than fetching all 100 sessions and filtering client-side.
+    """
+    from app.models.database import Session as SessionModel, Tutor
+    from app.core.database import get_db
+    from sqlalchemy import select, desc, asc
+    from datetime import date
+    
+    active_role = mode or current_user.role
+    
+    # Validate role
+    if mode:
+        if mode == 'student' and not current_user.student_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not a student")
+        if mode == 'tutor' and not current_user.tutor_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not a tutor")
+    
+    async for db in get_db():
+        today = date.today()
+        
+        if active_role == 'student':
+            # Recent completed sessions (last 3)
+            recent_query = (
+                select(SessionModel)
+                .join(SessionParticipant, SessionModel.session_id == SessionParticipant.session_id)
+                .where(
+                    SessionParticipant.user_id == current_user.user_id,
+                    SessionParticipant.role == 'student',
+                    SessionModel.status == 'completed'
+                )
+                .order_by(desc(SessionModel.scheduled_date))
+                .limit(3)
+            )
+            
+            # Upcoming sessions (next 3)
+            upcoming_query = (
+                select(SessionModel)
+                .join(SessionParticipant, SessionModel.session_id == SessionParticipant.session_id)
+                .where(
+                    SessionParticipant.user_id == current_user.user_id,
+                    SessionParticipant.role == 'student',
+                    SessionModel.scheduled_date >= today
+                )
+                .order_by(asc(SessionModel.scheduled_date))
+                .limit(3)
+            )
+            
+        elif active_role == 'tutor':
+            # Get tutor_id
+            tutor_result = await db.execute(
+                select(Tutor.tutor_id).where(Tutor.user_id == current_user.user_id)
+            )
+            tutor_id = tutor_result.scalar_one_or_none()
+            if not tutor_id:
+                return {"recent": [], "upcoming": []}
+            
+            # Recent completed sessions
+            recent_query = (
+                select(SessionModel)
+                .where(
+                    SessionModel.tutor_id == tutor_id,
+                    SessionModel.status == 'completed'
+                )
+                .order_by(desc(SessionModel.scheduled_date))
+                .limit(3)
+            )
+            
+            # Upcoming sessions
+            upcoming_query = (
+                select(SessionModel)
+                .where(
+                    SessionModel.tutor_id == tutor_id,
+                    SessionModel.scheduled_date >= today,
+                    SessionModel.status.in_(['confirmed', 'ongoing', 'published'])
+                )
+                .order_by(asc(SessionModel.scheduled_date))
+                .limit(3)
+            )
+        else:
+            return {"recent": [], "upcoming": []}
+        
+        # Execute both queries
+        recent_result = await db.execute(recent_query)
+        upcoming_result = await db.execute(upcoming_query)
+        
+        recent_sessions = recent_result.scalars().all()
+        upcoming_sessions = upcoming_result.scalars().all()
+        
+        # Convert to response format
+        from app.schemas.session import SessionResponse
+        recent_list = [SessionResponse.model_validate(s) for s in recent_sessions]
+        upcoming_list = [SessionResponse.model_validate(s) for s in upcoming_sessions]
+        
+        return {
+            "recent": recent_list,
+            "upcoming": upcoming_list
+        }
+
 @router.get("/my-sessions", response_model=List[SessionResponse])
 async def get_my_sessions(
     mode: Optional[str] = None,  # Add mode parameter to allow switching

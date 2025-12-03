@@ -225,39 +225,28 @@ async def get_student_enrolled_courses(
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     
-    # Get all subjects student is enrolled in with session counts and tutor info
+    # OPTIMIZATION: Get all data in ONE query with JOIN instead of N queries
     subjects_result = await student_service.student_repo.db.execute(
         select(
             Subject,
             Session.tutor_id,
             func.count(Session.session_id).label('session_count'),
-            func.count(SessionParticipant.participant_id).label('enrolled_sessions')
+            func.count(SessionParticipant.participant_id).label('enrolled_sessions'),
+            DBUser.full_name.label('tutor_name'),
+            DBUser.email.label('tutor_email')
         )
         .join(Session, Subject.subject_id == Session.subject_id)
         .join(SessionParticipant, Session.session_id == SessionParticipant.session_id)
+        .join(Tutor, Session.tutor_id == Tutor.tutor_id)
+        .join(DBUser, Tutor.user_id == DBUser.user_id)
         .where(SessionParticipant.user_id == student.user_id)
         .where(SessionParticipant.role == 'student')
-        .group_by(Subject.subject_id, Session.tutor_id)
+        .group_by(Subject.subject_id, Session.tutor_id, DBUser.full_name, DBUser.email)
     )
     results = subjects_result.all()
     
     courses = []
-    for subject, tutor_id, session_count, enrolled_sessions in results:
-        # Get tutor info
-        tutor_result = await student_service.student_repo.db.execute(
-            select(Tutor, DBUser)
-            .join(DBUser, Tutor.user_id == DBUser.user_id)
-            .where(Tutor.tutor_id == tutor_id)
-        )
-        tutor_data = tutor_result.first()
-        
-        tutor_name = None
-        tutor_email = None
-        if tutor_data:
-            tutor, tutor_user = tutor_data
-            tutor_name = tutor_user.full_name
-            tutor_email = tutor_user.email
-        
+    for subject, tutor_id, session_count, enrolled_sessions, tutor_name, tutor_email in results:
         courses.append({
             "subject_id": subject.subject_id,
             "subject_code": subject.subject_code,
