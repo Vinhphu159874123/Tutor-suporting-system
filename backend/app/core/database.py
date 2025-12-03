@@ -14,18 +14,15 @@ if database_url.startswith("postgresql://"):
 elif database_url.startswith("sqlite"):
     database_url = database_url.replace("sqlite:///", "sqlite+aiosqlite:///")
 
-# Add statement_cache_size=0 to URL for pgbouncer compatibility
-if "?" in database_url:
-    database_url += "&statement_cache_size=0"
-else:
-    database_url += "?statement_cache_size=0"
-
 engine = create_async_engine(
     database_url,
     echo=False,  # Disable SQL logging for cleaner output
     future=True,
     pool_pre_ping=True,  # Enable connection health checks
-    poolclass=NullPool  # Disable connection pooling to avoid prepared statement issues
+    poolclass=NullPool,  # Disable connection pooling to avoid prepared statement issues
+    connect_args={
+        "statement_cache_size": 0  # Disable prepared statement cache for pgbouncer/Supabase pooler
+    }
 )
 
 # Create session factory
