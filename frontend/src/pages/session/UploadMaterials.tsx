@@ -36,7 +36,7 @@ const UploadMaterials: React.FC = () => {
   const { user } = useAuthStore();
   const userRole = (user?.role && user.role[0]) || "";  // Get first role from array
   const isTutor = ["tutor", "coordinator", "admin"].includes(userRole);
-  
+
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionId, setSessionId] = useState("");
@@ -73,7 +73,7 @@ const UploadMaterials: React.FC = () => {
 
   const fetchMaterials = async () => {
     if (!sessionId) return;
-    
+
     try {
       const response: any = await sessionsApi.getSessionMaterials(parseInt(sessionId));
       setFiles(response.data || []);
@@ -85,21 +85,21 @@ const UploadMaterials: React.FC = () => {
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFiles = e.target.files;
-    
+
     if (!sessionId) {
       toast.error("Vui lòng chọn session trước");
       return;
     }
-    
+
     if (!uploadedFiles || uploadedFiles.length === 0) return;
 
     setLoading(true);
-    
+
     try {
       // Upload each file
       for (let i = 0; i < uploadedFiles.length; i++) {
         const file = uploadedFiles[i];
-        
+
         const formData = new FormData();
         formData.append("file", file);
         formData.append("uploaded_by", user?.user_id?.toString() || "");
@@ -109,13 +109,13 @@ const UploadMaterials: React.FC = () => {
 
         await sessionsApi.uploadMaterials(parseInt(sessionId), formData);
       }
-      
+
       toast.success(`Tải lên ${uploadedFiles.length} tài liệu thành công`);
       setDescription(""); // Clear description
-      
+
       // Refresh materials list
       await fetchMaterials();
-      
+
       // Reset file input
       e.target.value = "";
     } catch (error: any) {
@@ -127,12 +127,17 @@ const UploadMaterials: React.FC = () => {
   };
 
   const handleDelete = async (materialId: number) => {
+    if (!sessionId) {
+      toast.error("Không tìm thấy session ID");
+      return;
+    }
+
     if (!window.confirm("Bạn có chắc muốn xóa tài liệu này?")) return;
-    
+
     try {
-      await sessionsApi.deleteMaterial(materialId);
+      await sessionsApi.deleteMaterial(parseInt(sessionId), materialId);
       toast.success("Xóa tài liệu thành công");
-      
+
       // Refresh materials list
       await fetchMaterials();
     } catch (error: any) {
@@ -146,10 +151,10 @@ const UploadMaterials: React.FC = () => {
       toast.error("Không tìm thấy session ID");
       return;
     }
-    
+
     try {
       const response: any = await sessionsApi.downloadMaterial(parseInt(sessionId), materialId);
-      
+
       // Create a download link
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
@@ -159,7 +164,7 @@ const UploadMaterials: React.FC = () => {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      
+
       toast.success("Tải xuống thành công");
     } catch (error: any) {
       console.error("Error downloading material:", error);
@@ -169,7 +174,7 @@ const UploadMaterials: React.FC = () => {
 
   const getFileIcon = (type: string) => {
     const fileType = type?.toLowerCase() || '';
-    
+
     if (fileType.includes('pdf')) {
       return <FileText className="h-5 w-5" />;
     } else if (fileType.includes('zip') || fileType.includes('rar') || fileType.includes('7z')) {
@@ -325,7 +330,7 @@ const UploadMaterials: React.FC = () => {
                 </div>
               </div>
               <div className="flex gap-2">
-                <button 
+                <button
                   onClick={() => handleDownload(file.material_id, file.file_name)}
                   className="text-blue-600 hover:text-blue-700 px-4 py-2 rounded-lg hover:bg-blue-50 transition inline-flex items-center gap-2"
                 >

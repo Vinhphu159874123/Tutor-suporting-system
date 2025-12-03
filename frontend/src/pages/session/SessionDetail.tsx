@@ -14,17 +14,21 @@ import {
   XCircle,
   Star,
   Download,
+  Trash2,
 } from 'lucide-react';
 import { sessionsApi } from '../../services/api';
 import { AxiosResponse } from 'axios';
+import { useAuthStore } from '../../stores/authStore';
 
 const SessionDetail: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [rating, setRating] = useState(5);
   const [feedback, setFeedback] = useState('');
   const [session, setSession] = useState<any>(null);
+  const [materials, setMaterials] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,6 +37,9 @@ const SessionDetail: React.FC = () => {
       try {
         const response = await sessionsApi.getSession(Number(id)) as AxiosResponse<any>;
         setSession(response.data);
+
+        // Fetch materials
+        await fetchMaterials();
       } catch (error: any) {
         console.error('Failed to fetch session:', error);
         toast.error('Không thể tải thông tin phiên học');
@@ -42,6 +49,49 @@ const SessionDetail: React.FC = () => {
     };
     fetchSession();
   }, [id]);
+
+  const fetchMaterials = async () => {
+    if (!id) return;
+    try {
+      const response: any = await sessionsApi.getSessionMaterials(Number(id));
+      setMaterials(response.data || []);
+    } catch (error: any) {
+      console.error('Failed to fetch materials:', error);
+    }
+  };
+
+  const handleDownloadMaterial = async (materialId: number, fileName: string) => {
+    if (!id) return;
+    try {
+      const response: any = await sessionsApi.downloadMaterial(Number(id), materialId);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Tải xuống thành công');
+    } catch (error: any) {
+      console.error('Download error:', error);
+      toast.error('Không thể tải xuống tài liệu');
+    }
+  };
+
+  const handleDeleteMaterial = async (materialId: number) => {
+    if (!id) return;
+    if (!window.confirm('Bạn có chắc muốn xóa tài liệu này?')) return;
+
+    try {
+      await sessionsApi.deleteMaterial(Number(id), materialId);
+      toast.success('Xóa tài liệu thành công');
+      await fetchMaterials(); // Refresh list
+    } catch (error: any) {
+      console.error('Delete error:', error);
+      toast.error(error.response?.data?.detail || 'Không thể xóa tài liệu');
+    }
+  };
 
   const handleCancelSession = () => {
     if (window.confirm('Bạn có chắc muốn hủy phiên học này?')) {
@@ -111,37 +161,37 @@ const SessionDetail: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-center">
-              <span className="mr-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-                <CalendarDays className="h-6 w-6" />
-              </span>
+              <div className="flex items-center">
+                <span className="mr-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                  <CalendarDays className="h-6 w-6" />
+                </span>
                 <div>
                   <p className="text-sm text-gray-600">Ngày học</p>
                   <p className="font-medium text-gray-900">{session.date}</p>
                 </div>
               </div>
               <div className="flex items-center">
-              <span className="mr-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
-                <Clock3 className="h-6 w-6" />
-              </span>
+                <span className="mr-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                  <Clock3 className="h-6 w-6" />
+                </span>
                 <div>
                   <p className="text-sm text-gray-600">Giờ học</p>
                   <p className="font-medium text-gray-900">{session.time}</p>
                 </div>
               </div>
               <div className="flex items-center">
-              <span className="mr-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
-                <MapPin className="h-6 w-6" />
-              </span>
+                <span className="mr-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                  <MapPin className="h-6 w-6" />
+                </span>
                 <div>
                   <p className="text-sm text-gray-600">Địa điểm</p>
                   <p className="font-medium text-gray-900">{session.location}</p>
                 </div>
               </div>
               <div className="flex items-center">
-              <span className="mr-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-600">
-                <Hourglass className="h-6 w-6" />
-              </span>
+                <span className="mr-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-600">
+                  <Hourglass className="h-6 w-6" />
+                </span>
                 <div>
                   <p className="text-sm text-gray-600">Thời lượng</p>
                   <p className="font-medium text-gray-900">{session.duration} giờ</p>
@@ -155,7 +205,7 @@ const SessionDetail: React.FC = () => {
             <h2 className="text-xl font-bold text-gray-900 mb-4">
               Người tham gia
             </h2>
-            
+
             <div className="space-y-4">
               <div className="flex items-center p-4 bg-gray-50 rounded-lg">
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white text-lg font-bold">
@@ -201,23 +251,44 @@ const SessionDetail: React.FC = () => {
               Tài liệu học tập
             </h2>
             <div className="space-y-3">
-              {session.materials.map((material: any, index: number) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center">
-                    <span className="mr-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
-                      <FileText className="h-5 w-5" />
-                    </span>
-                    <div>
-                      <p className="font-medium text-gray-900">{material.name}</p>
-                      <p className="text-sm text-gray-600">{material.size}</p>
+              {materials.length > 0 ? (
+                materials.map((material: any) => (
+                  <div key={material.material_id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center">
+                      <span className="mr-3 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                        <FileText className="h-5 w-5" />
+                      </span>
+                      <div>
+                        <p className="font-medium text-gray-900">{material.file_name}</p>
+                        <p className="text-sm text-gray-600">
+                          {material.file_size ? `${(material.file_size / 1024).toFixed(2)} KB` : 'N/A'} •
+                          {material.uploaded_at ? new Date(material.uploaded_at).toLocaleDateString('vi-VN') : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleDownloadMaterial(material.material_id, material.file_name)}
+                        className="text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        Tải xuống
+                      </button>
+                      {(user?.role?.includes('tutor') || user?.role?.includes('admin') || user?.role?.includes('coordinator')) && (
+                        <button
+                          onClick={() => handleDeleteMaterial(material.material_id)}
+                          className="text-red-600 hover:text-red-700 font-medium inline-flex items-center gap-2"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Xóa
+                        </button>
+                      )}
                     </div>
                   </div>
-                  <button className="text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-2">
-                    <Download className="h-4 w-4" />
-                    Tải xuống
-                  </button>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-4">Chưa có tài liệu nào</p>
+              )}
             </div>
           </div>
 
@@ -261,7 +332,7 @@ const SessionDetail: React.FC = () => {
                 </span>
               </div>
             </div>
-            
+
             {session.status === 'scheduled' && (
               <button className="w-full mt-4 bg-green-600 text-white py-3 rounded-lg font-medium hover:bg-green-700 transition-colors inline-flex items-center justify-center gap-2">
                 <CreditCard className="h-5 w-5" />
@@ -318,7 +389,7 @@ const SessionDetail: React.FC = () => {
             <h3 className="text-xl font-bold text-gray-900 mb-4">
               Đánh giá phiên học
             </h3>
-            
+
             {/* Rating */}
             <div className="mb-4">
               <p className="text-sm font-medium text-gray-700 mb-2">Đánh giá</p>
@@ -332,11 +403,10 @@ const SessionDetail: React.FC = () => {
                     className="rounded-full p-1 transition-transform hover:scale-110"
                   >
                     <Star
-                      className={`h-8 w-8 ${
-                        starValue <= rating
+                      className={`h-8 w-8 ${starValue <= rating
                           ? 'fill-yellow-400 text-yellow-400'
                           : 'text-gray-300'
-                      }`}
+                        }`}
                     />
                   </button>
                 ))}

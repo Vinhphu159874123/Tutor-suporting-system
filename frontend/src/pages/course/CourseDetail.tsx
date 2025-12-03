@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { 
-  BookOpen, ArrowLeft, Clock, MapPin, Video, 
+import {
+  BookOpen, ArrowLeft, Clock, MapPin, Video,
   FileText, Edit2, Save, X, ChevronDown, ChevronUp, Upload, Trash2, Calendar as CalendarIcon,
   Star, Users, MessageSquare, CheckCircle
 } from 'lucide-react';
@@ -37,10 +37,11 @@ const CourseDetail: React.FC = () => {
   const navigate = useNavigate();
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [sessions, setSessions] = useState<WeeklySession[]>([]);
+  const [sessionMaterials, setSessionMaterials] = useState<Record<number, any[]>>({});  // session_id -> materials[]
   const [expandedSession, setExpandedSession] = useState<number | null>(null);
   const [editingSession, setEditingSession] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-  
+
   // Feedback modal state
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [selectedSessionForFeedback, setSelectedSessionForFeedback] = useState<number | null>(null);
@@ -48,34 +49,34 @@ const CourseDetail: React.FC = () => {
   const [feedbackComment, setFeedbackComment] = useState('');
   const [feedbackAnonymous, setFeedbackAnonymous] = useState(false);
   const [sessionFeedbacks, setSessionFeedbacks] = useState<Record<number, any>>({});  // Track feedbacks by session_id
-  
+
   // Attendance modal state
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [selectedSessionForAttendance, setSelectedSessionForAttendance] = useState<number | null>(null);
   const [participants, setParticipants] = useState<any[]>([]);
   const [attendanceData, setAttendanceData] = useState<Record<string, 'present' | 'absent' | 'late' | 'excused' | null>>({});
-  
+
   // Enrolled students modal state
   const [showEnrolledStudentsModal, setShowEnrolledStudentsModal] = useState(false);
   const [enrolledStudents, setEnrolledStudents] = useState<any[]>([]);
-  
+
   // Feedbacks summary modal state (for tutor)
   const [showFeedbacksModal, setShowFeedbacksModal] = useState(false);
   const [subjectFeedbacks, setSubjectFeedbacks] = useState<any>(null);
   const [loadingFeedbacks, setLoadingFeedbacks] = useState(false);
-  
+
   // Student profile modal state (for tutor)
   const [showStudentProfileModal, setShowStudentProfileModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
   const [studentProfile, setStudentProfile] = useState<any>(null);
   const [studentCourses, setStudentCourses] = useState<any>(null);
   const [loadingStudentProfile, setLoadingStudentProfile] = useState(false);
-  
+
   // PDF preview modal state
   const [showPdfPreview, setShowPdfPreview] = useState(false);
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
   const [previewPdfName, setPreviewPdfName] = useState<string>('');
-  
+
   const { user } = useAuthStore();
   const hasFetched = useRef(false);
   const lastSubjectId = useRef<string | null>(null);
@@ -109,7 +110,7 @@ const CourseDetail: React.FC = () => {
       lastSubjectId.current = subjectId || null;
       lastMode.current = activeMode;
     }
-    
+
     if (subjectId && user && !hasFetched.current) {
       console.log('📡 Fetching course data...', { subjectId, activeMode });
       hasFetched.current = true;
@@ -120,7 +121,7 @@ const CourseDetail: React.FC = () => {
 
   const fetchCourseData = async () => {
     if (!subjectId) return;
-    
+
     try {
       setLoading(true);
       // Fetch course details
@@ -148,7 +149,7 @@ const CourseDetail: React.FC = () => {
           if (enrolledCourse?.tutor_id) {
             const tutorId = enrolledCourse.tutor_id;
             currentUserTutorId = tutorId;
-            
+
             // Fetch tutor details to get name
             try {
               const tutorDetailResponse = await tutorsApi.getTutor(tutorId) as any;
@@ -167,7 +168,7 @@ const CourseDetail: React.FC = () => {
           console.log('Could not fetch enrolled course info');
         }
       }
-      
+
       // Set course data ONCE with all updates
       setCourse(courseData);
 
@@ -175,14 +176,14 @@ const CourseDetail: React.FC = () => {
       try {
         // Call the sessions API to get sessions for this subject
         const params: any = { subject_id: parseInt(subjectId) };
-        
+
         console.log('🔍 Checking user for session filter:', {
           user,
           role: activeMode,
           user_id: user?.user_id,
           currentUserTutorId
         });
-        
+
         // IMPORTANT: Filter based on active mode
         if (activeMode === 'tutor' && currentUserTutorId) {
           // Tutor mode: Show sessions for this tutor
@@ -194,7 +195,7 @@ const CourseDetail: React.FC = () => {
             params.tutor_id = currentUserTutorId;
             console.log('✅ Student mode - Using tutor_id filter:', currentUserTutorId);
           }
-          
+
           if (user?.user_id) {
             params.student_id = user.user_id;
             console.log('✅ Student mode - Using student_id filter:', user.user_id);
@@ -204,14 +205,14 @@ const CourseDetail: React.FC = () => {
         } else {
           console.log('⚠️ No tutor_id found - user may not be enrolled yet');
         }
-        
+
         console.log('📤 API Request params:', JSON.stringify(params));
         const sessionsResponse = await sessionsApi.getSessions(params) as any;
         const savedSessions = sessionsResponse.data || [];
-        
+
         console.log('📥 API Response - Fetched sessions count:', savedSessions.length);
         console.log('Filter params used:', params);
-        
+
         if (savedSessions.length > 0) {
           // Convert DB sessions to WeeklySession format
           const convertedSessions: WeeklySession[] = savedSessions.map((s: any, index: number) => ({
@@ -226,15 +227,22 @@ const CourseDetail: React.FC = () => {
             materials: s.materials || [],
             description: s.description || ''
           }));
-          
+
           setSessions(convertedSessions);
           console.log('✅ Loaded saved sessions from database');
-          
+
+          // Load materials for each session
+          for (const session of convertedSessions) {
+            if (session.session_id) {
+              await fetchSessionMaterials(session.session_id);
+            }
+          }
+
           // Load existing feedbacks for student
           if (activeMode === 'student') {
             await loadSessionFeedbacks(convertedSessions);
           }
-          
+
           setLoading(false);
           return; // Exit early if we have saved sessions
         }
@@ -261,13 +269,13 @@ const CourseDetail: React.FC = () => {
     console.log('Availability:', reg.availability);
     console.log('Total Sessions:', reg.total_sessions);
     console.log('Start Date:', reg.start_date);
-    
+
     const availability = reg.availability || {};
     const totalSessions = reg.total_sessions || 10;
     const startDate = reg.start_date ? new Date(reg.start_date) : new Date();
-    
+
     console.log('Parsed Start Date:', startDate);
-    
+
     const dayMap: { [key: string]: number } = {
       'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4,
       'friday': 5, 'saturday': 6, 'sunday': 0
@@ -280,7 +288,7 @@ const CourseDetail: React.FC = () => {
     };
 
     // Get all days with time slots and pick the first one for weekly schedule
-    const daySlots: Array<{day: string, dayName: string, dayNum: number, slots: string[]}> = [];
+    const daySlots: Array<{ day: string, dayName: string, dayNum: number, slots: string[] }> = [];
     Object.entries(availability).forEach(([day, slots]) => {
       if (Array.isArray(slots) && slots.length > 0) {
         daySlots.push({ day, dayName: dayNames[day], dayNum: dayMap[day], slots: slots as string[] });
@@ -311,18 +319,18 @@ const CourseDetail: React.FC = () => {
     if (daysUntilFirst === 0 && currentDate > startDate) {
       daysUntilFirst = 7; // If same day but past time, go to next week
     }
-    
+
     console.log('Start Day of Week:', startDayOfWeek);
     console.log('Target Day:', targetDay);
     console.log('Days Until First Session:', daysUntilFirst);
-    
+
     currentDate.setDate(currentDate.getDate() + daysUntilFirst);
     console.log('First Session Date:', currentDate);
 
     // Generate totalSessions sessions, one per week
     for (let i = 0; i < totalSessions; i++) {
       const sessionDate = new Date(currentDate);
-      
+
       generatedSessions.push({
         session_number: i + 1,
         day: primaryDay.day,
@@ -343,7 +351,7 @@ const CourseDetail: React.FC = () => {
   };
 
   const handleUpdateSession = (sessionNum: number, field: string, value: string) => {
-    setSessions(prev => prev.map(s => 
+    setSessions(prev => prev.map(s =>
       s.session_number === sessionNum ? { ...s, [field]: value } : s
     ));
   };
@@ -355,15 +363,15 @@ const CourseDetail: React.FC = () => {
 
   const handleGenerateSessions = async () => {
     if (!subjectId) return;
-    
+
     try {
       setLoading(true);
-      
+
       // Call API to generate sessions
       const response = await tutorsApi.generateSessionsForCourse(parseInt(subjectId)) as any;
-      
+
       toast.success(response.data?.message || 'Đã tạo lịch học thành công!');
-      
+
       // Reload course data to show newly generated sessions
       await fetchCourseData();
     } catch (error: any) {
@@ -377,18 +385,18 @@ const CourseDetail: React.FC = () => {
 
   const handleSaveAllSessions = async () => {
     if (!subjectId) return;
-    
+
     // Prevent duplicate calls
     if (loading) {
       console.log('⚠️ Already saving, ignoring duplicate call');
       return;
     }
-    
+
     console.log('🚀 handleSaveAllSessions called');
-    
+
     try {
       setLoading(true);
-      
+
       // Prepare sessions data for API
       const sessionsData = sessions.map(s => ({
         session_number: s.session_number,
@@ -438,18 +446,13 @@ const CourseDetail: React.FC = () => {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('uploaded_by', userId.toString());
-        
+
         await sessionsApi.uploadMaterials(session.session_id, formData);
       }
 
-      // Add filenames to local state
-      const fileNames = Array.from(files).map(f => f.name);
-      setSessions(prev => prev.map(s => 
-        s.session_number === sessionNum 
-          ? { ...s, materials: [...s.materials, ...fileNames] } 
-          : s
-      ));
-      
+      // Refresh materials list
+      await fetchSessionMaterials(session.session_id);
+
       toast.success(`Đã upload ${files.length} tài liệu thành công!`);
     } catch (error: any) {
       console.error('Upload error:', error);
@@ -458,107 +461,52 @@ const CourseDetail: React.FC = () => {
     }
   };
 
-  const handleRemoveMaterial = async (sessionNum: number, materialIndex: number) => {
-    const session = sessions.find(s => s.session_number === sessionNum);
-    const materialName = session?.materials[materialIndex];
-    if (!materialName) return;
+  // Fetch materials for a specific session
+  const fetchSessionMaterials = async (sessionId: number) => {
+    try {
+      const response: any = await sessionsApi.getSessionMaterials(sessionId);
+      setSessionMaterials(prev => ({
+        ...prev,
+        [sessionId]: response.data || []
+      }));
+    } catch (error: any) {
+      console.error('Failed to fetch materials:', error);
+    }
+  };
 
-    // If session not saved yet, just remove from local state
-    if (!session.session_id) {
-      setSessions(prev => prev.map(s => 
-        s.session_number === sessionNum 
-          ? { ...s, materials: s.materials.filter((_, idx) => idx !== materialIndex) } 
-          : s
-      ));
-      toast.success('Đã xóa tài liệu');
+  const handleRemoveMaterial = async (sessionNum: number, materialId: number) => {
+    const session = sessions.find(s => s.session_number === sessionNum);
+    if (!session?.session_id) {
+      toast.error('Session chưa được lưu');
       return;
     }
 
+    if (!window.confirm('Bạn có chắc muốn xóa tài liệu này?')) return;
+
     try {
-      // Note: Old materials (stored as filenames in JSON) are not compatible with new API
-      // New materials use SessionMaterial table with material_id
-      // This will likely fail for old materials, but we handle it gracefully
-      console.warn('Attempting to delete material. Note: Old-style materials may not work.');
-      
-      // Remove from local state first
-      setSessions(prev => prev.map(s => 
-        s.session_number === sessionNum 
-          ? { ...s, materials: s.materials.filter((_, idx) => idx !== materialIndex) } 
-          : s
-      ));
-      
-      toast.success('Đã xóa tài liệu (chỉ trong UI). Vui lòng dùng trang Upload Materials để quản lý tài liệu mới.');
+      await sessionsApi.deleteMaterial(session.session_id, materialId);
+      toast.success('Xóa tài liệu thành công');
+      await fetchSessionMaterials(session.session_id); // Refresh materials
     } catch (error: any) {
       console.error('Delete error:', error);
-      
-      // If 404, file doesn't exist on server - just remove from UI
-      if (error.response?.status === 404) {
-        setSessions(prev => prev.map(s => 
-          s.session_number === sessionNum 
-            ? { ...s, materials: s.materials.filter((_, idx) => idx !== materialIndex) } 
-            : s
-        ));
-        toast.success('Đã xóa tài liệu (chỉ trong UI)');
-      } else {
-        toast.error(error.response?.data?.detail || 'Không thể xóa tài liệu');
-      }
+      toast.error(error.response?.data?.detail || 'Không thể xóa tài liệu');
     }
   };
 
   // Download material with authentication
-  const handleDownloadMaterial = async (sessionId: number, materialName: string) => {
+  const handleDownloadMaterial = async (sessionId: number, materialId: number, fileName: string) => {
     try {
-      const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000/api/v1";
-      
-      // For PDFs, try to open backend URL directly in new tab
-      // Browser will use existing auth cookies/session
-      if (materialName.toLowerCase().endsWith('.pdf')) {
-        const backendUrl = `${API_BASE_URL}/sessions/${sessionId}/materials/${encodeURIComponent(materialName)}/download`;
-        
-        // Open directly - browser handles PDF rendering
-        window.open(backendUrl, '_blank');
-        toast.success('Đang mở PDF...');
-        return;
-      }
-
-      // For non-PDF files, download with auth
-      const token = localStorage.getItem('auth-storage');
-      let authToken = '';
-      
-      if (token) {
-        const parsed = JSON.parse(token);
-        authToken = parsed.state?.token || '';
-      }
-
-      const response = await fetch(
-        `${API_BASE_URL}/sessions/${sessionId}/materials/${materialName}/download`,
-        {
-          headers: {
-            'Authorization': `Bearer ${authToken}`
-          }
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to download file');
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = materialName;
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      
-      setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
-      }, 100);
-      
-      toast.success(`Đã tải xuống ${materialName}`);
-    } catch (error) {
+      const response: any = await sessionsApi.downloadMaterial(sessionId, materialId);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Tải xuống thành công');
+    } catch (error: any) {
       console.error('Download error:', error);
       toast.error('Không thể tải xuống tài liệu');
     }
@@ -589,19 +537,19 @@ const CourseDetail: React.FC = () => {
       .filter(s => s.session_id)
       .map(s => s.session_id)
       .join(',');
-    
+
     if (!sessionIds) {
       setSessionFeedbacks({});
       return;
     }
-    
+
     try {
       const response = await sessionsApi.getBulkFeedbacks(sessionIds) as any;
       const feedbacksMap: Record<number, any> = {};
-      
+
       // Response is already a map: { session_id: [feedback1, feedback2] }
       const data = response.data || {};
-      
+
       // For students, they only see their own feedback (first in array)
       Object.keys(data).forEach(sessionId => {
         const feedbacks = data[sessionId];
@@ -609,7 +557,7 @@ const CourseDetail: React.FC = () => {
           feedbacksMap[parseInt(sessionId)] = feedbacks[0];
         }
       });
-      
+
       setSessionFeedbacks(feedbacksMap);
     } catch (err) {
       console.error('Failed to load feedbacks:', err);
@@ -623,13 +571,13 @@ const CourseDetail: React.FC = () => {
       const response = await tutorsApi.getEnrolledStudents() as any;
       // The API returns { data: courses }, and courses is an array
       const courses = response.data?.data || response.data || [];
-      
+
       // Ensure courses is an array
       const coursesList = Array.isArray(courses) ? courses : [];
-      
+
       // Find the current course
       const currentCourse = coursesList.find((c: any) => c.subject_id === parseInt(subjectId || '0'));
-      
+
       if (currentCourse && currentCourse.students && currentCourse.students.length > 0) {
         setEnrolledStudents(currentCourse.students);
         setShowEnrolledStudentsModal(true);
@@ -644,7 +592,7 @@ const CourseDetail: React.FC = () => {
 
   const handleViewFeedbacks = async () => {
     if (!subjectId) return;
-    
+
     try {
       setLoadingFeedbacks(true);
       setShowFeedbacksModal(true);
@@ -664,13 +612,13 @@ const CourseDetail: React.FC = () => {
       setLoadingStudentProfile(true);
       setSelectedStudent(student);
       setShowStudentProfileModal(true);
-      
+
       // Fetch student profile by user_id to get correct student_id
       // The enrolled students list might not have student_id, only user_id
       const profileResponse = await studentsApi.getStudentProfileByUserId(student.user_id) as any;
       const studentId = profileResponse.data.student_id;
       setStudentProfile(profileResponse.data);
-      
+
       // Fetch enrolled courses
       const coursesResponse = await studentsApi.getStudentEnrolledCourses(studentId) as any;
       setStudentCourses(coursesResponse.data);
@@ -699,7 +647,7 @@ const CourseDetail: React.FC = () => {
     try {
       await sessionsApi.removeStudentFromSubject(course.subject_id, studentId, course.tutor_id);
       toast.success(`Đã xóa học sinh "${studentName}" khỏi khóa học`);
-      
+
       // Refresh enrolled students list
       setEnrolledStudents(prev => prev.filter(s => s.user_id !== studentId));
     } catch (error: any) {
@@ -739,7 +687,7 @@ const CourseDetail: React.FC = () => {
       });
       console.log('Feedback response:', response);
       toast.success('Đã gửi đánh giá thành công!');
-      
+
       // Reload feedback for this session
       try {
         const feedbackResponse = await sessionsApi.getFeedback(selectedSessionForFeedback) as any;
@@ -752,7 +700,7 @@ const CourseDetail: React.FC = () => {
       } catch (err) {
         console.log('Could not reload feedback');
       }
-      
+
       setShowFeedbackModal(false);
     } catch (error: any) {
       console.error('Error submitting feedback:', error);
@@ -772,13 +720,13 @@ const CourseDetail: React.FC = () => {
       const response = await sessionsApi.getParticipants(sessionId) as any;
       console.log('🔍 Raw API response:', response);
       console.log('🔍 Response.data:', response.data);
-      
+
       // Handle both direct array and nested object response
       const participantsList = Array.isArray(response.data) ? response.data : (response.data?.data || response || []);
       console.log('📋 Participants list:', participantsList);
-      
+
       setParticipants(participantsList);
-      
+
       // Initialize attendance data - DON'T pre-fill from DB
       // This allows fresh attendance marking each time
       setAttendanceData({});
@@ -811,20 +759,20 @@ const CourseDetail: React.FC = () => {
           is_late: status === 'late',
           is_excused: status === 'excused'
         }));
-      
+
       if (attendanceRecords.length === 0) {
         toast.warning('Vui lòng chọn trạng thái điểm danh cho ít nhất một học viên');
         return;
       }
-      
+
       await sessionsApi.markAttendance(selectedSessionForAttendance, attendanceRecords);
       toast.success('Đã lưu điểm danh thành công!');
-      
+
       // Close modal after successful save
       setShowAttendanceModal(false);
       setAttendanceData({});
       setParticipants([]);
-      
+
     } catch (error: any) {
       console.error('Error saving attendance:', error);
       const message = error.response?.data?.detail || 'Không thể lưu điểm danh';
@@ -954,11 +902,11 @@ const CourseDetail: React.FC = () => {
             sessions.map((session) => {
               const isExpanded = expandedSession === session.session_number;
               const isEditing = editingSession === session.session_number;
-              
+
               return (
                 <div key={session.session_number} className="border-2 border-gray-200 rounded-lg overflow-hidden">
                   {/* Session Header */}
-                  <div 
+                  <div
                     className="p-4 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
                     onClick={() => setExpandedSession(isExpanded ? null : session.session_number)}
                   >
@@ -1040,16 +988,16 @@ const CourseDetail: React.FC = () => {
                               Tài liệu học tập
                             </label>
                             <div className="space-y-2">
-                              {session.materials.length > 0 && (
+                              {session.session_id && sessionMaterials[session.session_id]?.length > 0 && (
                                 <div className="space-y-2 mb-3">
-                                  {session.materials.map((material, idx) => (
-                                    <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200">
+                                  {sessionMaterials[session.session_id].map((material: any) => (
+                                    <div key={material.material_id} className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200">
                                       <div className="flex items-center gap-2">
                                         <FileText className="h-4 w-4 text-gray-500" />
-                                        <span className="text-sm">{material}</span>
+                                        <span className="text-sm">{material.file_name}</span>
                                       </div>
                                       <button
-                                        onClick={() => handleRemoveMaterial(session.session_number, idx)}
+                                        onClick={() => handleRemoveMaterial(session.session_number, material.material_id)}
                                         className="text-red-600 hover:text-red-800"
                                       >
                                         <Trash2 className="h-4 w-4" />
@@ -1115,9 +1063,9 @@ const CourseDetail: React.FC = () => {
                               <Video className="h-5 w-5 text-blue-600 mt-0.5" />
                               <div className="flex-1">
                                 <p className="text-sm text-gray-600">Link tham gia</p>
-                                <a 
-                                  href={session.meeting_link} 
-                                  target="_blank" 
+                                <a
+                                  href={session.meeting_link}
+                                  target="_blank"
                                   rel="noopener noreferrer"
                                   className="text-blue-600 hover:underline font-medium break-all"
                                 >
@@ -1137,41 +1085,44 @@ const CourseDetail: React.FC = () => {
                             </div>
                           )}
 
-                          {session.materials.length > 0 && (
+                          {session.session_id && sessionMaterials[session.session_id]?.length > 0 && (
                             <div>
                               <p className="text-sm text-gray-600 mb-2">Tài liệu</p>
                               <div className="space-y-2">
-                                {session.materials.map((material, idx) => {
-                                  const isPDF = material.toLowerCase().endsWith('.pdf');
-                                  const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000/api/v1";
-                                  const downloadUrl = `${API_BASE_URL}/sessions/${session.session_id}/materials/${encodeURIComponent(material)}/download`;
-                                  const previewUrl = `${downloadUrl}?inline=true`;
-                                  
+                                {sessionMaterials[session.session_id].map((material: any) => {
+                                  const isPDF = material.file_name?.toLowerCase().endsWith('.pdf');
+
                                   return (
                                     <div
-                                      key={idx}
+                                      key={material.material_id}
                                       className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                                     >
                                       <div className="flex items-center gap-2 flex-1">
                                         <FileText className="h-4 w-4 text-gray-500" />
-                                        <span className="text-sm text-gray-700">{material}</span>
+                                        <div>
+                                          <span className="text-sm text-gray-700">{material.file_name}</span>
+                                          <p className="text-xs text-gray-500">
+                                            {material.file_size ? `${(material.file_size / 1024).toFixed(2)} KB` : 'N/A'} •
+                                            {material.uploaded_at ? new Date(material.uploaded_at).toLocaleDateString('vi-VN') : ''}
+                                          </p>
+                                        </div>
                                       </div>
                                       <div className="flex gap-2">
-                                        {isPDF && (
-                                          <button
-                                            onClick={() => window.open(previewUrl, '_blank')}
-                                            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                                          >
-                                            Xem
-                                          </button>
-                                        )}
-                                        <a
-                                          href={downloadUrl}
-                                          download={material}
+                                        <button
+                                          onClick={() => handleDownloadMaterial(session.session_id!, material.material_id, material.file_name)}
                                           className="px-3 py-1 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-200 transition-colors"
                                         >
                                           Tải về
-                                        </a>
+                                        </button>
+                                        {isTutor && (
+                                          <button
+                                            onClick={() => handleRemoveMaterial(session.session_number, material.material_id)}
+                                            className="px-3 py-1 text-sm border border-red-300 text-red-700 rounded hover:bg-red-50 transition-colors flex items-center gap-1"
+                                          >
+                                            <Trash2 className="h-3 w-3" />
+                                            Xóa
+                                          </button>
+                                        )}
                                       </div>
                                     </div>
                                   );
@@ -1210,11 +1161,10 @@ const CourseDetail: React.FC = () => {
                                       {[1, 2, 3, 4, 5].map((star) => (
                                         <Star
                                           key={star}
-                                          className={`h-5 w-5 ${
-                                            star <= sessionFeedbacks[session.session_id!].rating
+                                          className={`h-5 w-5 ${star <= sessionFeedbacks[session.session_id!].rating
                                               ? 'fill-yellow-500 text-yellow-500'
                                               : 'text-gray-300'
-                                          }`}
+                                            }`}
                                         />
                                       ))}
                                     </div>
@@ -1258,7 +1208,7 @@ const CourseDetail: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <h3 className="text-xl font-bold mb-4">Đánh giá buổi học</h3>
-            
+
             {/* Rating Stars */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1272,11 +1222,10 @@ const CourseDetail: React.FC = () => {
                     className="focus:outline-none"
                   >
                     <Star
-                      className={`h-8 w-8 ${
-                        star <= feedbackRating
+                      className={`h-8 w-8 ${star <= feedbackRating
                           ? 'fill-yellow-400 text-yellow-400'
                           : 'text-gray-300'
-                      }`}
+                        }`}
                     />
                   </button>
                 ))}
@@ -1335,7 +1284,7 @@ const CourseDetail: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[80vh] overflow-y-auto">
             <h3 className="text-xl font-bold mb-4">Điểm danh buổi học</h3>
-            
+
             {participants.length === 0 ? (
               <p className="text-gray-600 text-center py-8">Chưa có sinh viên đăng ký</p>
             ) : (
@@ -1346,7 +1295,7 @@ const CourseDetail: React.FC = () => {
                   const hasStatusInState = attendanceData[participant.user_id] !== null && attendanceData[participant.user_id] !== undefined;
                   const isAlreadyMarked = hasStatusInDB || hasStatusInState;
                   const currentStatus = attendanceData[participant.user_id] || participant.attendance_status;
-                  
+
                   console.log(`👤 ${participant.full_name}:`, {
                     attendance_status: participant.attendance_status,
                     hasStatusInDB,
@@ -1354,31 +1303,29 @@ const CourseDetail: React.FC = () => {
                     isAlreadyMarked,
                     currentStatus
                   });
-                  
+
                   return (
                     <div
                       key={participant.user_id}
-                      className={`p-4 rounded-lg ${
-                        isAlreadyMarked 
-                          ? 'bg-white border-2 border-gray-200' 
+                      className={`p-4 rounded-lg ${isAlreadyMarked
+                          ? 'bg-white border-2 border-gray-200'
                           : 'border-2 border-gray-200 hover:bg-gray-50'
-                      }`}
+                        }`}
                     >
                       {isAlreadyMarked ? (
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <p className="font-medium text-gray-900">{participant.full_name}</p>
                           </div>
-                          <span className={`px-4 py-2 rounded-full text-base font-semibold ${
-                            currentStatus === 'present' ? 'bg-green-100 text-green-800' :
-                            currentStatus === 'late' ? 'bg-yellow-100 text-yellow-800' :
-                            currentStatus === 'excused' ? 'bg-blue-100 text-blue-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
+                          <span className={`px-4 py-2 rounded-full text-base font-semibold ${currentStatus === 'present' ? 'bg-green-100 text-green-800' :
+                              currentStatus === 'late' ? 'bg-yellow-100 text-yellow-800' :
+                                currentStatus === 'excused' ? 'bg-blue-100 text-blue-800' :
+                                  'bg-red-100 text-red-800'
+                            }`}>
                             {currentStatus === 'present' ? '✓ Có mặt' :
-                             currentStatus === 'late' ? '⏰ Trễ' :
-                             currentStatus === 'excused' ? '📋 Có phép' :
-                             '✗ Vắng'}
+                              currentStatus === 'late' ? '⏰ Trễ' :
+                                currentStatus === 'excused' ? '📋 Có phép' :
+                                  '✗ Vắng'}
                           </span>
                         </div>
                       ) : (
@@ -1398,9 +1345,8 @@ const CourseDetail: React.FC = () => {
                                 onChange={() => handleSetAttendance(participant.user_id.toString(), 'present')}
                                 className="w-4 h-4 text-green-600 focus:ring-2 focus:ring-green-500"
                               />
-                              <span className={`text-sm font-medium ${
-                                attendanceData[participant.user_id] === 'present' ? 'text-green-600' : 'text-gray-600'
-                              }`}>
+                              <span className={`text-sm font-medium ${attendanceData[participant.user_id] === 'present' ? 'text-green-600' : 'text-gray-600'
+                                }`}>
                                 ✓ Có mặt
                               </span>
                             </label>
@@ -1412,9 +1358,8 @@ const CourseDetail: React.FC = () => {
                                 onChange={() => handleSetAttendance(participant.user_id.toString(), 'late')}
                                 className="w-4 h-4 text-yellow-600 focus:ring-2 focus:ring-yellow-500"
                               />
-                              <span className={`text-sm font-medium ${
-                                attendanceData[participant.user_id] === 'late' ? 'text-yellow-600' : 'text-gray-600'
-                              }`}>
+                              <span className={`text-sm font-medium ${attendanceData[participant.user_id] === 'late' ? 'text-yellow-600' : 'text-gray-600'
+                                }`}>
                                 ⏰ Trễ
                               </span>
                             </label>
@@ -1426,9 +1371,8 @@ const CourseDetail: React.FC = () => {
                                 onChange={() => handleSetAttendance(participant.user_id.toString(), 'absent')}
                                 className="w-4 h-4 text-red-600 focus:ring-2 focus:ring-red-500"
                               />
-                              <span className={`text-sm font-medium ${
-                                attendanceData[participant.user_id] === 'absent' ? 'text-red-600' : 'text-gray-600'
-                              }`}>
+                              <span className={`text-sm font-medium ${attendanceData[participant.user_id] === 'absent' ? 'text-red-600' : 'text-gray-600'
+                                }`}>
                                 ✗ Vắng
                               </span>
                             </label>
@@ -1440,9 +1384,8 @@ const CourseDetail: React.FC = () => {
                                 onChange={() => handleSetAttendance(participant.user_id.toString(), 'excused')}
                                 className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
                               />
-                              <span className={`text-sm font-medium ${
-                                attendanceData[participant.user_id] === 'excused' ? 'text-blue-600' : 'text-gray-600'
-                              }`}>
+                              <span className={`text-sm font-medium ${attendanceData[participant.user_id] === 'excused' ? 'text-blue-600' : 'text-gray-600'
+                                }`}>
                                 📋 Có phép
                               </span>
                             </label>
@@ -1663,8 +1606,8 @@ const CourseDetail: React.FC = () => {
                                     <div
                                       className="bg-green-600 h-2 rounded-full"
                                       style={{
-                                        width: `${subjectFeedbacks.total_feedbacks > 0 
-                                          ? ((count as number) / subjectFeedbacks.total_feedbacks) * 100 
+                                        width: `${subjectFeedbacks.total_feedbacks > 0
+                                          ? ((count as number) / subjectFeedbacks.total_feedbacks) * 100
                                           : 0}%`
                                       }}
                                     />
@@ -1683,7 +1626,7 @@ const CourseDetail: React.FC = () => {
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">
                       Chi tiết đánh giá ({subjectFeedbacks.feedbacks.length})
                     </h3>
-                    
+
                     {subjectFeedbacks.feedbacks.length === 0 ? (
                       <div className="text-center py-8 bg-gray-50 rounded-lg">
                         <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-2" />
@@ -1699,11 +1642,10 @@ const CourseDetail: React.FC = () => {
                                   {[1, 2, 3, 4, 5].map((star) => (
                                     <Star
                                       key={star}
-                                      className={`h-5 w-5 ${
-                                        star <= feedback.rating
+                                      className={`h-5 w-5 ${star <= feedback.rating
                                           ? 'text-amber-500 fill-current'
                                           : 'text-gray-300'
-                                      }`}
+                                        }`}
                                     />
                                   ))}
                                 </div>
@@ -1825,7 +1767,7 @@ const CourseDetail: React.FC = () => {
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">
                       Các lớp học đang tham gia ({studentCourses.courses.length})
                     </h3>
-                    
+
                     {studentCourses.courses.length === 0 ? (
                       <div className="text-center py-8 bg-gray-50 rounded-lg">
                         <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-2" />
@@ -1872,8 +1814,8 @@ const CourseDetail: React.FC = () => {
                                     <div
                                       className="bg-blue-600 h-2 rounded-full"
                                       style={{
-                                        width: `${course.total_sessions > 0 
-                                          ? (course.enrolled_sessions / course.total_sessions) * 100 
+                                        width: `${course.total_sessions > 0
+                                          ? (course.enrolled_sessions / course.total_sessions) * 100
                                           : 0}%`
                                       }}
                                     />
