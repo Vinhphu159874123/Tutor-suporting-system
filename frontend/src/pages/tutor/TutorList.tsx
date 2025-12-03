@@ -28,6 +28,7 @@ const TutorList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('all');
   const [minRating, setMinRating] = useState(0);
+  const [sortBy, setSortBy] = useState<'rating' | 'sessions'>('rating');
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [allTutors, setAllTutors] = useState<Tutor[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -96,8 +97,17 @@ const TutorList: React.FC = () => {
       );
     }
 
+    // Sort by rating or sessions
+    filtered.sort((a, b) => {
+      if (sortBy === 'rating') {
+        return b.rating - a.rating; // Descending
+      } else {
+        return b.total_sessions - a.total_sessions; // Descending
+      }
+    });
+
     setTutors(filtered);
-  }, [selectedSubject, minRating, searchTerm, allTutors]);
+  }, [selectedSubject, minRating, searchTerm, sortBy, allTutors]);
 
   return (
     <div className="space-y-6">
@@ -183,6 +193,21 @@ const TutorList: React.FC = () => {
               <option value={4.8}>Từ 4.8</option>
             </select>
           </div>
+
+          {/* Sort By */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Sắp xếp theo
+            </label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as 'rating' | 'sessions')}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="rating">Đánh giá cao nhất</option>
+              <option value="sessions">Nhiều phiên nhất</option>
+            </select>
+          </div>
         </div>
 
         <div className="mt-4 text-sm text-gray-600">
@@ -205,14 +230,17 @@ const TutorList: React.FC = () => {
               </div>
             </div>
 
-            {/* Rating */}
-            <div className="flex items-center mb-3">
-              <Star className="w-5 h-5 text-yellow-500" />
-              <span className="ml-1 font-semibold text-gray-900">
-                {typeof tutor.rating === 'number' ? tutor.rating.toFixed(1) : '0.0'}
-              </span>
-              <span className="ml-2 text-sm text-gray-600">
-                ({tutor.total_sessions || 0} phiên)
+            {/* Rating & Sessions */}
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center">
+                <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
+                <span className="ml-1 font-semibold text-gray-900">
+                  {typeof tutor.rating === 'number' ? tutor.rating.toFixed(1) : '0.0'}
+                </span>
+              </div>
+              <span className="text-gray-400">-</span>
+              <span className="text-sm text-gray-600">
+                {tutor.total_sessions || 0} phiên
               </span>
             </div>
 

@@ -26,7 +26,7 @@ const SessionHistory: React.FC = () => {
         const params: any = { limit: 100 };
         
         // Get tutor_id or student_id based on role
-        if (user?.role === 'student' || user?.role === 'tutor') {
+        if (user?.role?.includes('student') || user?.role?.includes('tutor')) {
           try {
             // Get full user profile which includes tutor_id or student_id
             const meResponse: any = await authApi.getProfile();
@@ -36,10 +36,10 @@ const SessionHistory: React.FC = () => {
             console.log('Current user role:', user?.role);
             console.log('User ID:', user?.user_id);
             
-            if (user?.role === 'student' && userData.student_id) {
+            if (user?.role?.includes('student') && userData.student_id) {
               params.student_id = userData.student_id;
               console.log('Filtering by student_id:', userData.student_id);
-            } else if (user?.role === 'tutor' && userData.tutor_id) {
+            } else if (user?.role?.includes('tutor') && userData.tutor_id) {
               params.tutor_id = userData.tutor_id;
               console.log('Filtering by tutor_id:', userData.tutor_id);
             } else {

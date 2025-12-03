@@ -478,7 +478,9 @@ const BrowseCourses: React.FC = () => {
                               .sort(([a], [b]) => Number(b) - Number(a))
                               .map(([rating, count]) => (
                                 <div key={rating} className="flex items-center gap-2 text-xs">
-                                  <span className="text-green-700">{rating}⭐</span>
+                                  <span className="inline-flex items-center gap-1 text-green-700">
+                                    <Star className="w-3 h-3 fill-green-600" />{rating}
+                                  </span>
                                   <div className="flex-1 bg-green-200 rounded-full h-2">
                                     <div
                                       className="bg-green-600 h-2 rounded-full"

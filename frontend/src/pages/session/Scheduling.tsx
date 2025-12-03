@@ -28,11 +28,11 @@ interface SlotSuggestion {
 
 const Scheduling: React.FC = () => {
   const { user } = useAuthStore();
-  const role = user?.role || "student";
-  const isTutor = role === "tutor";
-  const isStudent = role === "student";
-  const isCoordinator = role === "coordinator";
-  const isAdmin = role === "admin";
+  const role = (user?.role && user.role[0]) || "student";  // Get first role from array
+  const isTutor = user?.role?.includes("tutor") || false;
+  const isStudent = user?.role?.includes("student") || false;
+  const isCoordinator = user?.role?.includes("coordinator") || false;
+  const isAdmin = user?.role?.includes("admin") || false;
   const canManageTutorAvailability = isTutor || isCoordinator || isAdmin;
   const canScheduleSessions = isTutor || isCoordinator || isAdmin;
   const canManageExistingSessions = isTutor || isCoordinator || isAdmin;

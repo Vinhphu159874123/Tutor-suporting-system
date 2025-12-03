@@ -29,8 +29,9 @@ const Login: React.FC = () => {
       // Get user from store to determine redirect
       const user = useAuthStore.getState().user;
       
-      // Redirect based on role
-      switch (user?.role) {
+      // Redirect based on role (role is now array)
+      const primaryRole = user?.role?.[0] || 'student';
+      switch (primaryRole) {
         case 'admin':
           navigate('/admin');
           break;
@@ -38,7 +39,7 @@ const Login: React.FC = () => {
           navigate('/coor');
           break;
         case 'tutor':
-          navigate('/dashboard'); // Can create separate tutor dashboard later
+          navigate('/dashboard');
           break;
         case 'student':
           navigate('/dashboard');
@@ -47,9 +48,9 @@ const Login: React.FC = () => {
           navigate('/dashboard');
       }
     } catch (error: any) {
-      const errorMsg = error?.response?.data?.detail || "Đăng nhập thất bại";
+      const errorMsg = error?.response?.data?.detail || "Email hoặc mật khẩu không đúng";
       setErrorMessage(errorMsg);
-      toast.error(errorMsg);
+      // Don't show toast here to avoid duplicate error messages
     }
   };
 

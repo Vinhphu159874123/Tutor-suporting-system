@@ -2,8 +2,8 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { AxiosResponse } from "axios";
-import { usersApi, sessionsApi } from "../../services/api";
-import { FileText } from "lucide-react";
+import { usersApi, sessionsApi, tutorsApi } from "../../services/api";
+import { FileText, Star } from "lucide-react";
 
 interface CourseStat {
   id: string;
@@ -15,17 +15,36 @@ interface CourseStat {
   activeStudents: number;
 }
 
+interface TutorStat {
+  tutor_id: number;
+  name: string;
+  total_sessions: number;
+  rating: number;
+  total_hours: number;
+}
+
+interface StudentStat {
+  student_id: number;
+  name: string;
+  attendance_rate: number;
+  sessions_attended: number;
+}
+
 const Reports: React.FC = () => {
   const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState("quarter");
   const [faculty, setFaculty] = useState("all");
   const [courseStats, setCourseStats] = useState<CourseStat[]>([]);
+  const [topTutors, setTopTutors] = useState<TutorStat[]>([]);
+  const [topStudents, setTopStudents] = useState<StudentStat[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     total_sessions: 0,
     active_students: 0,
     average_rating: 0,
-    total_hours: 0
+    total_hours: 0,
+    total_tutors: 0,
+    completed_sessions: 0
   });
 
   useEffect(() => {
@@ -38,7 +57,9 @@ const Reports: React.FC = () => {
           total_sessions: statsResponse.data?.total_sessions || 0,
           active_students: statsResponse.data?.active_students || 0,
           average_rating: statsResponse.data?.average_rating || 0,
-          total_hours: Math.round((statsResponse.data?.total_sessions || 0) * 2) // Estimate 2h per session
+          total_hours: statsResponse.data?.total_hours || 0,
+          total_tutors: statsResponse.data?.total_tutors || 0,
+          completed_sessions: statsResponse.data?.completed_sessions || 0
         });
 
         // Fetch sessions for course breakdown
@@ -78,6 +99,22 @@ const Reports: React.FC = () => {
         }));
 
         setCourseStats(courseStatsData);
+        
+        // Fetch top tutors
+        const tutorsResponse = await tutorsApi.getTutors() as AxiosResponse<any>;
+        const tutors = tutorsResponse.data || [];
+        const tutorsWithStats = tutors
+          .map((t: any) => ({
+            tutor_id: t.tutor_id,
+            name: t.full_name || t.name,
+            total_sessions: t.total_sessions || 0,
+            rating: t.rating || 0,
+            total_hours: (t.total_sessions || 0) * 2
+          }))
+          .sort((a: TutorStat, b: TutorStat) => b.rating - a.rating)
+          .slice(0, 10);
+        setTopTutors(tutorsWithStats);
+        
       } catch (error: any) {
         console.error("Error fetching reports:", error);
         toast.error("Không thể tải báo cáo");
@@ -97,27 +134,27 @@ const Reports: React.FC = () => {
   const kpiCards = [
     {
       label: "Phiên học hoàn thành",
-      value: loading ? "..." : stats.total_sessions.toString(),
-      trend: "+12% so với kỳ trước",
-      trendColor: "text-green-600",
+      value: loading ? "..." : stats.completed_sessions.toString(),
+      trend: `${stats.total_sessions} tổng số`,
+      trendColor: "text-gray-600",
     },
     {
       label: "Sinh viên hoạt động",
       value: loading ? "..." : stats.active_students.toString(),
-      trend: "+36 sinh viên mới",
+      trend: `Tổng ${stats.total_tutors} tutors`,
       trendColor: "text-blue-600",
     },
     {
       label: "Điểm hài lòng trung bình",
       value: loading ? "..." : `${stats.average_rating.toFixed(1)}/5`,
-      trend: "↑ 0.2 điểm",
-      trendColor: "text-purple-600",
+      trend: stats.average_rating >= 4.0 ? "Tốt" : "Cần cải thiện",
+      trendColor: stats.average_rating >= 4.0 ? "text-green-600" : "text-yellow-600",
     },
     {
       label: "Giờ tutor đóng góp",
       value: loading ? "..." : `${stats.total_hours}h`,
-      trend: "-18h so với mục tiêu",
-      trendColor: "text-yellow-600",
+      trend: `~${Math.round(stats.total_hours / Math.max(stats.total_tutors, 1))}h/tutor`,
+      trendColor: "text-purple-600",
     },
   ];
 
@@ -126,12 +163,6 @@ const Reports: React.FC = () => {
     { value: "CS", label: "Khoa Khoa học & Kỹ thuật Máy tính" },
     { value: "EE", label: "Khoa Điện - Điện tử" },
     { value: "BS", label: "Khoa Cơ khí" },
-  ];
-
-  const satisfactionByRole = [
-    { role: "Student", score: 4.6 },
-    { role: "Tutor", score: 4.8 },
-    { role: "Coordinator", score: 4.4 },
   ];
 
   const recentReports = [
@@ -272,25 +303,71 @@ const Reports: React.FC = () => {
         </div>
       </div>
 
-      {/* Satisfaction & recent reports */}
+      {/* Top Tutors Section */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Top Tutors</h2>
+        <p className="text-gray-500 text-sm mb-6">Xếp hạng theo điểm đánh giá trung bình</p>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead>
+              <tr className="text-gray-500 border-b">
+                <th className="py-3 pr-4">#</th>
+                <th className="py-3 pr-4">Tên Tutor</th>
+                <th className="py-3 pr-4">Số phiên</th>
+                <th className="py-3 pr-4">Đánh giá</th>
+                <th className="py-3">Tổng giờ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={5} className="py-4 text-center text-gray-500">Đang tải...</td></tr>
+              ) : topTutors.length === 0 ? (
+                <tr><td colSpan={5} className="py-4 text-center text-gray-500">Chưa có dữ liệu</td></tr>
+              ) : (
+                topTutors.map((tutor, index) => (
+                  <tr key={tutor.tutor_id} className="border-b last:border-0 hover:bg-gray-50">
+                    <td className="py-4 pr-4 font-semibold text-gray-700">{index + 1}</td>
+                    <td className="py-4 pr-4 font-semibold text-gray-900">{tutor.name}</td>
+                    <td className="py-4 pr-4 text-gray-700">{tutor.total_sessions} phiên</td>
+                    <td className="py-4 pr-4">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-800">
+                        <Star className="w-4 h-4 fill-yellow-600" /> {tutor.rating.toFixed(1)}
+                      </span>
+                    </td>
+                    <td className="py-4 text-gray-700">{tutor.total_hours}h</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Recent reports and Summary */}
       <div className="grid lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-xl font-bold text-gray-900 mb-4">Mức độ hài lòng</h3>
+          <h3 className="text-xl font-bold text-gray-900 mb-4">Tổng quan hệ thống</h3>
           <div className="space-y-4">
-            {satisfactionByRole.map((item) => (
-              <div key={item.role}>
-                <div className="flex items-center justify-between mb-1">
-                  <p className="font-semibold text-gray-800">{item.role}</p>
-                  <p className="text-sm text-gray-600">{item.score}/5</p>
-                </div>
-                <div className="h-2 bg-gray-100 rounded-full">
-                  <div
-                    className="h-full bg-green-500 rounded-full"
-                    style={{ width: `${(item.score / 5) * 100}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+            <div className="flex items-center justify-between pb-3 border-b">
+              <span className="text-gray-600">Tổng số khóa học</span>
+              <span className="font-bold text-gray-900">{courseStats.length}</span>
+            </div>
+            <div className="flex items-center justify-between pb-3 border-b">
+              <span className="text-gray-600">Tutors đang hoạt động</span>
+              <span className="font-bold text-gray-900">{stats.total_tutors}</span>
+            </div>
+            <div className="flex items-center justify-between pb-3 border-b">
+              <span className="text-gray-600">Sinh viên tham gia</span>
+              <span className="font-bold text-gray-900">{stats.active_students}</span>
+            </div>
+            <div className="flex items-center justify-between pb-3 border-b">
+              <span className="text-gray-600">Tổng phiên học</span>
+              <span className="font-bold text-gray-900">{stats.total_sessions}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-600">Điểm đánh giá TB</span>
+              <span className="inline-flex items-center gap-1 font-bold text-green-600"><Star className="w-5 h-5 fill-green-600" /> {stats.average_rating.toFixed(1)}/5.0</span>
+            </div>
           </div>
         </div>
 

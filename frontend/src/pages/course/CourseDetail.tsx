@@ -79,20 +79,44 @@ const CourseDetail: React.FC = () => {
   const { user } = useAuthStore();
   const hasFetched = useRef(false);
   const lastSubjectId = useRef<string | null>(null);
+  const lastMode = useRef<string | null>(null);
+
+  // Determine active mode (prioritize currentMode if available)
+  const { currentMode } = useAuthStore();
+  const activeMode = currentMode || (user?.role && user.role[0]) || 'student';  // role[0] is first role in array
+  const isTutor = activeMode === 'tutor';
+
+  // Debug log
+  console.log('🔍 CourseDetail Mode Check:', {
+    user: user?.email,
+    userRole: user?.role,
+    currentMode,
+    activeMode,
+    isTutor,
+    availableRoles: user?.role  // role is now array of all roles
+  });
 
   useEffect(() => {
-    // Reset flag if subjectId changed
-    if (subjectId !== lastSubjectId.current) {
+    // Reset flag if subjectId changed OR mode changed
+    if (subjectId !== lastSubjectId.current || activeMode !== lastMode.current) {
+      console.log('🔄 Mode or Subject changed - resetting and refetching', {
+        oldMode: lastMode.current,
+        newMode: activeMode,
+        oldSubject: lastSubjectId.current,
+        newSubject: subjectId
+      });
       hasFetched.current = false;
       lastSubjectId.current = subjectId || null;
+      lastMode.current = activeMode;
     }
     
     if (subjectId && user && !hasFetched.current) {
+      console.log('📡 Fetching course data...', { subjectId, activeMode });
       hasFetched.current = true;
       fetchCourseData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subjectId]);
+  }, [subjectId, activeMode, user]); // Re-fetch when subjectId, activeMode, or user changes
 
   const fetchCourseData = async () => {
     if (!subjectId) return;
@@ -105,7 +129,7 @@ const CourseDetail: React.FC = () => {
 
       // Get current user's tutor_id if they are a tutor
       let currentUserTutorId: number | null = null;
-      if (user?.role === 'tutor') {
+      if (activeMode === 'tutor') {
         try {
           const tutorResponse = await tutorsApi.getMyTutorProfile() as any;
           currentUserTutorId = tutorResponse.data?.tutor_id;
@@ -116,10 +140,10 @@ const CourseDetail: React.FC = () => {
         } catch (err) {
           console.log('Could not fetch tutor profile');
         }
-      } else if (user?.role === 'student') {
+      } else if (activeMode === 'student') {
         // For students, get the tutor_id and tutor_name from their enrolled sessions
         try {
-          const myCoursesResponse = await coursesApi.getMyCourses() as any;
+          const myCoursesResponse = await coursesApi.getMyCourses(activeMode) as any;
           const enrolledCourse = myCoursesResponse.data?.find((c: any) => c.subject_id === parseInt(subjectId));
           if (enrolledCourse?.tutor_id) {
             const tutorId = enrolledCourse.tutor_id;
@@ -154,26 +178,31 @@ const CourseDetail: React.FC = () => {
         
         console.log('🔍 Checking user for session filter:', {
           user,
-          role: user?.role,
+          role: activeMode,
           user_id: user?.user_id,
           currentUserTutorId
         });
         
-        // IMPORTANT: Always filter by tutor_id to avoid seeing sessions from other tutors
-        // For both tutor and student, we need the tutor_id
-        if (currentUserTutorId) {
+        // IMPORTANT: Filter based on active mode
+        if (activeMode === 'tutor' && currentUserTutorId) {
+          // Tutor mode: Show sessions for this tutor
           params.tutor_id = currentUserTutorId;
-          console.log('✅ Using tutor_id filter:', currentUserTutorId);
+          console.log('✅ Tutor mode - Using tutor_id filter:', currentUserTutorId);
+        } else if (activeMode === 'student') {
+          // Student mode: Show only enrolled sessions
+          if (currentUserTutorId) {
+            params.tutor_id = currentUserTutorId;
+            console.log('✅ Student mode - Using tutor_id filter:', currentUserTutorId);
+          }
           
-          // Also add student_id filter if student to ensure they only see enrolled sessions
-          if (user?.role === 'student' && user?.user_id) {
+          if (user?.user_id) {
             params.student_id = user.user_id;
-            console.log('✅ Also using student_id filter:', user.user_id);
-          } else if (user?.role === 'student') {
-            console.error('❌ CRITICAL: Student role but user_id is undefined!', { user });
+            console.log('✅ Student mode - Using student_id filter:', user.user_id);
+          } else {
+            console.error('❌ CRITICAL: Student mode but user_id is undefined!', { user });
           }
         } else {
-          console.log('⚠️ No tutor_id found - student may not be enrolled yet');
+          console.log('⚠️ No tutor_id found - user may not be enrolled yet');
         }
         
         console.log('📤 API Request params:', JSON.stringify(params));
@@ -202,7 +231,7 @@ const CourseDetail: React.FC = () => {
           console.log('✅ Loaded saved sessions from database');
           
           // Load existing feedbacks for student
-          if (user?.role === 'student') {
+          if (activeMode === 'student') {
             await loadSessionFeedbacks(convertedSessions);
           }
           
@@ -446,17 +475,19 @@ const CourseDetail: React.FC = () => {
     }
 
     try {
-      // Try to delete from server
-      await sessionsApi.deleteMaterial(session.session_id, materialName);
+      // Note: Old materials (stored as filenames in JSON) are not compatible with new API
+      // New materials use SessionMaterial table with material_id
+      // This will likely fail for old materials, but we handle it gracefully
+      console.warn('Attempting to delete material. Note: Old-style materials may not work.');
       
-      // Remove from local state
+      // Remove from local state first
       setSessions(prev => prev.map(s => 
         s.session_number === sessionNum 
           ? { ...s, materials: s.materials.filter((_, idx) => idx !== materialIndex) } 
           : s
       ));
       
-      toast.success('Đã xóa tài liệu');
+      toast.success('Đã xóa tài liệu (chỉ trong UI). Vui lòng dùng trang Upload Materials để quản lý tài liệu mới.');
     } catch (error: any) {
       console.error('Delete error:', error);
       
@@ -819,8 +850,6 @@ const CourseDetail: React.FC = () => {
       </div>
     );
   }
-
-  const isTutor = user?.role === 'tutor';
 
   return (
     <div className="space-y-6">
@@ -1627,7 +1656,9 @@ const CourseDetail: React.FC = () => {
                               .sort(([a], [b]) => Number(b) - Number(a))
                               .map(([rating, count]) => (
                                 <div key={rating} className="flex items-center gap-2 text-xs">
-                                  <span className="text-green-700">{rating}⭐</span>
+                                  <span className="inline-flex items-center gap-1 text-green-700">
+                                    <Star className="w-3 h-3 fill-green-600" />{rating}
+                                  </span>
                                   <div className="flex-1 bg-green-200 rounded-full h-2">
                                     <div
                                       className="bg-green-600 h-2 rounded-full"

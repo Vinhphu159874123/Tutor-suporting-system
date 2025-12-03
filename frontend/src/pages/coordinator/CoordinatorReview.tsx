@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Check, X, Clock } from "lucide-react";
+import { Check, X, Clock, Calendar } from "lucide-react";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { coordinatorApi } from "../../services/api";
@@ -379,7 +379,9 @@ const CoordinatorReview: React.FC = () => {
               {/* Selected Schedule - Only show for approved registrations */}
               {request.status === "approved" && request.selected_schedule && (
                 <div className="mb-4 p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                  <p className="text-sm font-semibold text-purple-900 mb-2">📅 Lịch dạy đã chọn</p>
+                  <p className="flex items-center gap-1 text-sm font-semibold text-purple-900 mb-2">
+                    <Calendar className="w-4 h-4" /> Lịch dạy đã chọn
+                  </p>
                   <div className="flex items-center gap-4 text-sm">
                     <div>
                       <span className="text-gray-600">Thời gian:</span>

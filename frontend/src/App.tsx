@@ -43,9 +43,6 @@ import TutorDetail from "./pages/tutor/TutorDetail";
 import RegisterTutor from "./pages/tutor/RegisterTutor";
 import SessionRequests from "./pages/tutor/SessionRequests";
 
-// Scheduling page (kept for availability management)
-import Scheduling from "./pages/session/Scheduling";
-
 // Course pages
 import MyCourses from "./pages/course/MyCourses";
 import CourseDetail from "./pages/course/CourseDetail";
@@ -173,7 +170,6 @@ function App() {
                       <Route path="/my-courses" element={<MyCourses />} />
                       <Route path="/my-courses/:subjectId" element={<CourseDetail />} />
                       <Route path="/courses/:subjectId/progress" element={<CourseProgress />} />
-                      <Route path="/scheduling" element={<Scheduling />} />
                       <Route path="/reports" element={<Reports />} />
                       <Route path="/export-report" element={<ExportReport />} />
                       <Route path="/forum" element={<Forum />} />
@@ -182,7 +178,7 @@ function App() {
                       <Route path="/study-groups" element={<StudyGroups />} />
                       <Route path="/study-groups/create" element={<CreateStudyGroup />} />
                       <Route path="/study-groups/:id" element={<StudyGroupDetail />} />
-                      <Route path="/admin" element={<Admin />} />
+                      <Route path="/admin/*" element={<Admin />} />
                       <Route path="/coor" element={<CoordinatorDashboard />} />
                       <Route path="/coor/review" element={<CoordinatorReview />} />
                       <Route path="/coor/sessions" element={<CoordinatorSessions />} />

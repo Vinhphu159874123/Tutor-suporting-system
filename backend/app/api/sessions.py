@@ -13,13 +13,73 @@ from app.schemas.session_participant import (
 )
 from app.services.session_service import SessionService
 from app.core.dependencies import get_session_service, get_current_user
-from app.models.database import User
+from app.models.database import User, Student
 
 router = APIRouter()
 
 # ============================================================================
 # SESSION ENDPOINTS - Migrated to Layered Architecture
 # ============================================================================
+
+@router.get("/my-sessions", response_model=List[SessionResponse])
+async def get_my_sessions(
+    mode: Optional[str] = None,  # Add mode parameter to allow switching
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, le=100),
+    current_user: User = Depends(get_current_user),
+    session_service: SessionService = Depends(get_session_service)
+):
+    """Get sessions for current user (student or tutor)
+    
+    Args:
+        mode: Optional role to get sessions for ('student' or 'tutor').
+              If not provided, uses current_user.role.
+    """
+    # Determine which role to fetch sessions for
+    active_role = mode or current_user.role
+    
+    # Validate user has the requested role
+    if mode:
+        if mode == 'student' and not current_user.student_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a student"
+            )
+        if mode == 'tutor' and not current_user.tutor_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not a tutor"
+            )
+    
+    if active_role == 'student':
+        # For students, pass user_id as student_id parameter
+        # The repository will use it to filter SessionParticipant.user_id
+        return await session_service.get_all_sessions(
+            skip=skip, 
+            limit=limit,
+            student_id=current_user.user_id  # Pass user_id, not student.student_id
+        )
+    
+    elif active_role == 'tutor':
+        # Get tutor sessions
+        from app.models.database import Tutor
+        from app.core.database import AsyncSessionLocal
+        from sqlalchemy import select
+        
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(Tutor.tutor_id).where(Tutor.user_id == current_user.user_id)
+            )
+            tutor_id = result.scalar_one_or_none()
+            if not tutor_id:
+                return []
+            
+            return await session_service.get_all_sessions(
+                skip=skip, limit=limit,
+                tutor_id=tutor_id
+            )
+    
+    return []
 
 @router.get("/", response_model=List[SessionResponse])
 async def get_sessions(
@@ -163,7 +223,8 @@ async def delete_material(
     import os
     
     # Only tutors can delete materials
-    if current_user.role != 'tutor':
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    if 'tutor' not in user_roles:
         raise HTTPException(status_code=403, detail="Only tutors can delete materials")
     
     # Try to parse as integer first (material_id)
@@ -288,7 +349,6 @@ async def download_material(
     if inline:
         # For inline display (preview in browser)
         media_type = 'application/pdf' if material.file_name.lower().endswith('.pdf') else 'application/octet-stream'
-        from fastapi.responses import FileResponse
         response = FileResponse(
             path=str(file_path),
             media_type=media_type,
@@ -718,7 +778,8 @@ async def get_session_feedbacks(
     query = select(SessionFeedback).where(SessionFeedback.session_id == session_id)
     
     # Students can only see their own feedback
-    if current_user.role == 'student':
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    if 'student' in user_roles:
         query = query.where(SessionFeedback.reviewer_id == current_user.user_id)
     
     result = await session_service.session_repo.db.execute(query)
@@ -757,7 +818,8 @@ async def get_bulk_feedbacks(
     query = select(SessionFeedback).where(SessionFeedback.session_id.in_(ids))
     
     # Students can only see their own feedback
-    if current_user.role == 'student':
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    if 'student' in user_roles:
         query = query.where(SessionFeedback.reviewer_id == current_user.user_id)
     
     result = await session_service.session_repo.db.execute(query)
@@ -799,7 +861,8 @@ async def get_subject_feedbacks(
     from sqlalchemy import select, func
     
     # If called by tutor without tutor_id specified, use their own tutor_id
-    if current_user.role == 'tutor' and not tutor_id:
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    if 'tutor' in user_roles and not tutor_id:
         tutor_result = await session_service.session_repo.db.execute(
             select(Tutor).where(Tutor.user_id == current_user.user_id)
         )
@@ -896,7 +959,8 @@ async def get_session_participants(
         raise HTTPException(status_code=404, detail="Session not found")
     
     # Only tutors can view participants
-    if current_user.role != 'tutor':
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    if 'tutor' not in user_roles:
         raise HTTPException(status_code=403, detail="Only tutors can view participants")
     
     # Get all student participants with their attendance status
@@ -950,7 +1014,8 @@ async def mark_attendance(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     
-    if current_user.role != 'tutor':
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    if 'tutor' not in user_roles:
         raise HTTPException(status_code=403, detail="Only tutors can mark attendance")
     
     vietnam_tz = timezone(timedelta(hours=7))

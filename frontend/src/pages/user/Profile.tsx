@@ -208,9 +208,9 @@ const Profile: React.FC = () => {
               </h2>
               <p className="text-gray-600">{user?.email}</p>
               <span className="mt-2 inline-block px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium">
-                {user?.role === "student"
+                {user?.role?.includes("student")
                   ? "Sinh viên"
-                  : user?.role === "tutor"
+                  : user?.role?.includes("tutor")
                     ? "Gia sư"
                     : "Admin"}
               </span>

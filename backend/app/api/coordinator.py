@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_
+from sqlalchemy.orm import aliased
 from typing import List, Dict, Optional
 from datetime import datetime
 from pydantic import BaseModel
@@ -17,6 +18,16 @@ from app.models.database import User, TutorRegistration, Tutor, Subject, Session
 from app.events import event_bus
 
 router = APIRouter()
+
+# Helper function to check if user has coordinator or admin role
+def check_coordinator_permission(user: User):
+    """Check if user has coordinator or admin role (supports array)"""
+    user_roles = user.role if isinstance(user.role, list) else [user.role]
+    if 'coordinator' not in user_roles and 'admin' not in user_roles:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only coordinators can access this endpoint"
+        )
 
 # ============================================================================
 # TUTOR REGISTRATION APPROVAL
@@ -35,11 +46,7 @@ async def get_pending_tutor_registrations(
     
     Requires: Coordinator role
     """
-    if current_user.role not in ['coordinator', 'admin']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only coordinators can access this endpoint"
-        )
+    check_coordinator_permission(current_user)
     
     # Query with joins to get tutor and subject info
     query = (
@@ -155,11 +162,7 @@ async def get_registration_schedules(
     Get all schedules for a tutor registration
     Returns list of schedules the coordinator can choose from
     """
-    if current_user.role not in ['coordinator', 'admin']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only coordinators can view schedules"
-        )
+    check_coordinator_permission(current_user)
     
     # Get the registration
     from app.models.database import SessionSchedule
@@ -217,11 +220,7 @@ async def approve_tutor_registration(
     Requires: Coordinator role
     Body: { schedule_id?: number } - Optional schedule to use for session generation
     """
-    if current_user.role not in ['coordinator', 'admin']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only coordinators can approve registrations"
-        )
+    check_coordinator_permission(current_user)
     
     # Get the registration
     query = select(TutorRegistration).where(TutorRegistration.registration_id == registration_id)
@@ -311,11 +310,7 @@ async def reject_tutor_registration(
     
     Requires: Coordinator role
     """
-    if current_user.role not in ['coordinator', 'admin']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only coordinators can reject registrations"
-        )
+    check_coordinator_permission(current_user)
     
     # Get the registration
     query = select(TutorRegistration).where(TutorRegistration.registration_id == registration_id)
@@ -402,17 +397,13 @@ async def get_pending_sessions(
     
     Requires: Coordinator role
     """
-    if current_user.role not in ['coordinator', 'admin']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only coordinators can access this endpoint"
-        )
+    check_coordinator_permission(current_user)
     
     # Query sessions with status 'pending'
     from app.models.database import SessionParticipant
     
     query = (
-        select(SessionModel, Tutor, User.label('tutor_user'), Subject)
+        select(SessionModel, Tutor, User, Subject)
         .join(Tutor, SessionModel.tutor_id == Tutor.tutor_id)
         .join(User, Tutor.user_id == User.user_id)
         .join(Subject, SessionModel.subject_id == Subject.subject_id)
@@ -463,11 +454,7 @@ async def approve_session(
     
     Requires: Coordinator role
     """
-    if current_user.role not in ['coordinator', 'admin']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only coordinators can approve sessions"
-        )
+    check_coordinator_permission(current_user)
     
     # Get the session
     query = select(SessionModel).where(SessionModel.session_id == session_id)
@@ -511,11 +498,7 @@ async def reject_session(
     
     Requires: Coordinator role
     """
-    if current_user.role not in ['coordinator', 'admin']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only coordinators can reject sessions"
-        )
+    check_coordinator_permission(current_user)
     
     # Get the session
     query = select(SessionModel).where(SessionModel.session_id == session_id)
@@ -566,11 +549,7 @@ async def get_all_tutors(
     
     Requires: Coordinator role
     """
-    if current_user.role not in ['coordinator', 'admin']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only coordinators can access this endpoint"
-        )
+    check_coordinator_permission(current_user)
     
     # Query tutors with user info
     query = (
@@ -641,11 +620,7 @@ async def get_tutor_courses(
     
     Requires: Coordinator role
     """
-    if current_user.role not in ['coordinator', 'admin']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only coordinators can access this endpoint"
-        )
+    check_coordinator_permission(current_user)
     
     # Verify tutor exists
     tutor_query = select(Tutor, User).join(User, Tutor.user_id == User.user_id).where(Tutor.tutor_id == tutor_id)
@@ -736,11 +711,7 @@ async def get_course_details_with_feedbacks(
     
     Requires: Coordinator role
     """
-    if current_user.role not in ['coordinator', 'admin']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only coordinators can access this endpoint"
-        )
+    check_coordinator_permission(current_user)
     
     from app.models.database import SessionParticipant, SessionFeedback, ProgressTracking
     
@@ -876,11 +847,7 @@ async def export_course_report(
     Requires: Coordinator role
     Format: csv or json
     """
-    if current_user.role not in ['coordinator', 'admin']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only coordinators can access this endpoint"
-        )
+    check_coordinator_permission(current_user)
     
     # Get the detailed data
     details = await get_course_details_with_feedbacks(tutor_id, subject_id, current_user, db)
@@ -957,11 +924,7 @@ async def update_tutor_rating(
     
     Requires: Coordinator role
     """
-    if current_user.role not in ['coordinator', 'admin']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only coordinators can access this endpoint"
-        )
+    check_coordinator_permission(current_user)
     
     from app.models.database import SessionFeedback
     
@@ -1014,11 +977,7 @@ async def update_all_tutors_ratings(
     
     Requires: Coordinator role
     """
-    if current_user.role not in ['coordinator', 'admin']:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only coordinators can access this endpoint"
-        )
+    check_coordinator_permission(current_user)
     
     from app.models.database import SessionFeedback
     

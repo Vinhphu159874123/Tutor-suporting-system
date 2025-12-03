@@ -139,7 +139,7 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     full_name = Column(String, nullable=False)
     phone = Column(String, nullable=True)
-    role = Column(String, nullable=False)  # student, tutor, coordinator, admin
+    role = Column(ARRAY(String), nullable=False, server_default="{student}")  # Array: student, tutor, coordinator, admin
     avatar_url = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)

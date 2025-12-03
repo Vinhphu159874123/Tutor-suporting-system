@@ -19,15 +19,19 @@ interface Course {
 const MyCourses: React.FC = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuthStore();
+  const { user, currentMode } = useAuthStore();
+
+  // Determine active mode
+  const activeMode = currentMode || (user?.role && user.role[0]) || 'student';
+  const isTutor = activeMode === 'tutor';
 
   useEffect(() => {
     fetchMyCourses();
-  }, []);
+  }, [activeMode]); // Re-fetch when mode changes
 
   const fetchMyCourses = async () => {
     try {
-      const response = await coursesApi.getMyCourses() as any;
+      const response = await coursesApi.getMyCourses(activeMode) as any;
       console.log('My Courses API Response:', response);
       console.log('Courses data:', response.data);
       setCourses(response.data);
@@ -38,8 +42,6 @@ const MyCourses: React.FC = () => {
       setLoading(false);
     }
   };
-
-  const isTutor = user?.role === 'tutor';
 
   return (
     <div className="space-y-6">
@@ -82,11 +84,11 @@ const MyCourses: React.FC = () => {
             </p>
             {!isTutor && (
               <Link
-                to="/sessions"
+                to="/browse-courses"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 <Calendar className="h-5 w-5" />
-                Tìm phiên học
+                Tìm môn học
               </Link>
             )}
           </div>
