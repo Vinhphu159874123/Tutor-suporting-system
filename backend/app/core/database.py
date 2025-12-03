@@ -25,6 +25,12 @@ engine = create_async_engine(
     future=True,
     pool_pre_ping=True,  # Enable connection health checks
     poolclass=NullPool,  # Disable connection pooling to avoid prepared statement issues
+    connect_args={
+        "statement_cache_size": 0,  # Disable prepared statement cache for pgbouncer compatibility
+        "server_settings": {
+            "application_name": "tutor_support_system"
+        }
+    }
 )
 
 # Create session factory
