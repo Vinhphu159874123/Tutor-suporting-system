@@ -46,7 +46,7 @@ The HCMUT Tutor Support System is a modern, full-stack web application designed 
 
 - **Community Features**: Forums and study groups- **Community Features**: Forums and study groups
 
-- **External Integration**: HCMUT SSO, DataCore, and Library services- **External Integration**: HCMUT SSO, DataCore, and Library services
+- **External Integration**: HCMUT SSO, DataCore, and Library services- **External Integration**: HCMUT SSO, DataCore, and Library service
 
 ---
 
