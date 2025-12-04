@@ -52,7 +52,16 @@ const Notifications: React.FC = () => {
         setLoading(false);
       }
     };
+    
+    // Initial fetch
     fetchNotifications();
+    
+    // Auto-refresh every 3 seconds
+    const interval = setInterval(() => {
+      fetchNotifications();
+    }, 3000);
+    
+    return () => clearInterval(interval);
   }, [filter]);
 
   const getIcon = (type: string) => {

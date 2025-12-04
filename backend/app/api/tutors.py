@@ -148,8 +148,42 @@ async def get_my_registrations(
     result = await db.execute(query)
     registrations = result.all()
     
-    return [
-        {
+    # Load actual sessions (not schedule templates) for each registration
+    from app.models.database import Session
+    from datetime import datetime, timedelta
+    response_data = []
+    
+    # Get sessions for next 30 days to determine actual schedule conflicts
+    today = datetime.now().date()
+    future_date = today + timedelta(days=30)
+    
+    for reg in registrations:
+        # Get actual sessions for this tutor and subject
+        session_query = select(Session).where(
+            Session.tutor_id == tutor.tutor_id,
+            Session.subject_id == reg.TutorRegistration.subject_id,
+            Session.scheduled_date.isnot(None),
+            Session.scheduled_date >= today,
+            Session.scheduled_date <= future_date,
+            Session.status.in_(['published', 'confirmed', 'ongoing'])  # Only active sessions
+        )
+        session_result = await db.execute(session_query)
+        sessions = session_result.scalars().all()
+        
+        # Map sessions to day_of_week + time slots
+        # Python weekday: 0=Monday, 6=Sunday
+        day_map = {0: "monday", 1: "tuesday", 2: "wednesday", 3: "thursday", 4: "friday", 5: "saturday", 6: "sunday"}
+        
+        session_schedules = []
+        for session in sessions:
+            day_of_week = day_map.get(session.scheduled_date.weekday(), "monday")
+            session_schedules.append({
+                "day_of_week": day_of_week,
+                "start_time": str(session.start_time),
+                "end_time": str(session.end_time)
+            })
+        
+        response_data.append({
             "registration_id": reg.TutorRegistration.registration_id,
             "subject_id": reg.TutorRegistration.subject_id,
             "subject_code": reg.Subject.subject_code,
@@ -162,10 +196,11 @@ async def get_my_registrations(
             "start_date": reg.TutorRegistration.start_date.isoformat() if reg.TutorRegistration.start_date else None,
             "end_date": reg.TutorRegistration.end_date.isoformat() if reg.TutorRegistration.end_date else None,
             "registered_at": reg.TutorRegistration.registered_at.isoformat() if reg.TutorRegistration.registered_at else None,
-            "max_students": reg.TutorRegistration.max_students
-        }
-        for reg in registrations
-    ]
+            "max_students": reg.TutorRegistration.max_students,
+            "session_schedules": session_schedules
+        })
+    
+    return response_data
 
 
 # ============================================================================
