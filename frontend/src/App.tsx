@@ -12,7 +12,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { useAuthStore } from "./stores/authStore";
 import { authApi } from "./services/api";
 import Layout from "./components/Layout";
-import NotificationListener from "./components/NotificationListener";
+// import NotificationListener from "./components/NotificationListener"; // Disabled - component not found
 
 // Auth pages
 import Login from "./pages/auth/Login";
@@ -96,7 +96,7 @@ function App() {
         }
       }
     };
-    
+
     refreshUserProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
@@ -104,9 +104,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
-        {/* Global notification listener - shows toast when NOT on notifications page */}
-        {isAuthenticated && <NotificationListener />}
-        
+        {/* Global notification listener - DISABLED: component not found */}
+        {/* {isAuthenticated && <NotificationListener />} */}
+
         <div className="App">
           <Routes>
             {/* Public Routes */}
