@@ -865,6 +865,20 @@ export const forumApi = {
     }
     return apiClient.post("/forum/study-groups", data);
   },
+
+  joinStudyGroup: (groupId: string) => {
+    if (MOCK_MODE) {
+      return mockResponse({ message: "Joined study group" });
+    }
+    return apiClient.post(`/study-groups/${groupId}/join`);
+  },
+
+  leaveStudyGroup: (groupId: string) => {
+    if (MOCK_MODE) {
+      return mockResponse({ message: "Left study group" });
+    }
+    return apiClient.post(`/study-groups/${groupId}/leave`);
+  },
 };
 
 // Courses API

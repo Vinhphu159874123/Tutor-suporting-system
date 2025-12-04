@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { tutorsApi, coursesApi } from "../../services/api";
+import { tutorsApi, coursesApi, sessionsApi } from "../../services/api";
 import { useAuthStore } from "../../stores/authStore";
 
 const DAYS_OF_WEEK = [
@@ -51,18 +51,86 @@ const RegisterTutor: React.FC = () => {
     sunday: [],
   });
 
-  // Load subjects on mount
+  // State for existing schedules (approved registrations)
+  const [existingSchedules, setExistingSchedules] = useState<Record<string, Array<{timeSlot: string, subjectName: string}>>>({});
+  
+  // State for registered subject IDs
+  const [registeredSubjectIds, setRegisteredSubjectIds] = useState<Set<number>>(new Set());
+
+  // Helper function to check if two time ranges overlap
+  const timeRangesOverlap = (slot1: string, slot2: string): boolean => {
+    const [start1, end1] = slot1.split('-');
+    const [start2, end2] = slot2.split('-');
+    
+    const toMinutes = (time: string) => {
+      const [hours, minutes] = time.split(':').map(Number);
+      return hours * 60 + minutes;
+    };
+    
+    const start1Min = toMinutes(start1);
+    const end1Min = toMinutes(end1);
+    const start2Min = toMinutes(start2);
+    const end2Min = toMinutes(end2);
+    
+    // Two ranges overlap if: start1 < end2 AND start2 < end1
+    return start1Min < end2Min && start2Min < end1Min;
+  };
+
+  // Load subjects and existing schedules on mount
   useEffect(() => {
-    const loadSubjects = async () => {
+    const loadData = async () => {
       try {
+        // Load subjects
         const response: any = await coursesApi.getAllSubjects();
         setSubjects(response.data || []);
+
+        // Load tutor's all registrations to check which subjects are registered
+        const registrationsResponse: any = await tutorsApi.getMyRegistrations();
+        const allRegs = registrationsResponse.data || [];
+        
+        const registeredIds = new Set<number>();
+        for (const reg of allRegs) {
+          if (reg.status === 'approved' || reg.status === 'pending') {
+            registeredIds.add(reg.subject_id);
+          }
+        }
+        setRegisteredSubjectIds(registeredIds);
+
+        // Load actual sessions from the same API that Timetable uses
+        const sessionsResponse: any = await sessionsApi.getMySessions({ mode: 'tutor' });
+        const allSessions = sessionsResponse.data || [];
+        
+        // Build schedule map from actual sessions
+        // Map JS day (0=Sunday, 1=Monday, ..., 6=Saturday) to our format
+        const dayMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const scheduleMap: Record<string, Array<{timeSlot: string, subjectName: string}>> = {};
+        
+        for (const session of allSessions) {
+          if (session.scheduled_date && session.start_time && session.end_time) {
+            // Convert scheduled_date to day of week
+            const sessionDate = new Date(session.scheduled_date + 'T00:00:00');
+            const dayOfWeek = dayMap[sessionDate.getDay()];
+            
+            const timeSlot = `${session.start_time.substring(0, 5)}-${session.end_time.substring(0, 5)}`;
+            
+            if (!scheduleMap[dayOfWeek]) {
+              scheduleMap[dayOfWeek] = [];
+            }
+            
+            scheduleMap[dayOfWeek].push({
+              timeSlot: timeSlot,
+              subjectName: session.subject_name || session.subject?.name || 'Môn đã đăng ký'
+            });
+          }
+        }
+        
+        setExistingSchedules(scheduleMap);
       } catch (error) {
-        console.error("Failed to load subjects:", error);
+        console.error("Failed to load data:", error);
         toast.error("Không thể tải danh sách môn học");
       }
     };
-    loadSubjects();
+    loadData();
   }, []);
 
   const handleChange = (
@@ -184,11 +252,20 @@ const RegisterTutor: React.FC = () => {
               required
             >
               <option value="">-- Chọn môn học --</option>
-              {subjects.map((subject) => (
-                <option key={subject.subject_id} value={subject.subject_id}>
-                  {subject.subject_code} - {subject.subject_name}
-                </option>
-              ))}
+              {subjects.map((subject) => {
+                const isRegistered = registeredSubjectIds.has(subject.subject_id);
+                return (
+                  <option 
+                    key={subject.subject_id} 
+                    value={subject.subject_id}
+                    disabled={isRegistered}
+                    style={isRegistered ? { color: 'red', fontWeight: 'bold' } : {}}
+                  >
+                    {subject.subject_code} - {subject.subject_name}
+                    {isRegistered ? ' (Đã đăng ký)' : ''}
+                  </option>
+                );
+              })}
             </select>
             <p className="text-sm text-gray-500 mt-1">
               Chọn một môn học bạn muốn đăng ký làm tutor. Bạn có thể đăng ký thêm môn khác sau.
@@ -292,7 +369,7 @@ const RegisterTutor: React.FC = () => {
             </label>
             <div className="border border-gray-200 rounded-lg p-4 bg-gradient-to-br from-blue-50 to-indigo-50">
               {DAYS_OF_WEEK.map((day) => (
-                <div key={day.value} className="mb-4 last:mb-0">
+                <div key={day.value} className="mb-6 last:mb-0">
                   <div className="font-semibold text-gray-800 mb-3 flex items-center">
                     <span className="w-2 h-2 bg-blue-600 rounded-full mr-2"></span>
                     {day.label}
@@ -300,19 +377,33 @@ const RegisterTutor: React.FC = () => {
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {TIME_SLOTS.map((slot) => {
                       const isSelected = availability[day.value]?.includes(slot.value);
+                      // Check for time overlap instead of exact match
+                      const conflict = existingSchedules[day.value]?.find(s => timeRangesOverlap(s.timeSlot, slot.value));
+                      const hasConflict = !!conflict;
+                      
                       return (
-                        <button
-                          key={slot.value}
-                          type="button"
-                          onClick={() => toggleTimeSlot(day.value, slot.value)}
-                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                            isSelected
-                              ? "bg-blue-600 text-white shadow-md hover:bg-blue-700"
-                              : "bg-white text-gray-700 border border-gray-300 hover:border-blue-400 hover:bg-blue-50"
-                          }`}
-                        >
-                          {slot.label}
-                        </button>
+                        <div key={slot.value} className="relative group">
+                          <button
+                            type="button"
+                            onClick={() => toggleTimeSlot(day.value, slot.value)}
+                            disabled={hasConflict}
+                            className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                              hasConflict
+                                ? "bg-red-100 text-red-700 border-2 border-red-400 cursor-not-allowed opacity-75"
+                                : isSelected
+                                ? "bg-blue-600 text-white shadow-md hover:bg-blue-700"
+                                : "bg-white text-gray-700 border border-gray-300 hover:border-blue-400 hover:bg-blue-50"
+                            }`}
+                          >
+                            {slot.label}
+                          </button>
+                          {hasConflict && (
+                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-gray-900 text-white text-xs rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                              Trùng {conflict.subjectName}
+                              <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                            </div>
+                          )}
+                        </div>
                       );
                     })}
                   </div>

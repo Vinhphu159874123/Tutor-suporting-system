@@ -12,6 +12,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { useAuthStore } from "./stores/authStore";
 import { authApi } from "./services/api";
 import Layout from "./components/Layout";
+import NotificationListener from "./components/NotificationListener";
 
 // Auth pages
 import Login from "./pages/auth/Login";
@@ -103,6 +104,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
+        {/* Global notification listener - shows toast when NOT on notifications page */}
+        {isAuthenticated && <NotificationListener />}
+        
         <div className="App">
           <Routes>
             {/* Public Routes */}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import apiClient from "../../services/api";
+import apiClient, { forumApi } from "../../services/api";
 import { ArrowLeft, CalendarDays, UserRound, Users } from "lucide-react";
 
 interface StudyGroup {
@@ -221,11 +221,23 @@ const StudyGroups: React.FC = () => {
                 </div>
               ) : group.status === "open" ? (
                 <button
-                  onClick={(e) => {
+                  onClick={async (e) => {
                     e.stopPropagation();
-                    console.log("Join group:", group.id);
+                    try {
+                      await forumApi.joinStudyGroup(group.id);
+                      toast.success("Đã tham gia nhóm học thành công!");
+                      // Update local state
+                      setGroups(prev => prev.map(g => 
+                        g.id === group.id 
+                          ? { ...g, is_member: true, members: g.members + 1 } 
+                          : g
+                      ));
+                    } catch (error: any) {
+                      console.error("Error joining group:", error);
+                      toast.error(error.response?.data?.detail || "Không thể tham gia nhóm học");
+                    }
                   }}
-                  className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition"
+                  className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition font-semibold"
                 >
                   Tham gia
                 </button>
