@@ -10,9 +10,10 @@ class HCMUTSSOService:
         self.sso_url = settings.HCMUT_SSO_URL
         
     async def authenticate(self, username: str, password: str) -> Optional[Dict[str, Any]]:
-        """Authenticate user with HCMUT SSO"""
+        """Authenticate user with HCMUT SSO - with fast timeout"""
         try:
-            async with httpx.AsyncClient() as client:
+            # OPTIMIZATION: Add 2 second timeout to avoid blocking login
+            async with httpx.AsyncClient(timeout=2.0) as client:
                 response = await client.post(
                     f"{self.sso_url}/auth/login",
                     json={"username": username, "password": password}
@@ -31,14 +32,17 @@ class HCMUTSSOService:
                         "role": data.get("role", "student")
                     }
                 return None
+        except (httpx.TimeoutException, httpx.ConnectError):
+            # Fast fail on timeout or connection error
+            return None
         except Exception as e:
             print(f"SSO authentication error: {e}")
             return None
     
     async def validate_token(self, token: str) -> Optional[Dict[str, Any]]:
-        """Validate SSO token"""
+        """Validate SSO token - with fast timeout"""
         try:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=2.0) as client:
                 response = await client.get(
                     f"{self.sso_url}/auth/validate",
                     headers={"Authorization": f"Bearer {token}"}
@@ -47,6 +51,8 @@ class HCMUTSSOService:
                 if response.status_code == 200:
                     return response.json()
                 return None
+        except (httpx.TimeoutException, httpx.ConnectError):
+            return None
         except Exception as e:
             print(f"SSO token validation error: {e}")
             return None

@@ -23,7 +23,14 @@ async def get_system_statistics(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
-    """Get system-wide statistics"""
+    """Get system-wide statistics (CACHED 60s)"""
+    
+    # Try cache first
+    from app.core.cache import get_cached, set_cached
+    cache_key = "reports:statistics"
+    cached = await get_cached(cache_key)
+    if cached:
+        return cached
     
     # Total sessions
     session_result = await db.execute(
@@ -54,7 +61,7 @@ async def get_system_statistics(
     # Total tutor hours (assuming 1 hour per session for now)
     tutor_hours = completed_sessions
     
-    return {
+    stats = {
         "completed_sessions": completed_sessions,
         "active_students": active_students,
         "average_satisfaction": round(float(avg_rating), 1) if avg_rating else 0.0,
@@ -62,6 +69,10 @@ async def get_system_statistics(
         "total_sessions": total_sessions,
         "completion_rate": round((completed_sessions / total_sessions * 100) if total_sessions > 0 else 0, 1)
     }
+    
+    # Cache for 60 seconds
+    await set_cached(cache_key, stats, ttl=60)
+    return stats
 
 
 @router.get("/courses")

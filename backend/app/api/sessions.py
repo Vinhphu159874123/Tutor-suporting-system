@@ -13,7 +13,7 @@ from app.schemas.session_participant import (
 )
 from app.services.session_service import SessionService
 from app.core.dependencies import get_session_service, get_current_user
-from app.models.database import User, Student
+from app.models.database import User, Student, SessionParticipant
 
 router = APIRouter()
 
@@ -27,7 +27,7 @@ async def get_my_sessions_dashboard(
     current_user: User = Depends(get_current_user),
     session_service: SessionService = Depends(get_session_service)
 ):
-    """OPTIMIZED: Get only recent and upcoming sessions for dashboard
+    """OPTIMIZED + CACHED: Get only recent and upcoming sessions for dashboard
     
     Returns:
         - 3 most recent completed sessions
@@ -35,11 +35,6 @@ async def get_my_sessions_dashboard(
     
     This is much faster than fetching all 100 sessions and filtering client-side.
     """
-    from app.models.database import Session as SessionModel, Tutor
-    from app.core.database import get_db
-    from sqlalchemy import select, desc, asc
-    from datetime import date
-    
     active_role = mode or current_user.role
     
     # Validate role
@@ -49,13 +44,29 @@ async def get_my_sessions_dashboard(
         if mode == 'tutor' and not current_user.tutor_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User is not a tutor")
     
+    # Try cache first (10s TTL)
+    from app.core.cache import get_cached, set_cached
+    cache_key = f"sessions:dashboard:{current_user.user_id}:{active_role}"
+    cached = await get_cached(cache_key)
+    if cached:
+        return cached
+    
+    from app.models.database import Session as SessionModel, Tutor
+    from app.core.database import get_db
+    from sqlalchemy import select, desc, asc
+    from sqlalchemy.orm import selectinload
+    from datetime import date
+    
     async for db in get_db():
         today = date.today()
         
         if active_role == 'student':
-            # Recent completed sessions (last 3)
+            # Recent completed sessions (last 3) - eager load tutor + tutor.user
             recent_query = (
                 select(SessionModel)
+                .options(
+                    selectinload(SessionModel.tutor).selectinload(Tutor.user)
+                )
                 .join(SessionParticipant, SessionModel.session_id == SessionParticipant.session_id)
                 .where(
                     SessionParticipant.user_id == current_user.user_id,
@@ -66,9 +77,12 @@ async def get_my_sessions_dashboard(
                 .limit(3)
             )
             
-            # Upcoming sessions (next 3)
+            # Upcoming sessions (next 3) - eager load tutor + tutor.user
             upcoming_query = (
                 select(SessionModel)
+                .options(
+                    selectinload(SessionModel.tutor).selectinload(Tutor.user)
+                )
                 .join(SessionParticipant, SessionModel.session_id == SessionParticipant.session_id)
                 .where(
                     SessionParticipant.user_id == current_user.user_id,
@@ -88,9 +102,12 @@ async def get_my_sessions_dashboard(
             if not tutor_id:
                 return {"recent": [], "upcoming": []}
             
-            # Recent completed sessions
+            # Recent completed sessions - eager load tutor + tutor.user
             recent_query = (
                 select(SessionModel)
+                .options(
+                    selectinload(SessionModel.tutor).selectinload(Tutor.user)
+                )
                 .where(
                     SessionModel.tutor_id == tutor_id,
                     SessionModel.status == 'completed'
@@ -99,9 +116,12 @@ async def get_my_sessions_dashboard(
                 .limit(3)
             )
             
-            # Upcoming sessions
+            # Upcoming sessions - eager load tutor + tutor.user
             upcoming_query = (
                 select(SessionModel)
+                .options(
+                    selectinload(SessionModel.tutor).selectinload(Tutor.user)
+                )
                 .where(
                     SessionModel.tutor_id == tutor_id,
                     SessionModel.scheduled_date >= today,
@@ -120,15 +140,42 @@ async def get_my_sessions_dashboard(
         recent_sessions = recent_result.scalars().all()
         upcoming_sessions = upcoming_result.scalars().all()
         
-        # Convert to response format
-        from app.schemas.session import SessionResponse
-        recent_list = [SessionResponse.model_validate(s) for s in recent_sessions]
-        upcoming_list = [SessionResponse.model_validate(s) for s in upcoming_sessions]
+        # Convert to dict manually (avoid lazy loading issues with Pydantic)
+        def session_to_dict(s):
+            return {
+                "session_id": s.session_id,
+                "tutor_id": s.tutor_id,
+                "subject_id": s.subject_id,
+                "title": s.title,
+                "description": s.description,
+                "scheduled_date": s.scheduled_date.isoformat() if s.scheduled_date else None,
+                "start_time": str(s.start_time) if s.start_time else None,
+                "end_time": str(s.end_time) if s.end_time else None,
+                "duration": s.duration,
+                "location_type": s.location_type,
+                "meeting_link": s.meeting_link,
+                "physical_address": s.physical_address,
+                "status": s.status,
+                "max_students": s.max_students,
+                "tutor": {
+                    "tutor_id": s.tutor.tutor_id,
+                    "user_id": s.tutor.user_id,
+                    "email": s.tutor.user.email if s.tutor and s.tutor.user else None,
+                    "full_name": s.tutor.user.full_name if s.tutor and s.tutor.user else None,
+                } if s.tutor else None
+            }
         
-        return {
+        recent_list = [session_to_dict(s) for s in recent_sessions]
+        upcoming_list = [session_to_dict(s) for s in upcoming_sessions]
+        
+        result = {
             "recent": recent_list,
             "upcoming": upcoming_list
         }
+        
+        # Cache for 10 seconds
+        await set_cached(cache_key, result, ttl=10)
+        return result
 
 @router.get("/my-sessions", response_model=List[SessionResponse])
 async def get_my_sessions(
@@ -286,6 +333,46 @@ async def upload_materials(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Must provide either file upload or file_url + file_name"
         )
+
+
+@router.get("/materials/bulk")
+async def get_bulk_materials(
+    session_ids: str = Query(..., description="Comma-separated session IDs"),
+    current_user: User = Depends(get_current_user),
+    session_service: SessionService = Depends(get_session_service)
+):
+    """Get materials for multiple sessions in one call - OPTIMIZED to prevent N+1 queries"""
+    from app.models.database import SessionMaterial
+    from sqlalchemy import select
+    
+    # Parse comma-separated IDs
+    try:
+        ids = [int(id.strip()) for id in session_ids.split(',')]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid session IDs format")
+    
+    # Single query for all sessions
+    query = select(SessionMaterial).where(SessionMaterial.session_id.in_(ids))
+    result = await session_service.session_repo.db.execute(query)
+    materials = result.scalars().all()
+    
+    # Group by session_id
+    materials_map = {}
+    for m in materials:
+        if m.session_id not in materials_map:
+            materials_map[m.session_id] = []
+        materials_map[m.session_id].append({
+            "material_id": m.material_id,
+            "file_name": m.file_name,
+            "file_type": m.file_type,
+            "file_size": m.file_size,
+            "description": m.description,
+            "uploaded_at": m.uploaded_at,
+            "uploaded_by": m.uploaded_by
+        })
+    
+    # Return map with empty arrays for sessions without materials
+    return {session_id: materials_map.get(session_id, []) for session_id in ids}
 
 
 @router.get("/{session_id}/materials")

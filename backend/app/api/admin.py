@@ -78,7 +78,7 @@ async def get_admin_stats(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> Dict:
-    """Get system statistics - admin only"""
+    """Get system statistics - admin only (CACHED 30s)"""
     # Check if user has admin/coordinator role
     user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
     if 'admin' not in user_roles and 'coordinator' not in user_roles:
@@ -86,6 +86,13 @@ async def get_admin_stats(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
         )
+    
+    # Try cache first
+    from app.core.cache import get_cached, set_cached
+    cache_key = "admin:stats"
+    cached = await get_cached(cache_key)
+    if cached:
+        return cached
     
     # Count users by role
     total_users = await db.execute(select(func.count(User.user_id)))
@@ -101,13 +108,17 @@ async def get_admin_stats(
     avg_rating_result = await db.execute(select(func.avg(SessionFeedback.rating)))
     avg_rating = avg_rating_result.scalar()
     
-    return {
+    stats = {
         "total_users": total_users.scalar() or 0,
         "total_students": students.scalar() or 0,
         "total_tutors": tutors.scalar() or 0,
         "total_sessions": total_sessions.scalar() or 0,
         "average_rating": round(float(avg_rating), 1) if avg_rating else 0.0
     }
+    
+    # Cache for 30 seconds
+    await set_cached(cache_key, stats, ttl=30)
+    return stats
 
 @router.delete("/users/{user_id}")
 async def delete_user(

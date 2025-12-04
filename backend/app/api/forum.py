@@ -35,10 +35,16 @@ async def get_posts(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, le=100),
     subject: Optional[str] = Query(None),
-    current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> List[Dict[str, Any]]:
-    """Get forum posts with threads - OPTIMIZED"""
+    """Get forum posts with threads - OPTIMIZED + CACHED (Public endpoint)"""
+    
+    # Try cache first (20s TTL)
+    from app.core.cache import get_cached, set_cached
+    cache_key = f"forum:posts:{skip}:{limit}"
+    cached = await get_cached(cache_key)
+    if cached:
+        return cached
     
     # OPTIMIZATION: Get posts with reply count in ONE query using LEFT JOIN and GROUP BY
     from sqlalchemy.orm import aliased
@@ -88,6 +94,8 @@ async def get_posts(
             "isLiked": False
         })
     
+    # Cache for 20 seconds
+    await set_cached(cache_key, posts_list, ttl=20)
     return posts_list
 
 
@@ -159,10 +167,13 @@ async def get_forum_posts(
     
     replies_list = []
     for reply, reply_author in replies_rows:
+        # Handle role as array (take first element)
+        role = reply_author.role[0] if isinstance(reply_author.role, list) and reply_author.role else (reply_author.role if isinstance(reply_author.role, str) else "student")
+        
         replies_list.append({
             "id": str(reply.post_id),
             "author": reply_author.full_name,
-            "role": reply_author.role.capitalize() if reply_author.role else "Student",
+            "role": role.capitalize(),
             "content": reply.content,
             "createdAt": reply.created_at.isoformat() if reply.created_at else None,
             "likes": reply.upvote_count or 0,

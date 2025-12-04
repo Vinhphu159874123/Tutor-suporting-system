@@ -1,6 +1,14 @@
 import axios from "axios";
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || "http://localhost:8000/api/v1";
+// Smart API URL detection:
+// - Vercel production: Use Railway HTTPS
+// - Local dev (localhost:3000): Use local backend
+const isVercelProduction = window.location.hostname.includes('vercel.app');
+const API_BASE_URL = isVercelProduction
+  ? "https://tutor-suporting-system-production.up.railway.app/api/v1"
+  : (process.env.REACT_APP_API_URL || "http://localhost:8000/api/v1");
+
+console.log('🔗 API URL:', API_BASE_URL);
 
 // 🟢 REAL MODE - Connect to backend API
 const MOCK_MODE = false;
@@ -388,6 +396,25 @@ export const sessionsApi = {
     return apiClient.get("/sessions/my-sessions", { params });
   },
 
+  // Get dashboard sessions (optimized + cached) - 3 recent + 3 upcoming only
+  getMySessionsDashboard: (params?: any) => {
+    if (MOCK_MODE) {
+      return mockResponse({
+        recent: [],
+        upcoming: [
+          {
+            session_id: 1,
+            subject: "Math",
+            date: "2025-11-20",
+            status: "scheduled",
+            tutor_name: "Tutor 1",
+          }
+        ]
+      });
+    }
+    return apiClient.get("/sessions/my-sessions/dashboard", { params });
+  },
+
   getSessions: (params?: any) => {
     if (MOCK_MODE) {
       return mockResponse([
@@ -479,6 +506,15 @@ export const sessionsApi = {
       return mockResponse([]);
     }
     return apiClient.get(`/sessions/${sessionId}/materials`);
+  },
+
+  // Get materials for multiple sessions in one call - OPTIMIZED
+  getBulkMaterials: (sessionIds: number[]) => {
+    if (MOCK_MODE) {
+      return mockResponse({});
+    }
+    const ids = sessionIds.join(',');
+    return apiClient.get(`/sessions/materials/bulk?session_ids=${ids}`);
   },
 
   downloadMaterial: (sessionId: number, materialId: number) => {

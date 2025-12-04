@@ -231,10 +231,25 @@ const CourseDetail: React.FC = () => {
           setSessions(convertedSessions);
           console.log('✅ Loaded saved sessions from database');
 
-          // Load materials for each session
-          for (const session of convertedSessions) {
-            if (session.session_id) {
-              await fetchSessionMaterials(session.session_id);
+          // Load materials for all sessions in ONE call - OPTIMIZED
+          const sessionIds = convertedSessions
+            .filter(s => s.session_id)
+            .map(s => s.session_id!);
+
+          if (sessionIds.length > 0) {
+            try {
+              const materialsResponse: any = await sessionsApi.getBulkMaterials(sessionIds);
+              const materialsData = materialsResponse.data || {};
+
+              // Set materials for all sessions at once
+              const materialsMap: { [key: number]: any[] } = {};
+              for (const sessionId of sessionIds) {
+                materialsMap[sessionId] = materialsData[sessionId] || [];
+              }
+              setSessionMaterials(materialsMap);
+              console.log(`✅ Loaded materials for ${sessionIds.length} sessions in 1 request`);
+            } catch (error) {
+              console.error('Failed to load bulk materials:', error);
             }
           }
 
@@ -1162,8 +1177,8 @@ const CourseDetail: React.FC = () => {
                                         <Star
                                           key={star}
                                           className={`h-5 w-5 ${star <= sessionFeedbacks[session.session_id!].rating
-                                              ? 'fill-yellow-500 text-yellow-500'
-                                              : 'text-gray-300'
+                                            ? 'fill-yellow-500 text-yellow-500'
+                                            : 'text-gray-300'
                                             }`}
                                         />
                                       ))}
@@ -1223,8 +1238,8 @@ const CourseDetail: React.FC = () => {
                   >
                     <Star
                       className={`h-8 w-8 ${star <= feedbackRating
-                          ? 'fill-yellow-400 text-yellow-400'
-                          : 'text-gray-300'
+                        ? 'fill-yellow-400 text-yellow-400'
+                        : 'text-gray-300'
                         }`}
                     />
                   </button>
@@ -1308,8 +1323,8 @@ const CourseDetail: React.FC = () => {
                     <div
                       key={participant.user_id}
                       className={`p-4 rounded-lg ${isAlreadyMarked
-                          ? 'bg-white border-2 border-gray-200'
-                          : 'border-2 border-gray-200 hover:bg-gray-50'
+                        ? 'bg-white border-2 border-gray-200'
+                        : 'border-2 border-gray-200 hover:bg-gray-50'
                         }`}
                     >
                       {isAlreadyMarked ? (
@@ -1318,9 +1333,9 @@ const CourseDetail: React.FC = () => {
                             <p className="font-medium text-gray-900">{participant.full_name}</p>
                           </div>
                           <span className={`px-4 py-2 rounded-full text-base font-semibold ${currentStatus === 'present' ? 'bg-green-100 text-green-800' :
-                              currentStatus === 'late' ? 'bg-yellow-100 text-yellow-800' :
-                                currentStatus === 'excused' ? 'bg-blue-100 text-blue-800' :
-                                  'bg-red-100 text-red-800'
+                            currentStatus === 'late' ? 'bg-yellow-100 text-yellow-800' :
+                              currentStatus === 'excused' ? 'bg-blue-100 text-blue-800' :
+                                'bg-red-100 text-red-800'
                             }`}>
                             {currentStatus === 'present' ? '✓ Có mặt' :
                               currentStatus === 'late' ? '⏰ Trễ' :
@@ -1643,8 +1658,8 @@ const CourseDetail: React.FC = () => {
                                     <Star
                                       key={star}
                                       className={`h-5 w-5 ${star <= feedback.rating
-                                          ? 'text-amber-500 fill-current'
-                                          : 'text-gray-300'
+                                        ? 'text-amber-500 fill-current'
+                                        : 'text-gray-300'
                                         }`}
                                     />
                                   ))}

@@ -28,6 +28,10 @@ python-multipart==0.0.20
 # HTTP Client
 httpx==0.28.1
 
+# Redis for caching
+redis==5.2.1
+hiredis==3.0.0
+
 # Email Support
 email-validator==2.3.0
 

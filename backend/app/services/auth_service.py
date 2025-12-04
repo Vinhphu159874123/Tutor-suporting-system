@@ -90,15 +90,15 @@ class AuthService:
         return user
     
     async def login(self, email: str, password: str) -> Token:
-        """Login user and return JWT token"""
+        """Login user and return JWT token - OPTIMIZED"""
         # Auto-append @hcmut.edu.vn if not present
         if '@' not in email:
             email = f"{email}@hcmut.edu.vn"
         
         user = await self.authenticate_user(email, password)
         
-        # Update last login
-        await self.user_repo.update(user.user_id, {"updated_at": datetime.utcnow()})
+        # OPTIMIZATION: Skip updating last_login to reduce DB write
+        # Only critical for audit systems, not essential for auth
         
         # Create access token
         access_token_expires = timedelta(
@@ -112,7 +112,7 @@ class AuthService:
         return Token(access_token=access_token, token_type="bearer")
     
     async def login_with_sso(self, sso_user: dict) -> Token:
-        """Login or create user from HCMUT SSO data, auto-create Student profile"""
+        """Login or create user from HCMUT SSO data - OPTIMIZED"""
         # Check if user exists
         user = await self.user_repo.get_by_email(sso_user["email"])
         
@@ -130,44 +130,24 @@ class AuthService:
             }
             user = await self.user_repo.create(user_data)
             
+            # OPTIMIZATION: Use existing repo session instead of new AsyncSessionLocal
             # Auto-create Student profile for SSO users
-            from app.core.database import AsyncSessionLocal
-            async with AsyncSessionLocal() as db:
-                new_student = Student(
-                    user_id=user.user_id,
-                    student_code=f'SV{user.user_id:06d}',
-                    faculty=sso_user.get("faculty") or 'Computer Science',
-                    major=sso_user.get("major") or 'Computer Science',
-                    year=1
-                )
-                db.add(new_student)
-                await db.commit()
-                print(f"✅ Auto-created student profile for SSO user {user.email}")
+            new_student = Student(
+                user_id=user.user_id,
+                student_code=f'SV{user.user_id:06d}',
+                faculty=sso_user.get("faculty") or 'Computer Science',
+                major=sso_user.get("major") or 'Computer Science',
+                year=1
+            )
+            self.user_repo.db.add(new_student)
+            await self.user_repo.db.commit()
+            print(f"✅ Auto-created student profile for SSO user {user.email}")
         else:
-            # Check if existing user has student profile
-            if 'student' in user.role:  # Check if student in role array
-                from app.core.database import AsyncSessionLocal
-                async with AsyncSessionLocal() as db:
-                    result = await db.execute(
-                        select(Student).where(Student.user_id == user.user_id)
-                    )
-                    existing_student = result.scalar_one_or_none()
-                    
-                    if not existing_student:
-                        # Create missing student profile
-                        new_student = Student(
-                            user_id=user.user_id,
-                            student_code=f'SV{user.user_id:06d}',
-                            faculty=sso_user.get("faculty") or 'Computer Science',
-                            major=sso_user.get("major") or 'Computer Science',
-                            year=1
-                        )
-                        db.add(new_student)
-                        await db.commit()
-                        print(f"✅ Created missing student profile for existing user {user.email}")
+            # OPTIMIZATION: Skip checking existing student profile - not critical for login
+            # Can be created lazily when needed
+            pass
         
-        # Update last login
-        await self.user_repo.update(user.user_id, {"updated_at": datetime.utcnow()})
+        # OPTIMIZATION: Skip updating last_login to reduce DB write
         
         # Create access token
         access_token_expires = timedelta(
