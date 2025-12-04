@@ -12,11 +12,18 @@ from app.core.config import settings
 
 # Redis connection pool
 redis_client: Optional[redis.Redis] = None
+redis_connection_attempted = False  # Track if we already tried connecting
 
 def get_redis() -> redis.Redis:
-    """Get Redis client singleton"""
-    global redis_client
+    """Get Redis client singleton with fast failure"""
+    global redis_client, redis_connection_attempted
+    
+    # If we already tried and failed, don't retry
+    if redis_connection_attempted and redis_client is None:
+        return None
+    
     if redis_client is None:
+        redis_connection_attempted = True
         try:
             # Check if using Upstash Redis (requires TLS)
             is_upstash = "upstash.io" in settings.REDIS_URL
@@ -27,28 +34,27 @@ def get_redis() -> redis.Redis:
                     settings.REDIS_URL,
                     encoding="utf-8",
                     decode_responses=True,
-                    socket_connect_timeout=5,
-                    socket_timeout=5,
+                    socket_connect_timeout=0.5,  # Fast timeout for local dev
+                    socket_timeout=0.5,
                     connection_class=redis.connection.SSLConnection,
                     ssl_ca_certs=None,
                     ssl_check_hostname=False
                 )
             else:
-                # For local Redis: Standard connection
+                # For local Redis: Standard connection with fast timeout
                 redis_client = redis.from_url(
                     settings.REDIS_URL,
                     encoding="utf-8",
                     decode_responses=True,
-                    socket_connect_timeout=2,
-                    socket_timeout=2
+                    socket_connect_timeout=0.5,  # Fast timeout
+                    socket_timeout=0.5
                 )
             
             # Test connection
             redis_client.ping()
             print(f"✅ Redis connected successfully ({'TLS' if is_upstash else 'standard'})")
         except Exception as e:
-            print(f"⚠️  Redis connection failed: {e}")
-            print("📝 Continuing without cache...")
+            print(f"⚠️  Redis unavailable - running without cache (this is OK for local dev)")
             redis_client = None
     return redis_client
 

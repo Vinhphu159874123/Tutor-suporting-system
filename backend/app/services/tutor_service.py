@@ -427,19 +427,37 @@ class TutorService:
                 detail=f"Subject with ID {registration_data.subject_id} not found"
             )
         
-        # Check if already registered for this subject
+        # Check if already registered for this subject (approved or pending)
         existing_query = select(TutorRegistration).where(
             TutorRegistration.tutor_id == tutor.tutor_id,
-            TutorRegistration.subject_id == registration_data.subject_id
+            TutorRegistration.subject_id == registration_data.subject_id,
+            TutorRegistration.status.in_(['approved', 'pending'])
         )
         existing_result = await self.tutor_repo.db.execute(existing_query)
         existing_reg = existing_result.scalar_one_or_none()
         
         if existing_reg:
+            status_text = "đã được duyệt" if existing_reg.status == "approved" else "đang chờ duyệt"
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"You have already registered for {subject.subject_name} ({subject.subject_code})"
+                detail=f"Bạn đã đăng ký môn {subject.subject_name} ({subject.subject_code}) và {status_text}"
             )
+        
+        # Check for schedule conflicts with approved registrations ONLY
+        if registration_data.availability:
+            print(f"DEBUG: Checking conflicts for new availability: {registration_data.availability}")
+            print(f"DEBUG: New subject: {subject.subject_name}")
+            conflict_msg = await self._check_schedule_conflicts(
+                tutor.tutor_id, 
+                registration_data.availability,
+                subject.subject_name,
+                subject.subject_id  # Pass subject_id to exclude current subject
+            )
+            if conflict_msg:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=conflict_msg
+                )
         
         # Create registration
         new_registration = TutorRegistration(
@@ -684,4 +702,153 @@ class TutorService:
                 "total": stats['total_reviews']
             }
         }
+    
+    async def _check_schedule_conflicts(
+        self,
+        tutor_id: int,
+        new_availability: dict,
+        new_subject_name: str,
+        exclude_subject_id: Optional[int] = None
+    ) -> Optional[str]:
+        """
+        Check if new schedule conflicts with existing approved registrations
+        Returns error message if conflict found, None otherwise
+        """
+        from app.models.database import TutorRegistration, Subject, SessionSchedule
+        from sqlalchemy import select, and_
+        
+        # Get all approved registrations for this tutor (exclude current subject if provided)
+        conditions = [
+            TutorRegistration.tutor_id == tutor_id,
+            TutorRegistration.status == 'approved'
+        ]
+        
+        if exclude_subject_id:
+            conditions.append(TutorRegistration.subject_id != exclude_subject_id)
+        
+        approved_query = select(TutorRegistration, Subject).join(
+            Subject, TutorRegistration.subject_id == Subject.subject_id
+        ).where(and_(*conditions))
+        
+        approved_result = await self.tutor_repo.db.execute(approved_query)
+        approved_registrations = approved_result.all()
+        
+        # Check each approved registration's schedule
+        for registration, subject in approved_registrations:
+            # Get schedule from SessionSchedule table
+            schedule_query = select(SessionSchedule).where(
+                and_(
+                    SessionSchedule.tutor_id == tutor_id,
+                    SessionSchedule.subject_id == registration.subject_id
+                )
+            )
+            schedule_result = await self.tutor_repo.db.execute(schedule_query)
+            schedules = schedule_result.scalars().all()
+            
+            # Build existing availability dict from SessionSchedule
+            existing_availability = {}
+            for schedule in schedules:
+                day = schedule.day_of_week
+                if day not in existing_availability:
+                    existing_availability[day] = []
+                existing_availability[day].append({
+                    "start_time": schedule.start_time,
+                    "end_time": schedule.end_time
+                })
+            
+            print(f"DEBUG: Existing availability for {subject.subject_name}: {existing_availability}")
+            
+            # Check for conflicts between new and existing schedules
+            for day, new_slots in new_availability.items():
+                if day in existing_availability:
+                    existing_slots = existing_availability[day]
+                    
+                    for new_slot in new_slots:
+                        # Handle both string format "07:00-09:00" and dict format {"start_time": "07:00", "end_time": "09:00"}
+                        if isinstance(new_slot, str):
+                            # Format: "07:00-09:00"
+                            try:
+                                new_start, new_end = new_slot.split('-')
+                                new_start = new_start.strip()
+                                new_end = new_end.strip()
+                            except:
+                                continue
+                        elif isinstance(new_slot, dict):
+                            new_start = new_slot.get('start_time')
+                            new_end = new_slot.get('end_time')
+                        else:
+                            continue
+                        
+                        if not new_start or not new_end:
+                            continue
+                        
+                        for existing_slot in existing_slots:
+                            existing_start = existing_slot.get('start_time')
+                            existing_end = existing_slot.get('end_time')
+                            
+                            if not existing_start or not existing_end:
+                                continue
+                            
+                            # Check if time ranges overlap
+                            if self._time_ranges_overlap(
+                                new_start, new_end,
+                                existing_start, existing_end
+                            ):
+                                day_names = {
+                                    'monday': 'Thứ 2',
+                                    'tuesday': 'Thứ 3',
+                                    'wednesday': 'Thứ 4',
+                                    'thursday': 'Thứ 5',
+                                    'friday': 'Thứ 6',
+                                    'saturday': 'Thứ 7',
+                                    'sunday': 'Chủ nhật'
+                                }
+                                day_vn = day_names.get(day.lower(), day)
+                                
+                                return (
+                                    f"Trùng lịch dạy môn {subject.subject_name} "
+                                    f"vào {day_vn} ({new_start} - {new_end}). "
+                                    f"Vui lòng chọn khung giờ khác."
+                                )
+        
+        return None
+    
+    def _time_ranges_overlap(
+        self,
+        start1: str,
+        end1: str,
+        start2: str,
+        end2: str
+    ) -> bool:
+        """
+        Check if two time ranges overlap
+        Times are in format "HH:MM" or "HH:MM:SS"
+        """
+        # Convert time strings to comparable format
+        def time_to_minutes(time_str: str) -> int:
+            """Convert HH:MM or HH:MM:SS to minutes since midnight"""
+            try:
+                # Handle both "HH:MM" and "HH:MM:SS" formats
+                time_str = str(time_str).strip()
+                parts = time_str.split(':')
+                hours = int(parts[0])
+                minutes = int(parts[1]) if len(parts) > 1 else 0
+                return hours * 60 + minutes
+            except Exception as e:
+                print(f"ERROR parsing time '{time_str}': {e}")
+                return 0
+        
+        start1_min = time_to_minutes(start1)
+        end1_min = time_to_minutes(end1)
+        start2_min = time_to_minutes(start2)
+        end2_min = time_to_minutes(end2)
+        
+        print(f"DEBUG: Comparing times - New: {start1}({start1_min}) to {end1}({end1_min}) vs Existing: {start2}({start2_min}) to {end2}({end2_min})")
+        
+        # Two ranges overlap if:
+        # start1 < end2 AND start2 < end1
+        overlaps = start1_min < end2_min and start2_min < end1_min
+        print(f"DEBUG: Overlap result: {overlaps}")
+        
+        return overlaps
 

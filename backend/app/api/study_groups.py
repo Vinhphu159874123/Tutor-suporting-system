@@ -265,6 +265,9 @@ async def get_study_group(
             "created_at": material.created_at.isoformat()
         })
     
+    # Check if current user is a member
+    is_member = any(member.user_id == current_user.user_id for member, _ in members_rows)
+    
     return {
         "id": str(group.group_id),
         "name": group.group_name,
@@ -277,11 +280,76 @@ async def get_study_group(
         "location": "Online - Google Meet",
         "status": "open" if len(members_list) < (group.max_members or 10) else "full",
         "createdAt": group.created_at.isoformat() if group.created_at else None,
+        "is_member": is_member,
         "members_list": members_list,
         "activities": activities,
         "materials": materials_list
     }
 
+
+class AddMemberRequest(BaseModel):
+    user_id: int
+
+@router.post("/{group_id}/members")
+async def add_member_to_group(
+    group_id: int,
+    request: AddMemberRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Add a member to study group (by group leader/admin)"""
+    from app.models.database import Notifications
+    
+    user_id = request.user_id
+    
+    # Check if group exists
+    group_result = await db.execute(select(StudyGroup).where(StudyGroup.group_id == group_id))
+    group = group_result.scalar_one_or_none()
+    if not group:
+        raise HTTPException(status_code=404, detail="Group not found")
+    
+    # Check if user to add exists
+    user_result = await db.execute(select(User).where(User.user_id == user_id))
+    user_to_add = user_result.scalar_one_or_none()
+    if not user_to_add:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check if already a member
+    existing = await db.execute(
+        select(StudyGroupMember).where(
+            StudyGroupMember.group_id == group_id,
+            StudyGroupMember.user_id == user_id
+        )
+    )
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="User is already a member")
+    
+    # Add member
+    from sqlalchemy import func
+    new_member = StudyGroupMember(
+        group_id=group_id,
+        user_id=user_id,
+        role="member",
+        status="active",
+        joined_at=func.now()
+    )
+    db.add(new_member)
+    
+    # Create notification for the added user
+    notification = Notifications(
+        user_id=user_id,
+        type="study_group_added",
+        title="Được thêm vào nhóm học",
+        message=f"{current_user.full_name} đã thêm bạn vào nhóm '{group.group_name}'",
+        data={"group_id": group_id, "group_name": group.group_name},
+        is_read=False
+        # created_at will be auto-set by server_default=func.now()
+    )
+    db.add(notification)
+    
+    await db.commit()
+    
+    return {"message": "Member added successfully"}
 
 @router.post("/{group_id}/join", status_code=status.HTTP_200_OK)
 async def join_study_group(
@@ -353,6 +421,61 @@ async def join_study_group(
     return {
         "message": "Tham gia nhóm thành công" if not group.require_approval else "Yêu cầu tham gia đã được gửi",
         "status": "active" if not group.require_approval else "pending"
+    }
+
+
+@router.post("/{group_id}/leave", status_code=status.HTTP_200_OK)
+async def leave_study_group(
+    group_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> Dict[str, Any]:
+    """Leave a study group"""
+    
+    # Check if group exists
+    group_query = select(StudyGroup).where(StudyGroup.group_id == group_id)
+    group_result = await db.execute(group_query)
+    group = group_result.scalar_one_or_none()
+    
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Study group not found"
+        )
+    
+    # Check if user is a member
+    member_query = select(StudyGroupMember).where(
+        StudyGroupMember.group_id == group_id,
+        StudyGroupMember.user_id == current_user.user_id,
+        StudyGroupMember.status == 'active'
+    )
+    member_result = await db.execute(member_query)
+    member = member_result.scalar_one_or_none()
+    
+    if not member:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Bạn không phải là thành viên của nhóm này"
+        )
+    
+    # Don't allow group owner to leave
+    if member.role == 'owner':
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Trưởng nhóm không thể rời nhóm. Vui lòng chuyển quyền trước."
+        )
+    
+    # Remove member
+    await db.delete(member)
+    
+    # Update member count
+    if group.member_count and group.member_count > 0:
+        group.member_count = group.member_count - 1
+    
+    await db.commit()
+    
+    return {
+        "message": "Đã rời nhóm thành công"
     }
 
 

@@ -38,6 +38,40 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+@router.get("/search")
+async def search_users(
+    query: str,
+    limit: int = 10,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Search users by name or email"""
+    from sqlalchemy import or_
+    
+    # Search by name or email
+    search_filter = or_(
+        User.full_name.ilike(f"%{query}%"),
+        User.email.ilike(f"%{query}%")
+    )
+    
+    result = await db.execute(
+        select(User)
+        .where(and_(search_filter, User.is_active == True))
+        .limit(limit)
+    )
+    users = result.scalars().all()
+    
+    return [
+        {
+            "user_id": user.user_id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "avatar_url": user.avatar_url,
+            "role": user.role if isinstance(user.role, list) else [user.role]
+        }
+        for user in users
+    ]
+
 @router.get("/profile", response_model=UserResponse)
 async def get_user_profile(
     current_user: User = Depends(get_current_user),

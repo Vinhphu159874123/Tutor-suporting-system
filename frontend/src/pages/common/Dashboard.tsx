@@ -13,6 +13,7 @@ import { useAuthStore } from "../../stores/authStore";
 import { usersApi, sessionsApi } from "../../services/api";
 import { toast } from "react-toastify";
 import { AxiosResponse } from "axios";
+import Timetable from "../../components/Timetable";
 
 interface Session {
   session_id: number;
@@ -108,6 +109,9 @@ const Dashboard: React.FC = () => {
           );
         })}
       </div>
+
+      {/* Timetable */}
+      <Timetable mode={activeMode} />
 
       {/* Recent Activities */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
