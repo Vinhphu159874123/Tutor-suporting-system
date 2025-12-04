@@ -20,15 +20,21 @@ def get_redis() -> redis.Redis:
             # Check if using Upstash Redis (requires TLS)
             is_upstash = "upstash.io" in settings.REDIS_URL
             
-            redis_client = redis.from_url(
-                settings.REDIS_URL,
-                encoding="utf-8",
-                decode_responses=True,
-                socket_connect_timeout=2,
-                socket_timeout=2,
-                ssl=is_upstash,  # Enable SSL for Upstash
-                ssl_cert_reqs=None if is_upstash else "required"  # Skip cert verification for Upstash
-            )
+            # Build connection params
+            connection_params = {
+                "encoding": "utf-8",
+                "decode_responses": True,
+                "socket_connect_timeout": 2,
+                "socket_timeout": 2
+            }
+            
+            # Add SSL params only for Upstash
+            if is_upstash:
+                import ssl as ssl_module
+                connection_params["ssl_cert_reqs"] = ssl_module.CERT_NONE  # Skip cert verification
+            
+            redis_client = redis.from_url(settings.REDIS_URL, **connection_params)
+            
             # Test connection
             redis_client.ping()
             print(f"✅ Redis connected successfully ({'TLS' if is_upstash else 'standard'})")
