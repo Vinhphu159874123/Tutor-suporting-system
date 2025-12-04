@@ -14,6 +14,7 @@ interface StudyGroup {
   createdBy: string;
   schedule: string;
   status: "open" | "full" | "closed";
+  is_member: boolean;
 }
 
 const StudyGroups: React.FC = () => {
@@ -36,7 +37,7 @@ const StudyGroups: React.FC = () => {
         setLoading(false);
       }
     };
-    
+
     fetchGroups();
   }, []);
 
@@ -87,31 +88,31 @@ const StudyGroups: React.FC = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">\n      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6">
-        <div>
-          <p className="text-sm uppercase tracking-wide text-blue-600 font-semibold">
-            Cộng đồng học tập
-          </p>
-          <h1 className="text-3xl font-bold text-gray-900">Study Groups</h1>
-          <p className="text-gray-500">
-            Kết nối với bạn học, luyện thi và chia sẻ tài liệu theo từng môn học.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => navigate("/forum")}
-            className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Quay lại Forum
-          </button>
-          <button
-            onClick={() => navigate("/study-groups/create")}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-semibold"
-          >
-            + Tạo nhóm mới
-          </button>
-        </div>
+      <div>
+        <p className="text-sm uppercase tracking-wide text-blue-600 font-semibold">
+          Cộng đồng học tập
+        </p>
+        <h1 className="text-3xl font-bold text-gray-900">Study Groups</h1>
+        <p className="text-gray-500">
+          Kết nối với bạn học, luyện thi và chia sẻ tài liệu theo từng môn học.
+        </p>
       </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => navigate("/forum")}
+          className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Quay lại Forum
+        </button>
+        <button
+          onClick={() => navigate("/study-groups/create")}
+          className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition font-semibold"
+        >
+          + Tạo nhóm mới
+        </button>
+      </div>
+    </div>
 
       {/* Search and Filter */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -126,31 +127,28 @@ const StudyGroups: React.FC = () => {
           <div className="flex gap-2">
             <button
               onClick={() => setFilter("all")}
-              className={`flex-1 px-4 py-2 rounded-lg font-semibold ${
-                filter === "all"
+              className={`flex-1 px-4 py-2 rounded-lg font-semibold ${filter === "all"
                   ? "bg-blue-600 text-white"
                   : "bg-gray-200 text-gray-700"
-              }`}
+                }`}
             >
               Tất cả
             </button>
             <button
               onClick={() => setFilter("open")}
-              className={`flex-1 px-4 py-2 rounded-lg font-semibold ${
-                filter === "open"
+              className={`flex-1 px-4 py-2 rounded-lg font-semibold ${filter === "open"
                   ? "bg-blue-600 text-white"
                   : "bg-gray-200 text-gray-700"
-              }`}
+                }`}
             >
               Đang mở
             </button>
             <button
               onClick={() => setFilter("full")}
-              className={`flex-1 px-4 py-2 rounded-lg font-semibold ${
-                filter === "full"
+              className={`flex-1 px-4 py-2 rounded-lg font-semibold ${filter === "full"
                   ? "bg-blue-600 text-white"
                   : "bg-gray-200 text-gray-700"
-              }`}
+                }`}
             >
               Đã đủ
             </button>
@@ -217,7 +215,11 @@ const StudyGroups: React.FC = () => {
               >
                 Xem chi tiết
               </button>
-              {group.status === "open" && (
+              {group.is_member ? (
+                <div className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg flex items-center justify-center font-semibold">
+                  Đã tham gia
+                </div>
+              ) : group.status === "open" ? (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -227,7 +229,7 @@ const StudyGroups: React.FC = () => {
                 >
                   Tham gia
                 </button>
-              )}
+              ) : null}
             </div>
           </div>
         ))}

@@ -1,0 +1,12 @@
+INFO:     Will watch for changes in these directories: ['/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [81936] using WatchFiles
+INFO:     Started server process [81938]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+✅ Enrollment listener registered for event: student.enrolled_course
+✅ Event listeners registered
+✅ Database tables created successfully
+🚀 HCMUT Tutor Support System API is starting up...
+INFO:     127.0.0.1:55125 - "GET /api/v1/notifications/unread-count HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55148 - "GET /api/v1/notifications/unread-count HTTP/1.1" 200 OK

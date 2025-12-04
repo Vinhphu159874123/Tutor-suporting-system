@@ -646,6 +646,53 @@ class StudyGroupPost(Base):
     author = relationship("User")
     parent_post = relationship("StudyGroupPost", remote_side=[post_id], foreign_keys=[parent_post_id])
 
+class StudyGroupMaterial(Base):
+    __tablename__ = "studygroupmaterial"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    material_id = Column(Integer, primary_key=True, index=True)
+    group_id = Column(Integer, ForeignKey("tutor_system.studygroup.group_id"), nullable=False)
+    uploader_id = Column(Integer, ForeignKey("tutor_system.User.user_id"), nullable=False)
+    title = Column(String, nullable=False)
+    description = Column(Text)
+    file_path = Column(String)
+    file_url = Column(String)
+    file_type = Column(String)  # pdf, doc, video, link
+    file_size = Column(Integer)
+    file_data = Column(LargeBinary)  # Store file binary data in database
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    group = relationship("StudyGroup")
+    uploader = relationship("User")
+
+class StudyGroupActivity(Base):
+    __tablename__ = "studygroupactivity"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    activity_id = Column(Integer, primary_key=True, index=True)
+    group_id = Column(Integer, ForeignKey("tutor_system.studygroup.group_id"), nullable=False)
+    creator_id = Column(Integer, ForeignKey("tutor_system.User.user_id"), nullable=False)
+    activity_type = Column(String, nullable=False)  # meeting, assignment, discussion
+    title = Column(String, nullable=False)
+    description = Column(Text)
+    scheduled_date = Column(Date)
+    scheduled_time = Column(Time)
+    location = Column(String)
+    meeting_link = Column(String)
+    status = Column(String, default='upcoming')  # upcoming, active, completed, cancelled
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Relationships
+    group = relationship("StudyGroup")
+    creator = relationship("User")
+
 class CourseReport(Base):
     __tablename__ = "coursereport"
     __table_args__ = {
