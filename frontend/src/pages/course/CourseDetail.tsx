@@ -190,18 +190,18 @@ const CourseDetail: React.FC = () => {
           params.tutor_id = currentUserTutorId;
           console.log('✅ Tutor mode - Using tutor_id filter:', currentUserTutorId);
         } else if (activeMode === 'student') {
-          // Student mode: Show only enrolled sessions
+          // Student mode: Show ALL sessions for the course (no student_id filter for now)
           if (currentUserTutorId) {
             params.tutor_id = currentUserTutorId;
             console.log('✅ Student mode - Using tutor_id filter:', currentUserTutorId);
           }
 
-          if (user?.user_id) {
-            params.student_id = user.user_id;
-            console.log('✅ Student mode - Using student_id filter:', user.user_id);
-          } else {
-            console.error('❌ CRITICAL: Student mode but user_id is undefined!', { user });
-          }
+          // TEMPORARILY DISABLED - Show all sessions
+          // if (user?.user_id) {
+          //   params.student_id = user.user_id;
+          //   console.log('✅ Student mode - Using student_id filter:', user.user_id);
+          // }
+          console.log('⚠️ Student mode - Showing ALL sessions (no student_id filter)');
         } else {
           console.log('⚠️ No tutor_id found - user may not be enrolled yet');
         }
