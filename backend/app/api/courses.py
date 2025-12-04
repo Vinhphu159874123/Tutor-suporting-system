@@ -164,29 +164,38 @@ async def get_my_courses(
 @router.get("/courses/{course_code}")
 async def get_course_info(
     course_code: str,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
-    """Get detailed information about a specific course"""
+    """
+    Get detailed information about a specific course from database
+    
+    NOTE: DataCore external service disabled - using local database only
+    """
     
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{DATACORE_URL}/api/courses/{course_code}",
-                timeout=10.0
-            )
+        # Query subject from database by subject_code
+        result = await db.execute(
+            select(Subject)
+            .where(Subject.subject_code == course_code)
+        )
+        subject = result.scalar_one_or_none()
+        
+        if not subject:
+            raise HTTPException(status_code=404, detail="Course not found")
+        
+        return {
+            "code": subject.subject_code,
+            "name": subject.subject_name,
+            "credits": subject.credits or 4,
+            "department": subject.department,
+            "subject_id": subject.subject_id
+        }
             
-            if response.status_code == 404:
-                raise HTTPException(status_code=404, detail="Course not found")
-            
-            response.raise_for_status()
-            data = response.json()
-            
-            return data.get('data', {})
-            
-    except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="DataCore service timeout")
-    except httpx.HTTPError as e:
-        raise HTTPException(status_code=502, detail=f"DataCore service error: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
 @router.get("/subjects")
@@ -194,13 +203,20 @@ async def get_subjects(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> List[Dict[str, Any]]:
-    """Get all available subjects from database"""
+    """Get all available subjects from database (CACHED 120s)"""
+    
+    # Try cache first (subjects rarely change)
+    from app.core.cache import get_cached, set_cached
+    cache_key = "subjects:all"
+    cached = await get_cached(cache_key)
+    if cached:
+        return cached
     
     query = select(Subject).order_by(Subject.subject_code)
     result = await db.execute(query)
     subjects = result.scalars().all()
     
-    return [
+    subjects_list = [
         {
             "subject_id": subject.subject_id,
             "subject_code": subject.subject_code,
@@ -211,6 +227,10 @@ async def get_subjects(
         }
         for subject in subjects
     ]
+    
+    # Cache for 120 seconds (subjects rarely change)
+    await set_cached(cache_key, subjects_list, ttl=120)
+    return subjects_list
 
 
 @router.get("/subjects/{subject_id}")

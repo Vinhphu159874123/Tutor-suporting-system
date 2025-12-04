@@ -48,26 +48,14 @@ const Dashboard: React.FC = () => {
         const statsResponse = await usersApi.getDashboardStats(activeMode) as AxiosResponse<any>;
         setStatsData(statsResponse.data);
 
-        // Fetch recent and upcoming sessions - pass mode
-        const sessionsResponse = await sessionsApi.getMySessions({ mode: activeMode }) as AxiosResponse<any>;
-        const sessions = sessionsResponse.data || [];
-        
-        // Filter recent sessions (completed, with attendance)
-        const recent = sessions
-          .filter((s: Session) => s.status === 'completed')
-          .sort((a: Session, b: Session) => new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime())
-          .slice(0, 3);
-        
-        // Filter upcoming sessions (from today onwards)
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const upcoming = sessions
-          .filter((s: Session) => new Date(s.scheduled_date) >= today)
-          .sort((a: Session, b: Session) => new Date(a.scheduled_date).getTime() - new Date(b.scheduled_date).getTime())
-          .slice(0, 3);
-        
-        setRecentSessions(recent);
-        setUpcomingSessions(upcoming);
+        // Fetch recent and upcoming sessions - OPTIMIZED: Use new cached endpoint
+        // Backend returns pre-filtered: {recent: [...], upcoming: [...]}
+        const sessionsResponse = await sessionsApi.getMySessionsDashboard({ mode: activeMode }) as AxiosResponse<any>;
+        const data = sessionsResponse.data || { recent: [], upcoming: [] };
+
+        // Backend already returns sorted & limited data (3 each)
+        setRecentSessions(data.recent || []);
+        setUpcomingSessions(data.upcoming || []);
       } catch (error: any) {
         console.error('Failed to fetch dashboard data:', error);
         toast.error('Không thể tải thông tin dashboard');
@@ -188,7 +176,7 @@ const Dashboard: React.FC = () => {
           Hành động nhanh
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <button 
+          <button
             onClick={() => navigate("/tutors/register")}
             className="flex items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors"
           >

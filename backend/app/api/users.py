@@ -264,7 +264,7 @@ async def get_user_dashboard_stats(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> Dict[str, Any]:
-    """Get dashboard statistics for current user - OPTIMIZED
+    """Get dashboard statistics for current user - OPTIMIZED + CACHED
     
     Args:
         mode: Optional role to get stats for ('student' or 'tutor'). 
@@ -287,6 +287,13 @@ async def get_user_dashboard_stats(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User is not a tutor"
             )
+    
+    # Try cache first (10s TTL for real-time updates)
+    from app.core.cache import get_cached, set_cached
+    cache_key = f"dashboard:stats:{current_user.user_id}:{active_role}"
+    cached = await get_cached(cache_key)
+    if cached:
+        return cached
     
     stats = {
         "total_sessions": 0,

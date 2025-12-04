@@ -28,11 +28,11 @@ async def login(
     auth_service: AuthService = Depends(get_auth_service)
 ):
     """
-    Login with email/password or HCMUT SSO
+    Login with email/password using local database + JWT
     
     Flow:
-    1. Try HCMUT SSO authentication first
-    2. If SSO fails, fallback to local authentication
+    1. Authenticate against local database
+    2. Verify password hash with bcrypt
     3. Return JWT access token
     
     Note: Auto-appends @hcmut.edu.vn if username doesn't contain @
@@ -42,18 +42,8 @@ async def login(
     if '@' not in username:
         username = f"{username}@hcmut.edu.vn"
     
-    # Try SSO first
-    sso_service = HCMUTSSOService()
-    try:
-        sso_user = await sso_service.authenticate(username, form_data.password)
-        if sso_user:
-            # Let AuthService handle SSO login
-            return await auth_service.login_with_sso(sso_user)
-    except Exception as e:
-        print(f"⚠️  SSO authentication failed: {e}")
-        print(f"🔄 Falling back to local authentication...")
-    
-    # Fallback to local authentication
+    # OPTIMIZATION: Use local authentication only (SSO disabled)
+    # SSO was causing 2s delay on every login due to timeout
     token = await auth_service.login(username, form_data.password)
     return token
 
