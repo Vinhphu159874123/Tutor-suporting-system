@@ -1,12 +1,13 @@
 import axios from "axios";
 
 // Smart API URL detection:
-// - Vercel production: Use Railway HTTPS
+// - Vercel production: Use Railway HTTPS from env or fallback
 // - Local dev (localhost:3000): Use local backend
 const isVercelProduction = window.location.hostname.includes('vercel.app');
-const API_BASE_URL = isVercelProduction
-  ? "https://tutor-suporting-system-production.up.railway.app/api/v1"
-  : (process.env.REACT_APP_API_URL || "http://localhost:8000/api/v1");
+const API_BASE_URL = process.env.REACT_APP_API_URL || 
+  (isVercelProduction 
+    ? "https://tutor-suporting-system-production.up.railway.app/api/v1"
+    : "http://localhost:8000/api/v1");
 
 console.log('🔗 API URL:', API_BASE_URL);
 
