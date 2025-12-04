@@ -1,0 +1,172 @@
+INFO:     Started server process [83699]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+✅ Enrollment listener registered for event: student.enrolled_course
+✅ Event listeners registered
+✅ Database tables created successfully
+🚀 HCMUT Tutor Support System API is starting up...
+INFO:     127.0.0.1:55792 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+✅ Redis connected successfully
+INFO:     127.0.0.1:55795 - "GET /api/v1/sessions/my-sessions/dashboard?mode=student HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/fastapi/applications.py", line 1134, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 85, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/middleware/trustedhost.py", line 36, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/fastapi/routing.py", line 125, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/fastapi/routing.py", line 111, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/fastapi/routing.py", line 391, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/fastapi/routing.py", line 290, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/app/api/sessions.py", line 138, in get_my_sessions_dashboard
+    upcoming_list = [SessionResponse.model_validate(s) for s in upcoming_sessions]
+                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/pydantic/main.py", line 716, in model_validate
+    return cls.__pydantic_validator__.validate_python(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        obj,
+        ^^^^
+    ...<5 lines>...
+        by_name=by_name,
+        ^^^^^^^^^^^^^^^^
+    )
+    ^
+pydantic_core._pydantic_core.ValidationError: 2 validation errors for SessionResponse
+tutor.email
+  Field required [type=missing, input_value=<app.models.database.Tutor object at 0x1148ae900>, input_type=Tutor]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+tutor.full_name
+  Field required [type=missing, input_value=<app.models.database.Tutor object at 0x1148ae900>, input_type=Tutor]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+INFO:     127.0.0.1:55815 - "GET /api/v1/notifications/unread-count HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55824 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+DEBUG: FINAL - total=41, completed=2, upcoming=41
+INFO:     127.0.0.1:55827 - "GET /api/v1/users/stats/dashboard?mode=student HTTP/1.1" 200 OK
+DEBUG: FINAL - total=41, completed=2, upcoming=41
+INFO:     127.0.0.1:55830 - "GET /api/v1/users/stats/dashboard?mode=student HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55833 - "GET /api/v1/sessions/my-sessions/dashboard?mode=student HTTP/1.1" 500 Internal Server Error
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        self.scope, self.receive, self.send
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/fastapi/applications.py", line 1134, in __call__
+    await super().__call__(scope, receive, send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/applications.py", line 113, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 186, in __call__
+    raise exc
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 85, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/middleware/trustedhost.py", line 36, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/routing.py", line 716, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/routing.py", line 736, in app
+    await route.handle(scope, receive, send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/routing.py", line 290, in handle
+    await self.app(scope, receive, send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/fastapi/routing.py", line 125, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/fastapi/routing.py", line 111, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/fastapi/routing.py", line 391, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+    )
+    ^
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/fastapi/routing.py", line 290, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/app/api/sessions.py", line 138, in get_my_sessions_dashboard
+    upcoming_result = await db.execute(upcoming_query)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/nguyentrungnhan/DERd/Tutor-suporting-system/backend/venv/lib/python3.13/site-packages/pydantic/main.py", line 716, in model_validate
+    return cls.__pydantic_validator__.validate_python(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        obj,
+        ^^^^
+    ...<5 lines>...
+        by_name=by_name,
+        ^^^^^^^^^^^^^^^^
+    )
+    ^
+pydantic_core._pydantic_core.ValidationError: 2 validation errors for SessionResponse
+tutor.email
+  Field required [type=missing, input_value=<app.models.database.Tutor object at 0x1148b7890>, input_type=Tutor]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+tutor.full_name
+  Field required [type=missing, input_value=<app.models.database.Tutor object at 0x1148b7890>, input_type=Tutor]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+INFO:     127.0.0.1:55838 - "GET /api/v1/tutors/available-courses HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55843 - "GET /api/v1/tutors/available-courses HTTP/1.1" 200 OK
