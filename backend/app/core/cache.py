@@ -17,16 +17,21 @@ def get_redis() -> redis.Redis:
     global redis_client
     if redis_client is None:
         try:
+            # Check if using Upstash Redis (requires TLS)
+            is_upstash = "upstash.io" in settings.REDIS_URL
+            
             redis_client = redis.from_url(
                 settings.REDIS_URL,
                 encoding="utf-8",
                 decode_responses=True,
                 socket_connect_timeout=2,
-                socket_timeout=2
+                socket_timeout=2,
+                ssl=is_upstash,  # Enable SSL for Upstash
+                ssl_cert_reqs=None if is_upstash else "required"  # Skip cert verification for Upstash
             )
             # Test connection
             redis_client.ping()
-            print("✅ Redis connected successfully")
+            print(f"✅ Redis connected successfully ({'TLS' if is_upstash else 'standard'})")
         except Exception as e:
             print(f"⚠️  Redis connection failed: {e}")
             print("📝 Continuing without cache...")
