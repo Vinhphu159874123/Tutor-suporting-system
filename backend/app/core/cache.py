@@ -4,6 +4,7 @@ Provides caching utilities for API responses
 """
 import json
 import redis
+import ssl as ssl_module
 from typing import Optional, Any
 from functools import wraps
 import hashlib
@@ -20,20 +21,27 @@ def get_redis() -> redis.Redis:
             # Check if using Upstash Redis (requires TLS)
             is_upstash = "upstash.io" in settings.REDIS_URL
             
-            # Build connection params
-            connection_params = {
-                "encoding": "utf-8",
-                "decode_responses": True,
-                "socket_connect_timeout": 2,
-                "socket_timeout": 2
-            }
-            
-            # Add SSL params only for Upstash
             if is_upstash:
-                import ssl as ssl_module
-                connection_params["ssl_cert_reqs"] = ssl_module.CERT_NONE  # Skip cert verification
-            
-            redis_client = redis.from_url(settings.REDIS_URL, **connection_params)
+                # For Upstash: Create connection pool with SSL
+                redis_client = redis.from_url(
+                    settings.REDIS_URL,
+                    encoding="utf-8",
+                    decode_responses=True,
+                    socket_connect_timeout=5,
+                    socket_timeout=5,
+                    connection_class=redis.connection.SSLConnection,
+                    ssl_ca_certs=None,
+                    ssl_check_hostname=False
+                )
+            else:
+                # For local Redis: Standard connection
+                redis_client = redis.from_url(
+                    settings.REDIS_URL,
+                    encoding="utf-8",
+                    decode_responses=True,
+                    socket_connect_timeout=2,
+                    socket_timeout=2
+                )
             
             # Test connection
             redis_client.ping()
