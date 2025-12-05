@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import apiClient from "../../services/api";
+import ChatBox from "../../components/ChatBox";
 import {
   ArrowLeft,
   ArrowLeftRight,
@@ -33,6 +34,10 @@ const StudyGroupDetail: React.FC = () => {
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [showMaterialModal, setShowMaterialModal] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [showMembersModal, setShowMembersModal] = useState(false);
+  const [showMaterialsListModal, setShowMaterialsListModal] = useState(false);
+  const [showMemberProfileModal, setShowMemberProfileModal] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
   
   // Add member form
@@ -362,19 +367,12 @@ const StudyGroupDetail: React.FC = () => {
 
         <p className="text-gray-700 mb-4">{group.description}</p>
 
-        <div className="grid md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
+        <div className="grid md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg mb-4">
           <div>
             <p className="text-sm text-gray-500">Trưởng nhóm</p>
             <p className="font-semibold inline-flex items-center gap-1">
               <UserRound className="w-4 h-4" />
               {group.createdBy}
-            </p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500">Thành viên</p>
-            <p className="font-semibold inline-flex items-center gap-1">
-              <Users className="w-4 h-4" />
-              {group.members}/{group.maxMembers}
             </p>
           </div>
           <div>
@@ -391,48 +389,31 @@ const StudyGroupDetail: React.FC = () => {
               {group.location}
             </p>
           </div>
+          <div className="relative">
+            <button
+              onClick={() => setShowMembersModal(true)}
+              className="w-full p-3 bg-blue-50 border-2 border-blue-300 text-blue-700 rounded-lg hover:bg-blue-100 hover:border-blue-400 transition-all shadow-sm hover:shadow-md flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                <div className="text-left">
+                  <p className="text-xs text-blue-600">Thành viên</p>
+                  <p className="font-bold text-lg">{group.members}/{group.maxMembers}</p>
+                </div>
+              </div>
+              <span className="text-xl">→</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Members List */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold text-gray-900">
-              Thành viên ({members.length})
-            </h2>
-            {group.is_member && (
-              <button
-                onClick={() => setShowAddMemberModal(true)}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm"
-              >
-                <Plus className="w-4 h-4" />
-                Thêm thành viên
-              </button>
-            )}
+      <div className="grid md:grid-cols-3 gap-6">
+        {/* Chat Box - Only show if user is a member */}
+        {group.is_member && (
+          <div className="md:col-span-2 bg-white rounded-lg shadow-md overflow-hidden">
+            <ChatBox groupId={parseInt(id!)} />
           </div>
-          <div className="space-y-3">
-            {members.map((member) => (
-              <div
-                key={member.id}
-                className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
-                    <UserRound className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">{member.name}</p>
-                    <p className="text-sm text-gray-500">{member.role}</p>
-                  </div>
-                </div>
-                <p className="text-sm text-gray-500">
-                  Tham gia: {member.joinedAt ? new Date(member.joinedAt).toLocaleDateString('vi-VN') : 'N/A'}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
+        )}
 
         {/* Activities */}
         <div className="bg-white rounded-lg shadow-md p-6">
@@ -504,21 +485,51 @@ const StudyGroupDetail: React.FC = () => {
 
       {/* Materials Section */}
       <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold text-gray-900">
-            Tài liệu ({materials.length})
-          </h2>
-          {group.is_member && (
-            <button
-              onClick={() => setShowMaterialModal(true)}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Thêm tài liệu
-            </button>
-          )}
-        </div>
-        <div className="grid md:grid-cols-2 gap-4">
+        <button
+          onClick={() => setShowMaterialsListModal(true)}
+          className="w-full flex items-center justify-between p-4 border-2 border-green-600 rounded-lg hover:bg-green-50 transition"
+        >
+          <div className="flex items-center gap-3">
+            <FileText className="w-6 h-6 text-green-600" />
+            <div className="text-left">
+              <h2 className="text-xl font-bold text-gray-900">Tài liệu</h2>
+              <p className="text-sm text-gray-500">{materials.length} tài liệu trong nhóm</p>
+            </div>
+          </div>
+          <div className="text-green-600 font-semibold">Xem tài liệu →</div>
+        </button>
+      </div>
+
+      {/* Materials List Modal */}
+      {showMaterialsListModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full p-6 max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-2xl font-bold">Tài liệu nhóm ({materials.length})</h3>
+              <button
+                onClick={() => setShowMaterialsListModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Add Material Button */}
+            {group.is_member && (
+              <button
+                onClick={() => {
+                  setShowMaterialsListModal(false);
+                  setShowMaterialModal(true);
+                }}
+                className="w-full mb-4 bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 font-semibold"
+              >
+                <Plus className="w-5 h-5" />
+                Thêm tài liệu mới
+              </button>
+            )}
+
+            {/* Materials Grid */}
+            <div className="grid md:grid-cols-2 gap-4">
           {materials.length === 0 ? (
             <p className="text-gray-500 text-center py-8 col-span-2">Chưa có tài liệu nào</p>
           ) : (
@@ -573,8 +584,163 @@ const StudyGroupDetail: React.FC = () => {
               </div>
             ))
           )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Members Modal */}
+      {showMembersModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-2xl font-bold">Thành viên nhóm ({members.length})</h3>
+              <button
+                onClick={() => setShowMembersModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Add Member Button */}
+            {group.is_member && (
+              <button
+                onClick={() => {
+                  setShowMembersModal(false);
+                  setShowAddMemberModal(true);
+                }}
+                className="w-full mb-4 bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 font-semibold"
+              >
+                <Plus className="w-5 h-5" />
+                Thêm thành viên mới
+              </button>
+            )}
+
+            {/* Members List */}
+            <div className="space-y-3">
+              {members.map((member) => (
+                <div
+                  key={member.id}
+                  onClick={() => {
+                    setSelectedMember(member);
+                    setShowMembersModal(false);
+                    setShowMemberProfileModal(true);
+                  }}
+                  className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-blue-50 cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                      <UserRound className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">{member.name}</p>
+                      <p className="text-sm text-gray-500">{member.role}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm text-gray-500">
+                      Tham gia: {member.joinedAt ? new Date(member.joinedAt).toLocaleDateString('vi-VN') : 'N/A'}
+                    </p>
+                    <p className="text-xs text-blue-600 font-medium">Xem profile →</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Member Profile Modal */}
+      {showMemberProfileModal && selectedMember && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                  <UserRound className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">{selectedMember.name}</h2>
+                  <p className="text-sm text-gray-600">{selectedMember.email || 'Thành viên nhóm'}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowMemberProfileModal(false);
+                  setSelectedMember(null);
+                }}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="space-y-6">
+                {/* Member Info Summary */}
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-200">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin thành viên</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-gray-600">Họ tên</p>
+                      <p className="font-semibold text-gray-900">{selectedMember.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Email</p>
+                      <p className="font-semibold text-gray-900">{selectedMember.email || 'Chưa có thông tin'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">Vai trò</p>
+                      <p className="font-semibold text-gray-900">{selectedMember.role}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600">User ID</p>
+                      <p className="font-semibold text-gray-900">#{selectedMember.user_id || selectedMember.id}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-sm text-gray-600">Ngày tham gia</p>
+                      <p className="font-semibold text-gray-900">
+                        {selectedMember.joinedAt ? new Date(selectedMember.joinedAt).toLocaleDateString('vi-VN', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        }) : 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Activity in Group */}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Hoạt động trong nhóm
+                  </h3>
+                  <div className="bg-gray-50 rounded-lg p-6 text-center">
+                    <Users className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-600">Thành viên của nhóm {group.name}</p>
+                    <p className="text-sm text-gray-500 mt-2">
+                      Tham gia lúc {selectedMember.joinedAt ? new Date(selectedMember.joinedAt).toLocaleString('vi-VN') : 'N/A'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+              <button
+                onClick={() => {
+                  setShowMemberProfileModal(false);
+                  setSelectedMember(null);
+                }}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Activity Modal */}
       {showActivityModal && (

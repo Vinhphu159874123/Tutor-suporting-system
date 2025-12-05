@@ -798,6 +798,82 @@ async def get_tutor_reviews(
     return await tutor_service.get_tutor_reviews(tutor_id, skip, limit)
 
 
+@router.post("/check-schedule-conflicts")
+async def check_schedule_conflicts(
+    registration_ids: list[int],
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Check if any of the given course registrations have schedule conflicts
+    with the student's current enrolled sessions
+    
+    Returns: {registration_id: has_conflict}
+    """
+    from sqlalchemy import select, text
+    from app.models.database import Session, SessionParticipant
+    from datetime import datetime, timedelta
+    
+    # Get student's current sessions
+    my_sessions_query = select(Session).join(
+        SessionParticipant, SessionParticipant.session_id == Session.session_id
+    ).where(
+        SessionParticipant.user_id == current_user.user_id,
+        SessionParticipant.role == 'student',
+        Session.scheduled_date.isnot(None)
+    )
+    result = await db.execute(my_sessions_query)
+    my_sessions = result.scalars().all()
+    
+    # Build my schedule map
+    day_map = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday', 4: 'friday', 5: 'saturday', 6: 'sunday'}
+    my_schedule = {}
+    for session in my_sessions:
+        day = day_map.get(session.scheduled_date.weekday())
+        time_slot = f"{str(session.start_time)[:5]}-{str(session.end_time)[:5]}"
+        if day not in my_schedule:
+            my_schedule[day] = []
+        my_schedule[day].append(time_slot)
+    
+    # Helper function to check overlap
+    def time_ranges_overlap(slot1: str, slot2: str) -> bool:
+        s1, e1 = slot1.split('-')
+        s2, e2 = slot2.split('-')
+        
+        def to_minutes(t: str) -> int:
+            h, m = map(int, t.split(':'))
+            return h * 60 + m
+        
+        return to_minutes(s1) < to_minutes(e2) and to_minutes(s2) < to_minutes(e1)
+    
+    # Check conflicts for each registration
+    conflicts = {}
+    for reg_id in registration_ids:
+        # Get sessions for this registration
+        course_sessions_query = text("""
+            SELECT DISTINCT s.scheduled_date, s.start_time, s.end_time
+            FROM tutor_system.session s
+            JOIN tutor_system.tutorregistration tr ON tr.subject_id = s.subject_id AND tr.tutor_id = s.tutor_id
+            WHERE tr.registration_id = :reg_id AND s.scheduled_date IS NOT NULL
+        """)
+        result = await db.execute(course_sessions_query, {"reg_id": reg_id})
+        course_sessions = result.fetchall()
+        
+        has_conflict = False
+        for csess in course_sessions:
+            day = day_map.get(csess.scheduled_date.weekday())
+            time_slot = f"{str(csess.start_time)[:5]}-{str(csess.end_time)[:5]}"
+            
+            my_day_slots = my_schedule.get(day, [])
+            if any(time_ranges_overlap(time_slot, my_slot) for my_slot in my_day_slots):
+                has_conflict = True
+                break
+        
+        conflicts[reg_id] = has_conflict
+    
+    return conflicts
+
+
 # ============================================================================
 # PLACEHOLDER ENDPOINTS
 # ============================================================================

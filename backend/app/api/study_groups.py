@@ -214,7 +214,9 @@ async def get_study_group(
     for member, user in members_rows:
         members_list.append({
             "id": str(user.user_id),
+            "user_id": user.user_id,
             "name": user.full_name,
+            "email": user.email,
             "role": "Trưởng nhóm" if member.role == 'owner' else "Thành viên",
             "joinedAt": member.joined_at.isoformat() if member.joined_at else None
         })
@@ -756,3 +758,139 @@ async def get_materials(
         })
     
     return materials
+
+
+# ============================================================================
+# CHAT MESSAGES
+# ============================================================================
+
+class SendMessageRequest(BaseModel):
+    message_text: str
+
+
+@router.post("/{group_id}/messages")
+async def send_message(
+    group_id: int,
+    request: SendMessageRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Send a message to the study group chat"""
+    from app.models.database import StudyGroupMessage
+    from datetime import datetime, timezone, timedelta
+    
+    # Check if user is a member of the group
+    member_check = await db.execute(
+        select(StudyGroupMember).where(
+            StudyGroupMember.group_id == group_id,
+            StudyGroupMember.user_id == current_user.user_id,
+            StudyGroupMember.status == 'active'
+        )
+    )
+    if not member_check.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="You are not a member of this group")
+    
+    # Create message with Vietnam timezone
+    vietnam_tz = timezone(timedelta(hours=7))
+    message = StudyGroupMessage(
+        group_id=group_id,
+        user_id=current_user.user_id,
+        message_text=request.message_text.strip(),
+        created_at=datetime.now(vietnam_tz)
+    )
+    
+    db.add(message)
+    await db.commit()
+    await db.refresh(message)
+    
+    return {
+        "message_id": message.message_id,
+        "group_id": message.group_id,
+        "user_id": message.user_id,
+        "user_name": current_user.full_name,
+        "message_text": message.message_text,
+        "created_at": message.created_at.isoformat(),
+        "is_deleted": message.is_deleted
+    }
+
+
+@router.get("/{group_id}/messages")
+async def get_messages(
+    group_id: int,
+    limit: int = Query(50, le=100),
+    before_id: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get chat messages for a study group"""
+    from app.models.database import StudyGroupMessage
+    
+    # Check if user is a member
+    member_check = await db.execute(
+        select(StudyGroupMember).where(
+            StudyGroupMember.group_id == group_id,
+            StudyGroupMember.user_id == current_user.user_id,
+            StudyGroupMember.status == 'active'
+        )
+    )
+    if not member_check.scalar_one_or_none():
+        raise HTTPException(status_code=403, detail="You are not a member of this group")
+    
+    # Build query
+    query = select(StudyGroupMessage, User).join(
+        User, StudyGroupMessage.user_id == User.user_id
+    ).where(
+        StudyGroupMessage.group_id == group_id,
+        StudyGroupMessage.is_deleted == False
+    )
+    
+    if before_id:
+        query = query.where(StudyGroupMessage.message_id < before_id)
+    
+    query = query.order_by(StudyGroupMessage.created_at.desc()).limit(limit)
+    
+    result = await db.execute(query)
+    rows = result.all()
+    
+    messages = []
+    for message, user in rows:
+        messages.append({
+            "message_id": message.message_id,
+            "group_id": message.group_id,
+            "user_id": message.user_id,
+            "user_name": user.full_name,
+            "message_text": message.message_text,
+            "created_at": message.created_at.isoformat(),
+            "is_deleted": message.is_deleted
+        })
+    
+    # Return in chronological order (oldest first)
+    return list(reversed(messages))
+
+
+@router.delete("/{group_id}/messages/{message_id}")
+async def delete_message(
+    group_id: int,
+    message_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a message (soft delete)"""
+    from app.models.database import StudyGroupMessage
+    
+    # Get message
+    message = await db.get(StudyGroupMessage, message_id)
+    if not message or message.group_id != group_id:
+        raise HTTPException(status_code=404, detail="Message not found")
+    
+    # Only owner or group creator can delete
+    if message.user_id != current_user.user_id:
+        # Check if user is group creator
+        group = await db.get(StudyGroup, group_id)
+        if not group or group.created_by != current_user.user_id:
+            raise HTTPException(status_code=403, detail="You can only delete your own messages")
+    
+    message.is_deleted = True
+    await db.commit()
+    
+    return {"message": "Message deleted successfully"}
