@@ -39,8 +39,8 @@ def get_redis() -> redis.Redis:
                     settings.REDIS_URL,
                     encoding="utf-8",
                     decode_responses=True,
-                    socket_connect_timeout=0.5,
-                    socket_timeout=0.5
+                    socket_connect_timeout=1.5,
+                    socket_timeout=1.5
                 )
             
             # Test connection
