@@ -70,9 +70,9 @@ const CoordinatorReview: React.FC = () => {
     try {
       const statusFilter = filter === "all" ? "pending" : filter;
       const response: any = await coordinatorApi.getTutorRegistrations(statusFilter);
-      
+
       let data = response.data || [];
-      
+
       // If filter is "all", we need to fetch all statuses
       if (filter === "all") {
         const [pending, approved, rejected] = await Promise.all([
@@ -86,7 +86,7 @@ const CoordinatorReview: React.FC = () => {
           ...(rejected.data || []),
         ];
       }
-      
+
       setRequests(data);
     } catch (error: any) {
       console.error("Failed to load registrations:", error);
@@ -98,21 +98,21 @@ const CoordinatorReview: React.FC = () => {
 
   const handleApprove = async (registrationId: number) => {
     if (processingId) return;
-    
+
     // First, fetch schedules for this registration
     setLoadingSchedules(true);
     try {
       const response = await coordinatorApi.getRegistrationSchedules(registrationId);
       const schedulesData = response.data || [];
-      
+
       console.log("Schedules fetched:", schedulesData);
       console.log("Number of schedules:", schedulesData.length);
-      
+
       if (schedulesData.length === 0) {
         toast.error("Không tìm thấy lịch dạy cho đăng ký này");
         return;
       }
-      
+
       if (schedulesData.length === 1) {
         // Only one schedule, approve directly
         console.log("Only 1 schedule, approving directly with schedule_id:", schedulesData[0].schedule_id);
@@ -139,7 +139,7 @@ const CoordinatorReview: React.FC = () => {
 
   const confirmApproval = async () => {
     if (!selectedRegistration || !selectedSchedule) return;
-    
+
     setProcessingId(selectedRegistration);
     try {
       await coordinatorApi.approveTutorRegistration(selectedRegistration, selectedSchedule);
@@ -155,7 +155,7 @@ const CoordinatorReview: React.FC = () => {
 
   const handleReject = async (registrationId: number) => {
     if (processingId) return; // Prevent double-click
-    
+
     const reason = prompt("Lý do từ chối:");
     if (!reason) return;
 
@@ -200,9 +200,9 @@ const CoordinatorReview: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <button
-        onClick={()=> navigate("/coor")}
+        onClick={() => navigate("/coor")}
         className="mb-4 text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-2">
-          ← Quay lại trang chủ
+        ← Quay lại trang chủ
       </button>
       <h1 className="text-3xl font-bold text-gray-900 mb-6">
         Xét duyệt đăng ký Tutor
@@ -212,41 +212,37 @@ const CoordinatorReview: React.FC = () => {
       <div className="flex gap-4 mb-6">
         <button
           onClick={() => setFilter("all")}
-          className={`px-4 py-2 rounded-lg ${
-            filter === "all"
+          className={`px-4 py-2 rounded-lg ${filter === "all"
               ? "bg-blue-600 text-white"
               : "bg-gray-200 text-gray-700"
-          }`}
+            }`}
         >
           Tất cả
         </button>
         <button
           onClick={() => setFilter("pending")}
-          className={`px-4 py-2 rounded-lg ${
-            filter === "pending"
+          className={`px-4 py-2 rounded-lg ${filter === "pending"
               ? "bg-blue-600 text-white"
               : "bg-gray-200 text-gray-700"
-          }`}
+            }`}
         >
           Chờ duyệt {!loading && filter === "pending" && `(${requests.length})`}
         </button>
         <button
           onClick={() => setFilter("approved")}
-          className={`px-4 py-2 rounded-lg ${
-            filter === "approved"
+          className={`px-4 py-2 rounded-lg ${filter === "approved"
               ? "bg-blue-600 text-white"
               : "bg-gray-200 text-gray-700"
-          }`}
+            }`}
         >
           Đã duyệt {!loading && filter === "approved" && `(${requests.length})`}
         </button>
         <button
           onClick={() => setFilter("rejected")}
-          className={`px-4 py-2 rounded-lg ${
-            filter === "rejected"
+          className={`px-4 py-2 rounded-lg ${filter === "rejected"
               ? "bg-blue-600 text-white"
               : "bg-gray-200 text-gray-700"
-          }`}
+            }`}
         >
           Từ chối {!loading && filter === "rejected" && `(${requests.length})`}
         </button>
@@ -308,36 +304,36 @@ const CoordinatorReview: React.FC = () => {
                 </div>
               )}
 
-              {request.availability && Object.keys(request.availability).some(day => 
+              {request.availability && Object.keys(request.availability).some(day =>
                 Array.isArray(request.availability![day]) && request.availability![day].length > 0
               ) && (
-                <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Clock className="h-5 w-5 text-blue-600" />
-                    <p className="text-sm font-semibold text-blue-900">Lịch rảnh đăng ký</p>
+                  <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Clock className="h-5 w-5 text-blue-600" />
+                      <p className="text-sm font-semibold text-blue-900">Lịch rảnh đăng ký</p>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {Object.entries(request.availability).map(([day, times]: [string, string[]]) => {
+                        if (!Array.isArray(times) || times.length === 0) return null;
+                        const dayNames: { [key: string]: string } = {
+                          monday: 'Thứ Hai',
+                          tuesday: 'Thứ Ba',
+                          wednesday: 'Thứ Tư',
+                          thursday: 'Thứ Năm',
+                          friday: 'Thứ Sáu',
+                          saturday: 'Thứ Bảy',
+                          sunday: 'Chủ Nhật'
+                        };
+                        return (
+                          <div key={day} className="flex items-center gap-2 text-sm">
+                            <span className="font-medium text-blue-700 min-w-[90px]">{dayNames[day]}:</span>
+                            <span className="text-gray-900">{times.join(', ')}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {Object.entries(request.availability).map(([day, times]: [string, string[]]) => {
-                      if (!Array.isArray(times) || times.length === 0) return null;
-                      const dayNames: { [key: string]: string } = {
-                        monday: 'Thứ Hai',
-                        tuesday: 'Thứ Ba',
-                        wednesday: 'Thứ Tư',
-                        thursday: 'Thứ Năm',
-                        friday: 'Thứ Sáu',
-                        saturday: 'Thứ Bảy',
-                        sunday: 'Chủ Nhật'
-                      };
-                      return (
-                        <div key={day} className="flex items-center gap-2 text-sm">
-                          <span className="font-medium text-blue-700 min-w-[90px]">{dayNames[day]}:</span>
-                          <span className="text-gray-900">{times.join(', ')}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                )}
 
               {/* Course Schedule Information */}
               <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -445,22 +441,21 @@ const CoordinatorReview: React.FC = () => {
 
       {/* Schedule Selection Modal */}
       {showScheduleModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] flex flex-col">
             <h3 className="text-xl font-bold mb-4">Chọn lịch dạy</h3>
             <p className="text-gray-600 mb-4">
               Tutor này có nhiều lịch dạy. Vui lòng chọn lịch để tạo các buổi học:
             </p>
-            
-            <div className="space-y-3 mb-6">
+
+            <div className="space-y-3 mb-6 overflow-y-auto flex-1 pr-2">
               {schedules.map((schedule) => (
                 <label
                   key={schedule.schedule_id}
-                  className={`flex items-start p-3 border rounded-lg cursor-pointer transition-colors ${
-                    selectedSchedule === schedule.schedule_id
+                  className={`flex items-start p-3 border rounded-lg cursor-pointer transition-colors ${selectedSchedule === schedule.schedule_id
                       ? "border-blue-500 bg-blue-50"
                       : "border-gray-300 hover:border-blue-300"
-                  }`}
+                    }`}
                 >
                   <input
                     type="radio"
