@@ -42,14 +42,92 @@ const BrowseCourses: React.FC = () => {
   const [showFeedbacksModal, setShowFeedbacksModal] = useState(false);
   const [feedbacksData, setFeedbacksData] = useState<any>(null);
   const [loadingFeedbacks, setLoadingFeedbacks] = useState(false);
+  
+  // Schedule conflict state
+  const [mySchedule, setMySchedule] = useState<Record<string, string[]>>({});
+  const [conflictingCourses, setConflictingCourses] = useState<Set<number>>(new Set());
 
   useEffect(() => {
     fetchAvailableCourses();
+    loadMySchedule();
   }, []);
 
   useEffect(() => {
     filterCourses();
   }, [searchTerm, selectedDepartment, courses]);
+  
+  useEffect(() => {
+    // Check conflicts whenever courses or schedule changes
+    checkScheduleConflicts();
+  }, [courses, mySchedule]);
+
+  const loadMySchedule = async () => {
+    try {
+      // Load student's enrolled sessions
+      const response: any = await sessionsApi.getMySessions({ mode: 'student' });
+      const sessions = response.data || [];
+      
+      // Build schedule map: {day: [timeSlot1, timeSlot2, ...]}
+      const dayMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const schedule: Record<string, string[]> = {};
+      
+      for (const session of sessions) {
+        if (session.scheduled_date && session.start_time && session.end_time) {
+          const sessionDate = new Date(session.scheduled_date + 'T00:00:00');
+          const dayOfWeek = dayMap[sessionDate.getDay()];
+          const timeSlot = `${session.start_time.substring(0, 5)}-${session.end_time.substring(0, 5)}`;
+          
+          if (!schedule[dayOfWeek]) {
+            schedule[dayOfWeek] = [];
+          }
+          schedule[dayOfWeek].push(timeSlot);
+        }
+      }
+      
+      setMySchedule(schedule);
+    } catch (error) {
+      console.error('Failed to load student schedule:', error);
+    }
+  };
+  
+  const timeRangesOverlap = (slot1: string, slot2: string): boolean => {
+    const [start1, end1] = slot1.split('-');
+    const [start2, end2] = slot2.split('-');
+    
+    const toMinutes = (time: string) => {
+      const [hours, minutes] = time.split(':').map(Number);
+      return hours * 60 + minutes;
+    };
+    
+    const start1Min = toMinutes(start1);
+    const end1Min = toMinutes(end1);
+    const start2Min = toMinutes(start2);
+    const end2Min = toMinutes(end2);
+    
+    return start1Min < end2Min && start2Min < end1Min;
+  };
+  
+  const checkScheduleConflicts = async () => {
+    if (courses.length === 0) return;
+    
+    try {
+      const registrationIds = courses.map(c => c.registration_id);
+      const response: any = await tutorsApi.checkScheduleConflicts(registrationIds);
+      const conflictsMap = response.data || response || {};
+      
+      // Build set of conflicting registration_ids
+      const conflicts = new Set<number>();
+      for (const [regId, hasConflict] of Object.entries(conflictsMap)) {
+        if (hasConflict) {
+          conflicts.add(Number(regId));
+        }
+      }
+      
+      setConflictingCourses(conflicts);
+    } catch (error) {
+      console.error('Failed to check schedule conflicts:', error);
+    }
+  };
 
   const fetchAvailableCourses = async () => {
     try {
@@ -269,7 +347,16 @@ const BrowseCourses: React.FC = () => {
                 )}
 
                 <div className="pt-2">
-                  {course.available_slots > 0 ? (
+                  {conflictingCourses.has(course.registration_id) ? (
+                    <button
+                      disabled
+                      title="Trùng lịch với khóa học đã đăng ký"
+                      className="w-full bg-red-100 text-red-700 border-2 border-red-400 font-medium py-2 px-4 rounded-lg cursor-not-allowed flex items-center justify-center opacity-75"
+                    >
+                      <X size={18} className="mr-2" />
+                      Trùng Lịch
+                    </button>
+                  ) : course.available_slots > 0 ? (
                     <button
                       onClick={() => handleRequestJoin(course)}
                       disabled={enrollingId === course.registration_id}
