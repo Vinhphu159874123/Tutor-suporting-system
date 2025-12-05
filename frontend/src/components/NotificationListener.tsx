@@ -11,8 +11,8 @@ import { AxiosResponse } from 'axios';
 const NotificationListener: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [previousNotificationIds, setPreviousNotificationIds] = useState<Set<number>>(new Set());
-  const [isInitialized, setIsInitialized] = useState(false);
+  const previousNotificationIdsRef = React.useRef<Set<number>>(new Set());
+  const [isInitialized, setIsInitialized] = React.useState(false);
 
   useEffect(() => {
     const checkNotifications = async () => {
@@ -27,7 +27,7 @@ const NotificationListener: React.FC = () => {
         // After initial load, check for new notifications
         if (isInitialized && !isOnNotificationsPage) {
           const newNotifs = notifications.filter((n: any) => 
-            !previousNotificationIds.has(n.notification_id) && !n.is_read
+            !previousNotificationIdsRef.current.has(n.notification_id) && !n.is_read
           );
 
           // Show toast for each new notification (only if there are new ones)
@@ -59,7 +59,7 @@ const NotificationListener: React.FC = () => {
           }
         }
 
-        setPreviousNotificationIds(currentIds);
+        previousNotificationIdsRef.current = currentIds;
         if (!isInitialized) {
           setIsInitialized(true);
         }
@@ -75,7 +75,7 @@ const NotificationListener: React.FC = () => {
     const interval = setInterval(checkNotifications, 30000);
 
     return () => clearInterval(interval);
-  }, [location.pathname, isInitialized, previousNotificationIds, navigate]);
+  }, [location.pathname, isInitialized, navigate]);
 
   return null; // This component doesn't render anything
 };
