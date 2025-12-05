@@ -693,6 +693,25 @@ class StudyGroupActivity(Base):
     group = relationship("StudyGroup")
     creator = relationship("User")
 
+class StudyGroupMessage(Base):
+    __tablename__ = "studygroupmessage"
+    __table_args__ = {
+        'schema': 'tutor_system',
+        'extend_existing': True
+    }
+    
+    message_id = Column(Integer, primary_key=True, index=True)
+    group_id = Column(Integer, ForeignKey("tutor_system.studygroup.group_id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("tutor_system.User.user_id"), nullable=False)
+    message_text = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    is_deleted = Column(Boolean, default=False)
+    
+    # Relationships
+    group = relationship("StudyGroup")
+    user = relationship("User")
+
 class CourseReport(Base):
     __tablename__ = "coursereport"
     __table_args__ = {

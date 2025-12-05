@@ -11,8 +11,8 @@ import { AxiosResponse } from 'axios';
 const NotificationListener: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const [previousNotificationIds, setPreviousNotificationIds] = useState<Set<number>>(new Set());
-  const [isInitialized, setIsInitialized] = useState(false);
+  const previousNotificationIdsRef = React.useRef<Set<number>>(new Set());
+  const [isInitialized, setIsInitialized] = React.useState(false);
 
   useEffect(() => {
     const checkNotifications = async () => {
@@ -27,53 +27,55 @@ const NotificationListener: React.FC = () => {
         // After initial load, check for new notifications
         if (isInitialized && !isOnNotificationsPage) {
           const newNotifs = notifications.filter((n: any) => 
-            !previousNotificationIds.has(n.notification_id) && !n.is_read
+            !previousNotificationIdsRef.current.has(n.notification_id) && !n.is_read
           );
 
-          // Show toast for each new notification
-          newNotifs.forEach((notif: any) => {
-            const message = notif.message.length > 60 
-              ? notif.message.substring(0, 60) + '...' 
-              : notif.message;
-            
-            toast.info(
-              <div 
-                onClick={() => navigate('/notifications')}
-                className="cursor-pointer"
-              >
-                <strong>{notif.title}</strong>
-                <p className="text-sm mt-1">{message}</p>
-              </div>,
-              {
-                position: "bottom-right",
-                autoClose: 5000,
-                hideProgressBar: false,
-                closeOnClick: true,
-                pauseOnHover: true,
-                draggable: true,
-                onClick: () => navigate('/notifications'),
-              }
-            );
-          });
+          // Show toast for each new notification (only if there are new ones)
+          if (newNotifs.length > 0) {
+            newNotifs.forEach((notif: any) => {
+              const message = notif.message.length > 60 
+                ? notif.message.substring(0, 60) + '...' 
+                : notif.message;
+              
+              toast.info(
+                <div 
+                  onClick={() => navigate('/notifications')}
+                  className="cursor-pointer"
+                >
+                  <strong>{notif.title}</strong>
+                  <p className="text-sm mt-1">{message}</p>
+                </div>,
+                {
+                  position: "bottom-right",
+                  autoClose: 5000,
+                  hideProgressBar: false,
+                  closeOnClick: true,
+                  pauseOnHover: true,
+                  draggable: true,
+                  onClick: () => navigate('/notifications'),
+                }
+              );
+            });
+          }
         }
 
-        setPreviousNotificationIds(currentIds);
+        previousNotificationIdsRef.current = currentIds;
         if (!isInitialized) {
           setIsInitialized(true);
         }
       } catch (error) {
-        console.error('Failed to check notifications:', error);
+        // Silent fail - don't log to console on every check
       }
     };
 
     // Initial check
     checkNotifications();
 
-    // Check every 5 seconds
-    const interval = setInterval(checkNotifications, 5000);
+    // Check every 30 seconds (reduced frequency)
+    const interval = setInterval(checkNotifications, 30000);
 
     return () => clearInterval(interval);
-  }, [location.pathname]); // Only depend on location, NOT previousNotificationIds!
+  }, [location.pathname, isInitialized, navigate]);
 
   return null; // This component doesn't render anything
 };

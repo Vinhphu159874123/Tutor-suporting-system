@@ -312,6 +312,11 @@ export const tutorsApi = {
   generateSessionsForCourse: (subjectId: number) => {
     return apiClient.post(`/tutors/courses/${subjectId}/generate-sessions`);
   },
+  
+  // Check schedule conflicts for course registrations
+  checkScheduleConflicts: (registrationIds: number[]) => {
+    return apiClient.post("/tutors/check-schedule-conflicts", registrationIds);
+  },
 };
 
 // Students API
@@ -878,6 +883,30 @@ export const forumApi = {
       return mockResponse({ message: "Left study group" });
     }
     return apiClient.post(`/study-groups/${groupId}/leave`);
+  },
+};
+
+// Study Groups API
+export const studyGroupsApi = {
+  getMessages: (groupId: number, limit: number = 50) => {
+    if (MOCK_MODE) {
+      return mockResponse([]);
+    }
+    return apiClient.get(`/study-groups/${groupId}/messages`, { params: { limit } });
+  },
+
+  sendMessage: (groupId: number, messageText: string) => {
+    if (MOCK_MODE) {
+      return mockResponse({ message: "Message sent" });
+    }
+    return apiClient.post(`/study-groups/${groupId}/messages`, { message_text: messageText });
+  },
+
+  deleteMessage: (groupId: number, messageId: number) => {
+    if (MOCK_MODE) {
+      return mockResponse({ message: "Message deleted" });
+    }
+    return apiClient.delete(`/study-groups/${groupId}/messages/${messageId}`);
   },
 };
 
