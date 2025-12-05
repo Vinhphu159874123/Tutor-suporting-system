@@ -145,7 +145,7 @@ const TutorCourses: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                   <div className="bg-blue-50 p-3 rounded-lg">
                     <p className="text-xs text-gray-600 mb-1">Tổng phiên học</p>
                     <p className="text-2xl font-bold text-blue-600">

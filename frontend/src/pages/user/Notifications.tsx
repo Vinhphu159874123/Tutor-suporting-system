@@ -148,9 +148,9 @@ const Notifications: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg p-6 text-white">
-        <h1 className="text-3xl font-bold mb-2">Thông báo</h1>
-        <p className="text-blue-100">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg p-4 lg:p-6 text-white">
+        <h1 className="text-2xl lg:text-3xl font-bold mb-2">Thông báo</h1>
+        <p className="text-sm lg:text-base text-blue-100">
           Bạn có {unreadCount} thông báo chưa đọc
         </p>
       </div>

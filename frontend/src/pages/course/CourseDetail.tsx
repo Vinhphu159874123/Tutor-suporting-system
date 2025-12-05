@@ -1351,7 +1351,7 @@ const CourseDetail: React.FC = () => {
                               <p className="text-sm text-gray-600">{participant.email}</p>
                             </div>
                           </div>
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <label className="flex items-center gap-2 cursor-pointer p-3 border-2 border-gray-200 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all">
                               <input
                                 type="radio"
@@ -1755,7 +1755,7 @@ const CourseDetail: React.FC = () => {
                   {/* Student Info Summary */}
                   <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-200">
                     <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin học sinh</h3>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <p className="text-sm text-gray-600">Họ tên</p>
                         <p className="font-semibold text-gray-900">{selectedStudent.full_name}</p>
@@ -1812,7 +1812,7 @@ const CourseDetail: React.FC = () => {
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4 pt-3 border-t border-gray-200">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-gray-200">
                               <div>
                                 <p className="text-sm text-gray-600">Giảng viên</p>
                                 <p className="font-semibold text-gray-900">

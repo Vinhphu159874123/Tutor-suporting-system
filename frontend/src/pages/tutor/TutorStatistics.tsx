@@ -236,7 +236,7 @@ const TutorStatistics: React.FC = () => {
                     <MapPin className="mr-2 text-blue-600" size={20} />
                     Hình thức học ưa thích
                   </h3>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {Object.entries(stat.format_distribution).map(([format, count]) => (
                       <div key={format} className="bg-gray-50 p-3 rounded-lg text-center">
                         <div className="flex items-center justify-center gap-1 text-sm text-gray-600 mb-1">

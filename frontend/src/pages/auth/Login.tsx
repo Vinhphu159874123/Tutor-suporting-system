@@ -57,10 +57,10 @@ const Login: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Blue Header Bar */}
-      <div className="bg-[#1A0F7A] text-white py-3 px-8 shadow-lg">
+      <div className="bg-[#1A0F7A] text-white py-3 px-4 sm:px-8 shadow-lg">
         <div className="container mx-auto flex items-center">
-          <img src={logoBK} alt="HCMUT Logo" className="w-16 h-16 mr-4" />
-          <h1 className="text-2xl font-bold tracking-wider uppercase">
+          <img src={logoBK} alt="HCMUT Logo" className="w-12 h-12 sm:w-16 sm:h-16 mr-3 sm:mr-4" />
+          <h1 className="text-base sm:text-2xl font-bold tracking-wider uppercase">
             DỊCH VỤ XÁC THỰC TẬP TRUNG
           </h1>
         </div>
@@ -68,10 +68,10 @@ const Login: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex-1 container mx-auto py-12 px-4">
-        <div className="w-full mx-auto bg-white shadow-xl rounded-sm">
+        <div className="w-full max-w-7xl mx-auto bg-white shadow-xl rounded-sm">
           <div className="flex flex-col lg:flex-row">
             {/* Left Panel - Login Form */}
-            <div className="w-full lg:w-4/12 p-8 bg-white border-r border-gray-200">
+            <div className="w-full lg:w-5/12 p-6 sm:p-8 bg-white border-r border-gray-200">
               {/* Error Alert Box */}
               {errorMessage && (
                 <div className="bg-red-50 border-l-4 border-red-600 p-4 mb-6 flex items-start">

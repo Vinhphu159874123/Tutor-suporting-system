@@ -217,7 +217,7 @@ const CourseProgress: React.FC = () => {
                   </div>
 
                   {/* Attendance Stats */}
-                  <div className="grid grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div className="text-center p-3 bg-green-50 rounded-lg">
                       <div className="text-2xl font-bold text-green-600">{student.progress.attendance.present}</div>
                       <div className="text-xs text-gray-600">Có mặt</div>

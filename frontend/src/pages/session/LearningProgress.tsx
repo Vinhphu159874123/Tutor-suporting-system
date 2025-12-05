@@ -208,7 +208,7 @@ const LearningProgress: React.FC = () => {
               </div>
 
               {/* Stats Grid */}
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="text-center p-3 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-600 mb-1">Tham gia</p>
                   <p className="text-lg font-bold text-gray-900">

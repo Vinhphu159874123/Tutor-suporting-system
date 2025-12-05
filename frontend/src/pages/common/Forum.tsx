@@ -289,7 +289,7 @@ const Forum: React.FC = () => {
             <h3 className="text-lg font-bold text-gray-900 mb-4">
               Thống kê nhanh
             </h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div className="p-3 bg-blue-50 rounded-lg">
                 <p className="text-gray-600">Chủ đề tuần này</p>
                 <p className="text-2xl font-bold text-blue-700">48</p>

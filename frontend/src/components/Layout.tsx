@@ -25,6 +25,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { user, logout, currentMode, switchMode } = useAuthStore();
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Determine active mode (use currentMode if available, fallback to user.role)
   const userRoles = user ? (Array.isArray(user.role) ? user.role : [user.role]) : ['student'];
@@ -106,8 +107,27 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Sidebar */}
-      <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg">
+      {/* Mobile menu button */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+        <h1 className="text-lg font-bold text-blue-600">HCMUT Tutor</h1>
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 rounded-md text-gray-600 hover:bg-gray-100"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {isMobileMenuOpen ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            )}
+          </svg>
+        </button>
+      </div>
+
+      {/* Sidebar - responsive */}
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transition-transform duration-300 lg:translate-x-0 ${
+        isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
         <Link to="/dashboard" className="flex h-16 items-center justify-center border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
           <h1 className="text-xl font-bold text-blue-600">
             HCMUT Tutor System
@@ -148,27 +168,35 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </nav>
       </div>
 
-      {/* Main content */}
-      <div className="pl-64">
+      {/* Mobile overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Main content - responsive padding */}
+      <div className="lg:pl-64 pt-16 lg:pt-0">
         {/* Header */}
         <header className="bg-white shadow-sm border-b border-gray-200">
-          <div className="flex h-16 items-center justify-between px-6">
-            <h2 className="text-2xl font-semibold text-gray-900">
+          <div className="flex h-16 items-center justify-between px-4 lg:px-6">
+            <h2 className="text-lg lg:text-2xl font-semibold text-gray-900 truncate">
               {navigation.find((item) => item.href === location.pathname)
                 ?.name || "Dashboard"}
             </h2>
 
-            <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-600">
+            <div className="flex items-center gap-2 lg:gap-4">
+              <div className="text-xs lg:text-sm text-gray-600 hidden sm:block">
                 Xin chào, {user?.full_name}
               </div>
 
               {/* Role Switcher */}
               {hasMultipleRoles && (
                 <div className="relative group">
-                  <button className="flex items-center space-x-2 px-3 py-2 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors">
-                    <RefreshCw className="w-4 h-4" />
-                    <span className="font-medium capitalize">{activeMode}</span>
+                  <button className="flex items-center space-x-1 lg:space-x-2 px-2 lg:px-3 py-2 text-xs lg:text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors">
+                    <RefreshCw className="w-3 h-3 lg:w-4 lg:h-4" />
+                    <span className="font-medium capitalize hidden sm:inline">{activeMode}</span>
                   </button>
 
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
@@ -226,8 +254,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="p-6">{children}</main>
+        {/* Page content - responsive padding */}
+        <main className="p-4 lg:p-6">{children}</main>
       </div>
     </div>
   );

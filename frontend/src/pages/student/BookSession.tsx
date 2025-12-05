@@ -197,7 +197,7 @@ const BookSession: React.FC = () => {
             </div>
 
             {/* Time Range */}
-            <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Clock className="w-4 h-4 inline mr-1" />

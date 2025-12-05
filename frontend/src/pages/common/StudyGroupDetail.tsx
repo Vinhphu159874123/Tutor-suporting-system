@@ -681,7 +681,7 @@ const StudyGroupDetail: React.FC = () => {
                 {/* Member Info Summary */}
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-200">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin thành viên</h3>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <p className="text-sm text-gray-600">Họ tên</p>
                       <p className="font-semibold text-gray-900">{selectedMember.name}</p>
@@ -769,7 +769,7 @@ const StudyGroupDetail: React.FC = () => {
                 <label className="block text-sm font-medium mb-1">Mô tả</label>
                 <textarea value={activityDesc} onChange={(e) => setActivityDesc(e.target.value)} className="w-full px-3 py-2 border rounded-lg" rows={3} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">Ngày</label>
                   <input type="date" value={activityDate} onChange={(e) => setActivityDate(e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
