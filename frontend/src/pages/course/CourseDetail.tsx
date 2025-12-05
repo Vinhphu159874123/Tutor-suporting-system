@@ -462,10 +462,13 @@ const CourseDetail: React.FC = () => {
         formData.append('file', file);
         formData.append('uploaded_by', userId.toString());
 
+        console.log(`📤 Uploading file: ${file.name} to session ${session.session_id}`);
         await sessionsApi.uploadMaterials(session.session_id, formData);
+        console.log(`✅ Upload success: ${file.name}`);
       }
 
       // Refresh materials list
+      console.log(`🔄 Refreshing materials for session ${session.session_id}`);
       await fetchSessionMaterials(session.session_id);
 
       toast.success(`Đã upload ${files.length} tài liệu thành công!`);
@@ -480,10 +483,15 @@ const CourseDetail: React.FC = () => {
   const fetchSessionMaterials = async (sessionId: number) => {
     try {
       const response: any = await sessionsApi.getSessionMaterials(sessionId);
-      setSessionMaterials(prev => ({
-        ...prev,
-        [sessionId]: response.data || []
-      }));
+      // Force re-render by creating completely new object
+      setSessionMaterials(prev => {
+        const newMaterials = { ...prev };
+        newMaterials[sessionId] = response.data || [];
+        console.log(`✅ Fetched ${response.data?.length || 0} materials for session ${sessionId}`);
+        console.log('📦 Materials data:', response.data);
+        console.log('🗂️ Current sessionMaterials state:', { ...prev, [sessionId]: response.data });
+        return newMaterials;
+      });
     } catch (error: any) {
       console.error('Failed to fetch materials:', error);
     }
@@ -1000,12 +1008,15 @@ const CourseDetail: React.FC = () => {
 
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Tài liệu học tập
+                              Tài liệu học tập {session.session_id && `(Session ID: ${session.session_id})`}
                             </label>
                             <div className="space-y-2">
-                              {session.session_id && sessionMaterials[session.session_id]?.length > 0 && (
-                                <div className="space-y-2 mb-3">
-                                  {sessionMaterials[session.session_id].map((material: any) => (
+                              {(() => {
+                                const materials = session.session_id ? sessionMaterials[session.session_id] : [];
+                                console.log(`🎨 Rendering materials for session ${session.session_id}:`, materials);
+                                return materials?.length > 0 ? (
+                                  <div className="space-y-2 mb-3">
+                                    {materials.map((material: any) => (
                                     <div key={material.material_id} className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200">
                                       <div className="flex items-center gap-2">
                                         <FileText className="h-4 w-4 text-gray-500" />
@@ -1020,7 +1031,8 @@ const CourseDetail: React.FC = () => {
                                     </div>
                                   ))}
                                 </div>
-                              )}
+                              ) : null;
+                              })()}
                               <label className="flex items-center justify-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
                                 <Upload className="h-4 w-4 text-gray-500" />
                                 <span className="text-sm text-gray-600">Tải lên tài liệu</span>
