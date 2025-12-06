@@ -8,7 +8,7 @@
 
 [![React](https://img.shields.io/badge/React-18.2+-blue.svg)](https://reactjs.org/)[![React](https://img.shields.io/badge/React-18.2+-blue.svg)](https://reactjs.org/)
 
-[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/
 
 ---
 
