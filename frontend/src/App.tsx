@@ -13,6 +13,7 @@ import { useAuthStore } from "./stores/authStore";
 import { authApi } from "./services/api";
 import Layout from "./components/Layout";
 import NotificationListener from "./components/NotificationListener";
+import Chatbot from "./components/Chatbot";
 
 // Auth pages
 import Login from "./pages/auth/Login";
@@ -225,6 +226,9 @@ function App() {
             draggable
             pauseOnHover
           />
+          
+          {/* AI Chatbot - Always available */}
+          <Chatbot />
         </div>
       </Router>
     </QueryClientProvider>
