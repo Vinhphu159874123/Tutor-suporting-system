@@ -352,12 +352,19 @@ async def get_bulk_materials(
     """Get materials for multiple sessions in one call - OPTIMIZED to prevent N+1 queries"""
     from app.models.database import SessionMaterial
     from sqlalchemy import select
+    from app.core.cache import get_cached, set_cached
     
     # Parse comma-separated IDs
     try:
         ids = [int(id.strip()) for id in session_ids.split(',')]
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid session IDs format")
+    
+    # Try cache first (30s TTL)
+    cache_key = f"materials:bulk:{','.join(map(str, sorted(ids)))}"
+    cached = await get_cached(cache_key)
+    if cached:
+        return cached
     
     # Single query for all sessions
     query = select(SessionMaterial).where(SessionMaterial.session_id.in_(ids))
@@ -378,6 +385,9 @@ async def get_bulk_materials(
             "uploaded_at": m.uploaded_at,
             "uploaded_by": m.uploaded_by
         })
+    
+    # Cache result for 30s
+    await set_cached(cache_key, materials_map, ttl=30)
     
     # Return map with empty arrays for sessions without materials
     return {session_id: materials_map.get(session_id, []) for session_id in ids}
@@ -1008,6 +1018,7 @@ async def get_bulk_feedbacks(
     """Get feedbacks for multiple sessions in one call - OPTIMIZED"""
     from app.models.database import SessionFeedback
     from sqlalchemy import select
+    from app.core.cache import get_cached, set_cached
     
     # Parse comma-separated IDs
     try:
@@ -1015,11 +1026,18 @@ async def get_bulk_feedbacks(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid session IDs format")
     
+    # Check cache first (30s TTL) - include user_id for student isolation
+    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    cache_suffix = f":{current_user.user_id}" if 'student' in user_roles else ""
+    cache_key = f"feedbacks:bulk:{','.join(map(str, sorted(ids)))}{cache_suffix}"
+    cached = await get_cached(cache_key)
+    if cached:
+        return cached
+    
     # Single query for all sessions
     query = select(SessionFeedback).where(SessionFeedback.session_id.in_(ids))
     
-    # Students can only see their own feedback
-    user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+    # Students can only see their own feedback (user_roles already defined above for cache)
     if 'student' in user_roles:
         query = query.where(SessionFeedback.reviewer_id == current_user.user_id)
     
@@ -1031,7 +1049,7 @@ async def get_bulk_feedbacks(
     for f in feedbacks:
         if f.session_id not in feedback_map:
             feedback_map[f.session_id] = []
-        feedback_map[f.session_id].append({
+        feedback_data = {
             "feedback_id": f.feedback_id,
             "session_id": f.session_id,
             "rating": f.rating,
@@ -1039,7 +1057,11 @@ async def get_bulk_feedbacks(
             "is_anonymous": f.is_anonymous,
             "reviewer_id": None if f.is_anonymous else f.reviewer_id,
             "created_at": f.created_at.isoformat() if f.created_at else None
-        })
+        }
+        feedback_map[f.session_id].append(feedback_data)
+    
+    # Cache result for 30s
+    await set_cached(cache_key, feedback_map, ttl=30)
     
     return feedback_map
 
