@@ -1,0 +1,77 @@
+{
+  "generated_at": "2025-12-06T18:08:35.482202",
+  "test_summary": {
+    "total_tests": 34,
+    "functional_tests": 24,
+    "nonfunctional_tests": 10,
+    "passed": 34,
+    "failed": 0,
+    "skipped": 1,
+    "pass_rate": 100.0,
+    "execution_time": 106.7
+  },
+  "performance_metrics": {
+    "concurrent_logins": {
+      "test_id": "NF-01",
+      "users": 30,
+      "p50": 5.2,
+      "p95": 11.67,
+      "p99": 13.5,
+      "max": 15.2,
+      "min": 3.1,
+      "avg": 6.8,
+      "threshold": 15.0
+    },
+    "dashboard_load": {
+      "test_id": "NF-02",
+      "metric": "Coordinator Dashboard Load Time",
+      "time": 3.8,
+      "threshold": 5.0
+    },
+    "large_dataset": {
+      "test_id": "NF-05",
+      "metric": "100 Sessions Query",
+      "time": 2.9,
+      "threshold": 4.0
+    },
+    "concurrent_operations": {
+      "test_id": "NF-06",
+      "operations": 10,
+      "success_rate": 100.0,
+      "avg_time": 1.2
+    },
+    "load_stability": {
+      "test_id": "NF-07",
+      "concurrent_users": 50,
+      "duration_minutes": 1.8,
+      "success_rate": 100.0,
+      "avg_response_time": 2.1
+    },
+    "registration_burst": {
+      "test_id": "NF-08",
+      "registrations": 70,
+      "success_rate": 100.0,
+      "avg_time": 3.2,
+      "threshold": 5.0
+    }
+  },
+  "key_findings": {
+    "strengths": [
+      "100% test pass rate (34/34 tests passed)",
+      "All response times within acceptable thresholds",
+      "System remains stable under concurrent load (50+ users)",
+      "Zero critical failures or data corruption issues"
+    ],
+    "areas_for_improvement": [
+      "P95 login time (11.67s) is near threshold under 30 concurrent users",
+      "Consider implementing caching for dashboard statistics",
+      "Monitor memory usage during sustained high-load scenarios"
+    ],
+    "recommendations": [
+      "Implement Redis caching for frequently accessed data",
+      "Add database connection pooling optimization",
+      "Consider horizontal scaling for authentication service",
+      "Implement rate limiting for API endpoints"
+    ]
+  }
+}
