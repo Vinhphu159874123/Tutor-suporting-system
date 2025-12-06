@@ -189,7 +189,7 @@ const Profile: React.FC = () => {
   const handleSaveProfile = async () => {
     setLoading(true);
     try {
-      const response: any = await usersApi.updateProfile(formData);
+      await usersApi.updateProfile(formData);
       // Fetch fresh profile to get all fields including student data
       const profileResponse: any = await usersApi.getProfile();
       setUser(profileResponse.data);

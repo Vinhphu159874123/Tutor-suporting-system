@@ -27,7 +27,7 @@ interface Session {
 }
 
 const Dashboard: React.FC = () => {
-  const { user, currentMode } = useAuthStore();
+  const { user, currentMode, setUser } = useAuthStore();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [recentSessions, setRecentSessions] = useState<Session[]>([]);
@@ -41,6 +41,23 @@ const Dashboard: React.FC = () => {
 
   // Determine active mode
   const activeMode = currentMode || (user?.role && user.role[0]) || 'student';
+
+  // Refresh user profile on mount to ensure faculty/major are loaded
+  useEffect(() => {
+    const refreshUserProfile = async () => {
+      try {
+        const response = await usersApi.getProfile() as AxiosResponse<any>;
+        if (response.data) {
+          setUser(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to refresh user profile:', error);
+      }
+    };
+    if (user) {
+      refreshUserProfile();
+    }
+  }, []); // Only run once on mount
 
   useEffect(() => {
     const fetchData = async () => {
@@ -80,9 +97,19 @@ const Dashboard: React.FC = () => {
           Chào mừng, {user?.full_name}!
         </h1>
         <p className="text-sm lg:text-base text-blue-100">
-          Vai trò: <span className="font-semibold">{user?.role}</span>
-          {user?.faculty && ` • Khoa: ${user.faculty}`}
-          {user?.major && ` • Ngành: ${user.major}`}
+          Vai trò: <span className="font-semibold">{user?.role?.[0] || user?.role}</span>
+          {user?.faculty && (
+            <>
+              {' • '}
+              <span>Khoa: {user.faculty}</span>
+            </>
+          )}
+          {user?.major && (
+            <>
+              {' • '}
+              <span>Ngành: {user.major}</span>
+            </>
+          )}
         </p>
       </div>
 

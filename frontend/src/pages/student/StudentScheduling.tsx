@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, BookOpen, Plus, X, MapPin, FileText, Trash2, Edit2, CheckCircle, AlertCircle, Monitor, Building2, RefreshCw } from 'lucide-react';
+import { Calendar, Clock, BookOpen, Plus, X, MapPin, FileText, Trash2, AlertCircle, Monitor, Building2, RefreshCw } from 'lucide-react';
 import api from '../../services/api';
 import { toast } from 'react-toastify';
+import SubjectAutocomplete from '../../components/SubjectAutocomplete';
 
 interface TimeSlot {
   day: string;
@@ -238,19 +239,12 @@ const StudentScheduling: React.FC = () => {
                 <BookOpen className="inline mr-2" size={18} />
                 Môn học
               </label>
-              <select
-                value={selectedSubject || ''}
-                onChange={(e) => setSelectedSubject(Number(e.target.value))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                required
-              >
-                <option value="">-- Chọn môn học --</option>
-                {subjects.map(subject => (
-                  <option key={subject.subject_id} value={subject.subject_id}>
-                    {subject.subject_code} - {subject.subject_name}
-                  </option>
-                ))}
-              </select>
+              <SubjectAutocomplete
+                subjects={subjects}
+                selectedSubject={selectedSubject?.toString() || ''}
+                onSelect={(subjectId: string) => setSelectedSubject(Number(subjectId))}
+                registeredSubjectIds={new Set()}
+              />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

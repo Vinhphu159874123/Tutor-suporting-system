@@ -90,6 +90,7 @@ const Admin: React.FC = () => {
   // Update tab when URL changes
   useEffect(() => {
     setActiveTab(getInitialTab());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
 
   const handleTabChange = (tabId: string) => {
