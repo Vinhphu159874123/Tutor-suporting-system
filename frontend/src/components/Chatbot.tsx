@@ -424,18 +424,18 @@ Bạn phải luôn trả lời sao cho dễ hiểu, thông minh, và đem lại 
           onClick={() => setIsOpen(true)}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
-          className={`fixed bottom-6 right-6 bg-transparent text-white rounded-full shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 z-50 group animate-float ${
+          className={`fixed bottom-4 right-4 sm:bottom-6 sm:right-6 bg-transparent text-white rounded-full shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 z-50 group animate-float ${
             isHovered ? 'scale-110' : 'scale-100'
           }`}
           aria-label="Open chatbot"
         >
           <div className="relative">
-            <img src={logoChatbot} alt="TTS ChatBot" className={`w-48 h-48 transition-transform duration-300 ${isHovered ? 'rotate-12' : ''}`} />
-            <Sparkles className={`w-8 h-8 absolute -top-2 -right-2 text-yellow-400 transition-opacity duration-300 ${
+            <img src={logoChatbot} alt="TTS ChatBot" className={`w-24 h-24 sm:w-32 sm:h-32 lg:w-48 lg:h-48 transition-transform duration-300 ${isHovered ? 'rotate-12' : ''}`} />
+            <Sparkles className={`w-4 h-4 sm:w-6 sm:h-6 lg:w-8 lg:h-8 absolute -top-1 -right-1 sm:-top-2 sm:-right-2 text-yellow-400 transition-opacity duration-300 ${
               isHovered ? 'opacity-100' : 'opacity-0'
             }`} />
           </div>
-          <span className={`absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-8 h-8 flex items-center justify-center font-semibold transition-all duration-300 ${
+          <span className={`absolute -top-1 -right-1 sm:-top-2 sm:-right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center font-semibold transition-all duration-300 ${
             isHovered ? 'scale-110' : 'scale-100'
           }`}>
             AI
@@ -451,23 +451,24 @@ Bạn phải luôn trả lời sao cho dễ hiểu, thông minh, và đem lại 
       {/* Chat Window */}
       {isOpen && (
         <div
-          className={`fixed bottom-6 right-6 w-96 bg-white rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden transition-all duration-300 ${
-            isMinimized ? 'h-16' : 'h-[600px]'
+          className={`fixed bottom-0 right-0 sm:bottom-4 sm:right-4 md:bottom-6 md:right-6 w-full sm:w-96 md:w-[28rem] bg-white sm:rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden transition-all duration-300 ${
+            isMinimized ? 'h-16' : 'h-full sm:h-[600px] md:h-[650px]'
           }`}
           style={{
             animation: 'slideInUp 0.3s ease-out',
+            maxHeight: '100vh',
           }}
         >
           {/* Header */}
-          <div className="bg-gradient-to-r from-gray-300 to-gray-100 text-gray-900 p-4 flex items-center justify-between">
+          <div className="bg-gradient-to-r from-gray-300 to-gray-100 text-gray-900 p-3 sm:p-4 flex items-center justify-between">
 
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2 sm:space-x-3">
               <div className="relative">
-                <img src={logoChatbot} alt="TTS ChatBot" className="w-11 h-11 rounded-full" />
-                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></span>
+                <img src={logoChatbot} alt="TTS ChatBot" className="w-9 h-9 sm:w-11 sm:h-11 rounded-full" />
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 sm:w-3 sm:h-3 bg-green-400 rounded-full border-2 border-white"></span>
               </div>
               <div>
-                <h3 className="font-semibold text-base">TTS ChatBot</h3>
+                <h3 className="font-semibold text-sm sm:text-base">TTS ChatBot</h3>
               </div>
             </div>
             <div className="flex items-center space-x-2">
@@ -491,23 +492,23 @@ Bạn phải luôn trả lời sao cho dễ hiểu, thông minh, và đem lại 
           {!isMinimized && (
             <>
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+              <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 bg-gray-50">
                 {messages.map((message, index) => (
                   <div
                     key={index}
                     className={`flex items-end gap-2 ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`}
                   >
                     {message.role === 'assistant' && (
-                      <img src={logoChatbot} alt="Bot" className="w-8 h-8 rounded-full mb-4" />
+                      <img src={logoChatbot} alt="Bot" className="w-6 h-6 sm:w-8 sm:h-8 rounded-full mb-2 sm:mb-4" />
                     )}
                     <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-2 ${
+                      className={`max-w-[85%] sm:max-w-[80%] rounded-2xl px-3 py-2 sm:px-4 ${
                         message.role === 'user'
                           ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-br-none'
                           : 'bg-white text-gray-800 shadow-md rounded-bl-none'
                       }`}
                     >
-                      <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                      <p className="text-xs sm:text-sm whitespace-pre-wrap break-words">{message.content}</p>
                       <p
                         className={`text-xs mt-1 ${
                           message.role === 'user' ? 'text-blue-100' : 'text-gray-400'
@@ -520,7 +521,7 @@ Bạn phải luôn trả lời sao cho dễ hiểu, thông minh, và đem lại 
                 ))}
                 {isLoading && (
                   <div className="flex items-end gap-2 justify-start animate-fadeIn">
-                    <img src={logoChatbot} alt="Bot" className="w-8 h-8 rounded-full" />
+                    <img src={logoChatbot} alt="Bot" className="w-6 h-6 sm:w-8 sm:h-8 rounded-full" />
                     <div className="bg-white rounded-2xl rounded-bl-none px-4 py-3 shadow-md">
                       <div className="flex space-x-2">
                         <div className="w-3 h-3 bg-gray-400 rounded-full animate-bounce"></div>
@@ -534,7 +535,7 @@ Bạn phải luôn trả lời sao cho dễ hiểu, thông minh, và đem lại 
               </div>
 
               {/* Input */}
-              <div className="p-4 bg-white border-t border-gray-200">
+              <div className="p-3 sm:p-4 bg-white border-t border-gray-200">
                 <div className="flex items-center space-x-2">
                   <input
                     ref={inputRef}
@@ -542,9 +543,9 @@ Bạn phải luôn trả lời sao cho dễ hiểu, thông minh, và đem lại 
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    placeholder="Nhập câu hỏi của bạn..."
+                    placeholder="Nhập câu hỏi..."
                     disabled={isLoading}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-sm"
+                    className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed text-xs sm:text-sm"
                   />
                   <button
                     onClick={sendMessage}
