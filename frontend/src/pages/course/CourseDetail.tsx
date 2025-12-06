@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   BookOpen, ArrowLeft, Clock, MapPin, Video,
   FileText, Edit2, Save, X, ChevronDown, ChevronUp, Upload, Trash2, Calendar as CalendarIcon,
-  Star, Users, MessageSquare, CheckCircle
+  Star, Users, MessageSquare, CheckCircle, Eye
 } from 'lucide-react';
 import { coursesApi, tutorsApi, sessionsApi, studentsApi } from '../../services/api';
 import { useAuthStore } from '../../stores/authStore';
@@ -42,6 +42,9 @@ const CourseDetail: React.FC = () => {
   const [editingSession, setEditingSession] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Upload progress state
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});  // fileName -> progress (0-100)
+
   // Feedback modal state
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [selectedSessionForFeedback, setSelectedSessionForFeedback] = useState<number | null>(null);
@@ -77,27 +80,34 @@ const CourseDetail: React.FC = () => {
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
   const [previewPdfName, setPreviewPdfName] = useState<string>('');
 
-  const { user } = useAuthStore();
+  const { user, currentMode } = useAuthStore();
   const hasFetched = useRef(false);
   const lastSubjectId = useRef<string | null>(null);
   const lastMode = useRef<string | null>(null);
 
-  // Determine active mode (prioritize currentMode if available)
-  const { currentMode } = useAuthStore();
-  const activeMode = currentMode || (user?.role && user.role[0]) || 'student';  // role[0] is first role in array
+  // Determine active mode - compute once and store in ref to avoid re-renders
+  const computedMode = currentMode || (user?.role && user.role[0]) || 'student';
+  const activeMode = computedMode;
   const isTutor = activeMode === 'tutor';
 
-  // Debug log
-  console.log('🔍 CourseDetail Mode Check:', {
-    user: user?.email,
-    userRole: user?.role,
-    currentMode,
-    activeMode,
-    isTutor,
-    availableRoles: user?.role  // role is now array of all roles
-  });
+  // Only log on actual mode or subject change
+  if (activeMode !== lastMode.current || subjectId !== lastSubjectId.current) {
+    console.log('🔍 CourseDetail Mode Check:', {
+      user: user?.email,
+      userRole: user?.role,
+      currentMode,
+      activeMode,
+      isTutor,
+      availableRoles: user?.role  // role is now array of all roles
+    });
+  }
 
   useEffect(() => {
+    // Skip if no data yet
+    if (!subjectId || !user) {
+      return;
+    }
+
     // Reset flag if subjectId changed OR mode changed
     if (subjectId !== lastSubjectId.current || activeMode !== lastMode.current) {
       console.log('🔄 Mode or Subject changed - resetting and refetching', {
@@ -111,13 +121,13 @@ const CourseDetail: React.FC = () => {
       lastMode.current = activeMode;
     }
 
-    if (subjectId && user && !hasFetched.current) {
+    if (!hasFetched.current) {
       console.log('📡 Fetching course data...', { subjectId, activeMode });
       hasFetched.current = true;
       fetchCourseData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subjectId, activeMode, user]); // Re-fetch when subjectId, activeMode, or user changes
+  }, [subjectId, activeMode]); // Simplified dependencies
 
   const fetchCourseData = async () => {
     if (!subjectId) return;
@@ -371,7 +381,7 @@ const CourseDetail: React.FC = () => {
     ));
   };
 
-  const handleSaveSession = (sessionNum: number) => {
+  const handleSaveSession = async (sessionNum: number) => {
     setEditingSession(null);
     toast.info('Nhớ nhấn "Lưu tất cả" để lưu thay đổi vào hệ thống');
   };
@@ -450,50 +460,111 @@ const CourseDetail: React.FC = () => {
 
     const userId = user?.user_id || (user as any)?.id;
     if (!userId) {
-      console.error('User object:', user);
       toast.error('Vui lòng đăng nhập lại');
       return;
     }
 
     try {
-      // Upload each file to server
+      // Upload each file immediately with progress
       for (const file of Array.from(files)) {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('uploaded_by', userId.toString());
 
-        console.log(`📤 Uploading file: ${file.name} to session ${session.session_id}`);
-        await sessionsApi.uploadMaterials(session.session_id, formData);
-        console.log(`✅ Upload success: ${file.name}`);
+        console.log(`📤 Uploading file: ${file.name} (${file.size} bytes) to session ${session.session_id}`);
+        
+        // Animate progress 0% -> 90% smoothly
+        setUploadProgress(prev => ({ ...prev, [file.name]: 0 }));
+        
+        const animateProgress = () => {
+          let progress = 0;
+          const interval = setInterval(() => {
+            progress += 10;
+            if (progress <= 90) {
+              setUploadProgress(prev => ({ ...prev, [file.name]: progress }));
+            } else {
+              clearInterval(interval);
+            }
+          }, 80); // Smooth animation to 90%
+          return interval;
+        };
+        
+        const progressInterval = animateProgress();
+        
+        try {
+          // Upload file
+          await sessionsApi.uploadMaterialsWithProgress(
+            session.session_id, 
+            formData,
+            (progressEvent) => {
+              // Ignore intermediate progress events since localhost is too fast
+              if (progressEvent.total) {
+                const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                console.log(`📊 Real upload progress: ${percentCompleted}%`);
+              }
+            }
+          );
+          
+          // Upload complete - jump to 100%
+          clearInterval(progressInterval);
+          console.log(`✅ Upload complete: ${file.name}`);
+          setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
+          
+        } catch (uploadError) {
+          clearInterval(progressInterval);
+          throw uploadError;
+        }
       }
 
-      // Refresh materials list
-      console.log(`🔄 Refreshing materials for session ${session.session_id}`);
+      // Wait for backend to save
+      console.log('⏳ Waiting for backend to save files...');
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Refresh materials to show uploaded files
+      console.log(`🔄 Refreshing materials for session ${session.session_id}...`);
       await fetchSessionMaterials(session.session_id);
-
+      
+      // Clear progress bars after showing files
+      setTimeout(() => setUploadProgress({}), 1000);
+      
       toast.success(`Đã upload ${files.length} tài liệu thành công!`);
     } catch (error: any) {
       console.error('Upload error:', error);
-      console.error('Error response:', error.response?.data);
       toast.error(error.response?.data?.detail || 'Không thể upload tài liệu');
+      setUploadProgress({});
     }
   };
 
+  // Upload pending files when user clicks Save
   // Fetch materials for a specific session
   const fetchSessionMaterials = async (sessionId: number) => {
     try {
+      console.log(`🔄 Fetching materials for session ${sessionId}...`);
       const response: any = await sessionsApi.getSessionMaterials(sessionId);
-      // Force re-render by creating completely new object
-      setSessionMaterials(prev => {
-        const newMaterials = { ...prev };
-        newMaterials[sessionId] = response.data || [];
-        console.log(`✅ Fetched ${response.data?.length || 0} materials for session ${sessionId}`);
-        console.log('📦 Materials data:', response.data);
-        console.log('🗂️ Current sessionMaterials state:', { ...prev, [sessionId]: response.data });
-        return newMaterials;
-      });
+      
+      console.log('📦 Raw response:', response);
+      console.log('📦 response.data:', response.data);
+      
+      // Backend returns {data: [...]} and axios wraps it, so we need response.data.data
+      const materialsData = response.data?.data || response.data || [];
+      const materials = Array.isArray(materialsData) ? materialsData : [];
+      
+      console.log(`✅ Fetched ${materials.length} materials:`, materials);
+      
+      // Force re-render by creating NEW object
+      setSessionMaterials(prev => ({
+        ...prev,
+        [sessionId]: materials
+      }));
+      
+      console.log('✅ Materials state updated');
     } catch (error: any) {
       console.error('Failed to fetch materials:', error);
+      // Set empty array on error to prevent crash
+      setSessionMaterials(prev => ({
+        ...prev,
+        [sessionId]: []
+      }));
     }
   };
 
@@ -532,6 +603,18 @@ const CourseDetail: React.FC = () => {
     } catch (error: any) {
       console.error('Download error:', error);
       toast.error('Không thể tải xuống tài liệu');
+    }
+  };
+
+  const handlePreviewMaterial = async (sessionId: number, materialId: number, fileName: string) => {
+    try {
+      // Open in new tab using inline=true parameter
+      const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000/api/v1';
+      const previewUrl = `${baseUrl}/sessions/${sessionId}/materials/${materialId}/download?inline=true`;
+      window.open(previewUrl, '_blank');
+    } catch (error: any) {
+      console.error('Preview error:', error);
+      toast.error('Không thể xem trước tài liệu');
     }
   };
 
@@ -1012,9 +1095,9 @@ const CourseDetail: React.FC = () => {
                             </label>
                             <div className="space-y-2">
                               {(() => {
-                                const materials = session.session_id ? sessionMaterials[session.session_id] : [];
+                                const materials = session.session_id ? (sessionMaterials[session.session_id] || []) : [];
                                 console.log(`🎨 Rendering materials for session ${session.session_id}:`, materials);
-                                return materials?.length > 0 ? (
+                                return Array.isArray(materials) && materials.length > 0 ? (
                                   <div className="space-y-2 mb-3">
                                     {materials.map((material: any) => (
                                     <div key={material.material_id} className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200">
@@ -1033,6 +1116,27 @@ const CourseDetail: React.FC = () => {
                                 </div>
                               ) : null;
                               })()}
+                              
+                              {/* Show upload progress overlay */}
+                              {Object.keys(uploadProgress).length > 0 && (
+                                <div className="mb-3 space-y-2">
+                                  {Object.entries(uploadProgress).map(([fileName, progress]) => (
+                                    <div key={fileName} className="space-y-1">
+                                      <div className="flex items-center justify-between text-sm">
+                                        <span className="text-blue-700 font-medium">📤 {fileName}</span>
+                                        <span className="text-blue-600">{progress}%</span>
+                                      </div>
+                                      <div className="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                                        <div 
+                                          className="bg-gradient-to-r from-green-400 to-green-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+                                          style={{ width: `${progress}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              
                               <label className="flex items-center justify-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
                                 <Upload className="h-4 w-4 text-gray-500" />
                                 <span className="text-sm text-gray-600">Tải lên tài liệu</span>
@@ -1135,6 +1239,15 @@ const CourseDetail: React.FC = () => {
                                         </div>
                                       </div>
                                       <div className="flex gap-2">
+                                        {isPDF && (
+                                          <button
+                                            onClick={() => handlePreviewMaterial(session.session_id!, material.material_id, material.file_name)}
+                                            className="px-3 py-1 text-sm border border-blue-300 text-blue-700 rounded hover:bg-blue-50 transition-colors flex items-center gap-1"
+                                          >
+                                            <Eye className="h-3 w-3" />
+                                            Xem
+                                          </button>
+                                        )}
                                         <button
                                           onClick={() => handleDownloadMaterial(session.session_id!, material.material_id, material.file_name)}
                                           className="px-3 py-1 text-sm border border-gray-300 text-gray-700 rounded hover:bg-gray-200 transition-colors"

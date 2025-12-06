@@ -43,16 +43,17 @@ class SessionRepository:
         subject_id: Optional[int] = None,
         status: Optional[str] = None
     ) -> List[SessionModel]:
-        """Get all sessions with filters and eager loading"""
-        query = select(SessionModel).options(
-            selectinload(SessionModel.tutor).selectinload(Tutor.user),
-            selectinload(SessionModel.participants).selectinload(SessionParticipant.user),
-            selectinload(SessionModel.session_materials),  # Load uploaded materials
-            selectinload(SessionModel.subject)  # Load subject info for subject_name and subject_code
-        )
+        """Get all sessions with filters and optimized eager loading"""
+        # Start with base query
+        query = select(SessionModel)
         
+        # Add filters first (more efficient)
         if tutor_id:
             query = query.where(SessionModel.tutor_id == tutor_id)
+        if subject_id:
+            query = query.where(SessionModel.subject_id == subject_id)
+        if status:
+            query = query.where(SessionModel.status == status)
         if student_id:
             # Join with SessionParticipant to filter sessions the student is enrolled in
             query = query.join(
@@ -64,10 +65,13 @@ class SessionRepository:
                     SessionParticipant.role == 'student'
                 )
             ).distinct()
-        if subject_id:
-            query = query.where(SessionModel.subject_id == subject_id)
-        if status:
-            query = query.where(SessionModel.status == status)
+        
+        # Add optimized eager loading only for essential data
+        query = query.options(
+            selectinload(SessionModel.tutor).selectinload(Tutor.user),
+            selectinload(SessionModel.subject)  # Only load subject info
+            # Skip session_materials and participants for list view (load on detail page)
+        )
         
         query = query.offset(skip).limit(limit)
         result = await self.db.execute(query)

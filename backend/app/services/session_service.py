@@ -138,6 +138,10 @@ class SessionService:
         status: Optional[str] = None
     ) -> List[SessionResponse]:
         """Get all sessions with filters"""
+        import time
+        
+        # Time database query
+        db_start = time.time()
         sessions = await self.session_repo.get_all(
             skip=skip, limit=limit,
             tutor_id=tutor_id,
@@ -145,10 +149,16 @@ class SessionService:
             subject_id=subject_id,
             status=status
         )
-        # Convert each session - relationships already eager loaded
+        db_time = time.time() - db_start
+        print(f"  ⏱️ DB Query: {db_time:.3f}s - Found {len(sessions)} sessions")
+        
+        # Time serialization
+        serialize_start = time.time()
         result = []
         for s in sessions:
             result.append(self._to_response(s))
+        serialize_time = time.time() - serialize_start
+        print(f"  ⏱️ Serialization: {serialize_time:.3f}s")
         return result
     
     async def create_session(self, session_data: SessionCreate) -> SessionResponse:
@@ -273,9 +283,10 @@ class SessionService:
         uploaded_by: int,
         description: Optional[str] = None
     ) -> dict:
-        """Upload session material - Store file in database as BYTEA"""
+        """Upload session material - Store file in Supabase Storage"""
         from fastapi import UploadFile
         from app.models.database import SessionMaterial
+        from app.core.supabase_storage import get_storage_client
         
         session = await self.session_repo.get_by_id(session_id)
         if not session:
@@ -315,13 +326,28 @@ class SessionService:
                 detail=f"File too large. Maximum size is 50MB"
             )
         
-        # Create SessionMaterial record with file data
+        # Upload to Supabase Storage
+        try:
+            storage_client = get_storage_client()
+            file_url = await storage_client.upload_file(
+                file_data=file_data,
+                filename=file.filename,
+                session_id=session_id,
+                content_type=file.content_type
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to upload file to storage: {str(e)}"
+            )
+        
+        # Create SessionMaterial record with file URL (no binary data)
         material = SessionMaterial(
             session_id=session_id,
             uploaded_by=uploaded_by,
             file_name=file.filename,
-            file_url=None,  # No disk path needed
-            file_data=file_data,  # Store binary data in database
+            file_url=file_url,  # Supabase Storage URL
+            file_data=None,  # No longer store binary in database
             file_type=allowed_types[file.content_type],
             file_size=file_size,
             description=description,
@@ -333,7 +359,7 @@ class SessionService:
         await self.session_repo.db.refresh(material)
         
         return {
-            "message": "Material uploaded successfully to database",
+            "message": "Material uploaded successfully to Supabase Storage",
             "material_id": material.material_id,
             "session_id": session_id,
             "file_name": file.filename,

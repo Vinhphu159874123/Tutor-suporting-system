@@ -248,13 +248,21 @@ async def get_sessions(
     session_service: SessionService = Depends(get_session_service)
 ):
     """Get all sessions with filters"""
-    return await session_service.get_all_sessions(
+    import time
+    start = time.time()
+    print(f"⏱️ [GET /sessions] Started - Filters: tutor_id={tutor_id}, subject_id={subject_id}, student_id={student_id}, status={status}")
+    
+    result = await session_service.get_all_sessions(
         skip=skip, limit=limit,
         tutor_id=tutor_id,
         student_id=student_id,
         subject_id=subject_id,
         status=status
     )
+    
+    elapsed = time.time() - start
+    print(f"⏱️ [GET /sessions] Completed in {elapsed:.3f}s - Returned {len(result)} sessions")
+    return result
 
 @router.post("/", response_model=SessionResponse, status_code=201)
 async def create_session(
@@ -473,10 +481,14 @@ async def download_material(
     inline: bool = Query(False, description="Display inline in browser instead of download"),
     session_service: SessionService = Depends(get_session_service)
 ):
-    """Download or preview a session material file from database - accepts material_id (int) or filename (str)"""
+    """Download or preview a session material file - accepts material_id (int) or filename (str)
+    
+    Priority: Supabase Storage URL (file_url) > Legacy database binary (file_data)
+    """
     from app.models.database import SessionMaterial
     from sqlalchemy import select
-    from fastapi.responses import Response
+    from fastapi.responses import Response, RedirectResponse
+    import httpx
     
     # Try to parse as integer first (material_id)
     try:
@@ -501,45 +513,58 @@ async def download_material(
     if not material:
         raise HTTPException(status_code=404, detail=f"Material '{material_identifier}' not found")
     
-    # Check if file data exists in database
-    if not material.file_data:
-        # Fallback to file_url (legacy files on disk)
-        if material.file_url:
-            file_path = Path(material.file_url.replace('\\', '/'))
-            if file_path.exists():
-                if inline:
-                    media_type = 'application/pdf' if material.file_name.lower().endswith('.pdf') else 'application/octet-stream'
-                    response = FileResponse(path=str(file_path), media_type=media_type, filename=material.file_name)
-                    response.headers["Content-Disposition"] = f'inline; filename="{material.file_name}"'
-                    return response
-                else:
-                    return FileResponse(path=str(file_path), filename=material.file_name, media_type='application/octet-stream')
+    # Priority 1: Check if file_url exists (Supabase Storage)
+    if material.file_url:
+        # For Supabase Storage URLs, we can redirect or proxy
+        # Option 1: Direct redirect (faster, saves bandwidth)
+        if not inline:
+            # For downloads, redirect directly to Supabase Storage
+            return RedirectResponse(url=material.file_url)
+        else:
+            # For inline preview, fetch and serve with proper headers
+            async with httpx.AsyncClient() as client:
+                response = await client.get(material.file_url)
+                if response.status_code != 200:
+                    raise HTTPException(status_code=404, detail="File not found in storage")
+                
+                media_type = 'application/pdf' if material.file_name.lower().endswith('.pdf') else response.headers.get('content-type', 'application/octet-stream')
+                
+                return Response(
+                    content=response.content,
+                    media_type=media_type,
+                    headers={
+                        "Content-Disposition": f'inline; filename="{material.file_name}"',
+                        "Content-Length": str(len(response.content))
+                    }
+                )
+    
+    # Priority 2: Fallback to legacy file_data (BYTEA in database)
+    if material.file_data:
+        media_type = 'application/pdf' if material.file_name.lower().endswith('.pdf') else 'application/octet-stream'
         
-        raise HTTPException(status_code=404, detail="File data not found in database or disk")
+        if inline:
+            # For inline display (preview in browser)
+            return Response(
+                content=material.file_data,
+                media_type=media_type,
+                headers={
+                    "Content-Disposition": f'inline; filename="{material.file_name}"',
+                    "Content-Length": str(len(material.file_data))
+                }
+            )
+        else:
+            # For download
+            return Response(
+                content=material.file_data,
+                media_type='application/octet-stream',
+                headers={
+                    "Content-Disposition": f'attachment; filename="{material.file_name}"',
+                    "Content-Length": str(len(material.file_data))
+                }
+            )
     
-    # Return file from database
-    media_type = 'application/pdf' if material.file_name.lower().endswith('.pdf') else 'application/octet-stream'
-    
-    if inline:
-        # For inline display (preview in browser)
-        return Response(
-            content=material.file_data,
-            media_type=media_type,
-            headers={
-                "Content-Disposition": f'inline; filename="{material.file_name}"',
-                "Content-Length": str(len(material.file_data))
-            }
-        )
-    else:
-        # For download
-        return Response(
-            content=material.file_data,
-            media_type='application/octet-stream',
-            headers={
-                "Content-Disposition": f'attachment; filename="{material.file_name}"',
-                "Content-Length": str(len(material.file_data))
-            }
-        )
+    # No file data available
+    raise HTTPException(status_code=404, detail="File data not found")
 
 
 # ============================================================================

@@ -504,6 +504,21 @@ export const sessionsApi = {
     });
   },
 
+  // Upload with progress tracking
+  uploadMaterialsWithProgress: (
+    sessionId: number, 
+    formData: FormData, 
+    onUploadProgress: (progressEvent: any) => void
+  ) => {
+    if (MOCK_MODE) {
+      return mockResponse({ message: "Materials uploaded" });
+    }
+    return apiClient.post(`/sessions/${sessionId}/materials`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+      onUploadProgress
+    });
+  },
+
   getSessionMaterials: (sessionId: number) => {
     if (MOCK_MODE) {
       return mockResponse([]);
