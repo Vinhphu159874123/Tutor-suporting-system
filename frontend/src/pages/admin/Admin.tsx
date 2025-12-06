@@ -4,6 +4,7 @@ import { Pencil, Trash2, User as UserIcon, Users, Calendar, Star, Plus, X } from
 import { adminApi, authApi } from "../../services/api";
 import { toast } from "react-toastify";
 import { AxiosResponse } from "axios";
+import { FACULTY_MAJORS_MAP } from "../../utils/constants";
 
 interface User {
   user_id: number;
@@ -334,9 +335,9 @@ const Admin: React.FC = () => {
                         <td className="px-4 py-3 text-sm text-gray-600">{user.email}</td>
                         <td className="px-4 py-3 text-sm">
                           <span className={`px-2 py-1 rounded text-xs ${user.role?.includes('admin') ? 'bg-red-100 text-red-700' :
-                              user.role?.includes('coordinator') ? 'bg-purple-100 text-purple-700' :
-                                user.role?.includes('tutor') ? 'bg-blue-100 text-blue-700' :
-                                  'bg-gray-100 text-gray-700'
+                            user.role?.includes('coordinator') ? 'bg-purple-100 text-purple-700' :
+                              user.role?.includes('tutor') ? 'bg-blue-100 text-blue-700' :
+                                'bg-gray-100 text-gray-700'
                             }`}>
                             {Array.isArray(user.role) ? user.role.join(', ') : user.role}
                           </span>
@@ -400,9 +401,9 @@ const Admin: React.FC = () => {
                       <td className="px-4 py-2 text-sm text-gray-900">{user.email}</td>
                       <td className="px-4 py-2 text-sm text-gray-900">
                         <span className={`px-2 py-1 rounded text-xs ${user.role?.includes('admin') ? 'bg-red-100 text-red-700' :
-                            user.role?.includes('coordinator') ? 'bg-purple-100 text-purple-700' :
-                              user.role?.includes('tutor') ? 'bg-blue-100 text-blue-700' :
-                                'bg-gray-100 text-gray-700'
+                          user.role?.includes('coordinator') ? 'bg-purple-100 text-purple-700' :
+                            user.role?.includes('tutor') ? 'bg-blue-100 text-blue-700' :
+                              'bg-gray-100 text-gray-700'
                           }`}>
                           {Array.isArray(user.role) ? user.role.join(', ') : user.role}
                         </span>
@@ -588,26 +589,39 @@ const Admin: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Khoa
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={newUser.faculty}
-                    onChange={(e) => setNewUser({ ...newUser, faculty: e.target.value })}
+                    onChange={(e) => {
+                      setNewUser({ ...newUser, faculty: e.target.value, major: '' });
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Khoa KH-KT Máy Tính"
-                  />
+                  >
+                    <option value="">-- Chọn khoa --</option>
+                    {Object.keys(FACULTY_MAJORS_MAP).sort().map((faculty) => (
+                      <option key={faculty} value={faculty}>
+                        {faculty}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Chuyên ngành
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={newUser.major}
                     onChange={(e) => setNewUser({ ...newUser, major: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Khoa học Máy Tính"
-                  />
+                    disabled={!newUser.faculty}
+                  >
+                    <option value="">-- Chọn chuyên ngành --</option>
+                    {newUser.faculty && FACULTY_MAJORS_MAP[newUser.faculty]?.map((major) => (
+                      <option key={major} value={major}>
+                        {major}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

@@ -1,15 +1,4 @@
-// Training Programs
-export const TRAINING_PROGRAMS = [
-  "Đại học chính quy",
-  "Đại học chất lượng cao",
-  "Đại học tiên tiến",
-  "Đại học định hướng ứng dụng",
-  "Thạc sĩ",
-  "Tiến sĩ",
-];
-
-// Faculty and Major data structure - HCMUT Official Data
-export const FACULTY_MAJORS_MAP: Record<string, string[]> = {
+{
   "KHOA CƠ KHÍ": [
     "Bảo dưỡng Công nghiệp",
     "Kỹ thuật Cơ khí",
@@ -87,55 +76,4 @@ export const FACULTY_MAJORS_MAP: Record<string, string[]> = {
     "Kỹ thuật Điều khiển và Tự động hoá",
     "Hệ thống Viễn thông"
   ]
-};
-
-// Faculty options for dropdown
-export const facultyOptions = Object.keys(FACULTY_MAJORS_MAP).sort();
-
-// Legacy structure for backward compatibility (deprecated)
-export const FACULTY_STRUCTURE: Record<string, { name: string; majors: string[] }> = {
-  CS: {
-    name: "Khoa Khoa học và Kỹ thuật Máy tính",
-    majors: [
-      "Khoa học Máy tính",
-      "Kỹ thuật Phần mềm",
-      "Hệ thống Thông tin",
-      "Kỹ thuật Máy tính",
-    ],
-  },
-  EE: {
-    name: "Khoa Điện - Điện tử",
-    majors: [
-      "Kỹ thuật Điện",
-      "Kỹ thuật Điện tử",
-      "Tự động hóa",
-      "Kỹ thuật Điều khiển",
-    ],
-  },
-  ME: {
-    name: "Khoa Cơ khí",
-    majors: [
-      "Kỹ thuật Cơ khí",
-      "Kỹ thuật Cơ điện tử",
-      "Kỹ thuật Nhiệt",
-      "Công nghệ Vật liệu",
-    ],
-  },
-  CE: {
-    name: "Khoa Kỹ thuật Xây dựng",
-    majors: [
-      "Xây dựng Dân dụng",
-      "Xây dựng Công nghiệp",
-      "Kỹ thuật Giao thông",
-      "Kỹ thuật Môi trường",
-    ],
-  },
-  CHEM: {
-    name: "Khoa Kỹ thuật Hóa học",
-    majors: [
-      "Kỹ thuật Hóa học",
-      "Công nghệ Thực phẩm",
-      "Công nghệ Môi trường",
-    ],
-  },
-};
+}

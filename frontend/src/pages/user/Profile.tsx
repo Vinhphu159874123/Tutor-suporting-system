@@ -4,58 +4,88 @@ import { toast } from "react-toastify";
 import api, { usersApi } from "../../services/api";
 import { Edit3, Save, Ban, KeyRound, LockKeyhole, ShieldCheck, ShieldAlert, CheckCircle, AlertTriangle } from "lucide-react";
 
-// Faculty and Major data structure
-const FACULTY_STRUCTURE: Record<string, { name: string; majors: string[] }> = {
-  CSE: {
-    name: "Khoa học và Kỹ thuật Máy tính",
-    majors: [
-      "Khoa học máy tính",
-      "Kỹ thuật máy tính",
-      "Kỹ thuật phần mềm",
-      "Hệ thống thông tin",
-      "Trí tuệ nhân tạo",
-    ],
-  },
-  EE: {
-    name: "Điện - Điện tử",
-    majors: [
-      "Kỹ thuật điện",
-      "Kỹ thuật điện tử - Viễn thông",
-      "Kỹ thuật điều khiển - Tự động hóa",
-      "Kỹ thuật y sinh",
-    ],
-  },
-  ME: {
-    name: "Cơ khí",
-    majors: [
-      "Kỹ thuật cơ khí",
-      "Kỹ thuật cơ điện tử",
-      "Kỹ thuật nhiệt",
-      "Kỹ thuật ô tô",
-    ],
-  },
-  CE: {
-    name: "Xây dựng",
-    majors: [
-      "Kỹ thuật xây dựng",
-      "Kỹ thuật xây dựng công trình giao thông",
-      "Kỹ thuật tài nguyên nước",
-    ],
-  },
-  CHEM: {
-    name: "Kỹ thuật Hóa học",
-    majors: [
-      "Kỹ thuật hóa học",
-      "Công nghệ thực phẩm",
-      "Kỹ thuật môi trường",
-    ],
-  },
+// Faculty and Major data structure - HCMUT Official Data
+const FACULTY_MAJORS_MAP: Record<string, string[]> = {
+  "KHOA CƠ KHÍ": [
+    "Bảo dưỡng Công nghiệp",
+    "Kỹ thuật Cơ khí",
+    "Công nghệ Dệt, May",
+    "Kỹ thuật Cơ điện tử",
+    "Kỹ thuật Dệt",
+    "Kỹ thuật Hệ thống Công nghiệp",
+    "Logistics và Quản lý Chuỗi cung ứng",
+    "Kỹ thuật Nhiệt"
+  ],
+  "KHOA KỸ THUẬT ĐỊA CHẤT VÀ DẦU KHÍ": [
+    "Kỹ thuật Địa chất",
+    "Kỹ thuật Dầu khí",
+    "Địa Kỹ thuật Xây dựng"
+  ],
+  "KHOA ĐIỆN - ĐIỆN TỬ": [
+    "Kỹ thuật Điều khiển và Tự động hóa",
+    "Kỹ thuật Điện tử - Viễn thông",
+    "Kỹ thuật Điện",
+    "Thiết kế vi mạch"
+  ],
+  "KHOA KỸ THUẬT GIAO THÔNG": [
+    "Kỹ thuật Hàng không",
+    "Kỹ thuật Ô tô",
+    "Kỹ thuật Tàu thủy",
+    "Song ngành: Kỹ thuật Tàu thủy - Hàng không"
+  ],
+  "KHOA KỸ THUẬT HÓA HỌC": [
+    "Công nghệ Sinh học",
+    "Kỹ thuật Hóa học",
+    "Công nghệ Thực phẩm"
+  ],
+  "KHOA MÔI TRƯỜNG VÀ TÀI NGUYÊN": [
+    "Kỹ thuật Môi trường",
+    "Quản lý Tài nguyên và Môi trường",
+    "Kinh tế tài nguyên thiên nhiên"
+  ],
+  "KHOA KHOA HỌC VÀ KỸ THUẬT MÁY TÍNH": [
+    "Khoa học Máy tính",
+    "Kỹ thuật máy tính"
+  ],
+  "KHOA QUẢN LÝ CÔNG NGHIỆP": [
+    "Quản lý công nghiệp",
+    "Quản trị Kinh doanh"
+  ],
+  "KHOA KHOA HỌC ỨNG DỤNG": [
+    "Cơ Kỹ thuật",
+    "Vật lý Kỹ thuật",
+    "Khoa học dữ liệu"
+  ],
+  "KHOA KỸ THUẬT XÂY DỰNG": [
+    "Kỹ thuật Công trình biển",
+    "Kỹ thuật Cơ sở hạ tầng",
+    "Công nghệ Kỹ thuật Vật liệu Xây dựng",
+    "Kỹ thuật Xây dựng",
+    "Kiến trúc",
+    "Kỹ thuật Trắc địa - Bản đồ",
+    "Kỹ thuật Xây dựng Công trình Thủy",
+    "Kỹ thuật Xây dựng Công trình Giao thông",
+    "Kinh tế Xây dựng"
+  ],
+  "VIỆT PHÁP": [
+    "Kỹ thuật Cơ điện tử",
+    "Hàng không",
+    "Vật liệu Polymer và Composite",
+    "Vật liệu và Năng lượng",
+    "Viễn thông",
+    "Hệ thống năng lượng điện",
+    "Kỹ thuật và quản lý nước đô thị",
+    "Xây dựng dân dụng - Công nghiệp và Hiệu quả"
+  ],
+  "CHƯƠNG TRÌNH TIÊN TIẾN": [
+    "Vi mạch - Hệ thống phần cứng",
+    "Hệ thống Năng lượng",
+    "Kỹ thuật Điều khiển và Tự động hoá",
+    "Hệ thống Viễn thông"
+  ]
 };
 
-const facultyOptions = Object.entries(FACULTY_STRUCTURE).map(([id, data]) => ({
-  id,
-  label: data.name,
-}));
+const facultyOptions = Object.keys(FACULTY_MAJORS_MAP).sort();
 
 const TRAINING_PROGRAMS = [
   "Đại học chính quy",
@@ -143,11 +173,10 @@ const Profile: React.FC = () => {
   };
 
   const availableMajors = useMemo(() => {
-    const facultyEntry = facultyOptions.find(
-      (option) => option.label === formData.faculty
-    );
-    if (!facultyEntry) return [];
-    return FACULTY_STRUCTURE[facultyEntry.id].majors;
+    if (!formData.faculty || !FACULTY_MAJORS_MAP[formData.faculty]) {
+      return [];
+    }
+    return FACULTY_MAJORS_MAP[formData.faculty];
   }, [formData.faculty]);
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -337,9 +366,9 @@ const Profile: React.FC = () => {
                 <option value="" disabled>
                   Chọn khoa
                 </option>
-                {facultyOptions.map((option) => (
-                  <option key={option.id} value={option.label}>
-                    {option.label}
+                {facultyOptions.map((faculty) => (
+                  <option key={faculty} value={faculty}>
+                    {faculty}
                   </option>
                 ))}
               </select>

@@ -6,7 +6,6 @@ from app.repositories.session_repository import SessionRepository
 from app.repositories.scheduling_repository import SchedulingRepository
 from app.repositories.reports_repository import ReportsRepository
 from app.repositories.admin_repository import AdminRepository
-from app.repositories.forum_repository import ForumRepository
 
 __all__ = [
     "UserRepository",
@@ -15,6 +14,5 @@ __all__ = [
     "SessionRepository",
     "SchedulingRepository",
     "ReportsRepository",
-    "AdminRepository",
-    "ForumRepository"
+    "AdminRepository"
 ]

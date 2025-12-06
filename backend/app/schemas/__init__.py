@@ -45,13 +45,6 @@ from app.schemas.admin import (
     SystemConfig,
     ApprovalWorkflow
 )
-from app.schemas.forum import (
-    PostCreate,
-    PostUpdate,
-    PostResponse,
-    CommentCreate,
-    CommentResponse
-)
 
 __all__ = [
     "Token",

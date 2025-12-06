@@ -46,3 +46,8 @@ fastapi-mail==1.4.1
 
 # Logging
 structlog==23.2.0
+
+# Web Scraping and PDF Processing
+beautifulsoup4==4.14.3
+PyPDF2==3.0.1
+lxml==6.0.2

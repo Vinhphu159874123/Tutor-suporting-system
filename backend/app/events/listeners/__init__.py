@@ -4,7 +4,6 @@ Import and register all listeners
 """
 from app.events.listeners.session_listener import register_session_listeners
 from app.events.listeners.notification_listener import NotificationListener, EmailListener
-from app.events.listeners.statistics_listener import StatisticsListener, AuditLogListener
 from app.events.listeners.tutor_listener import register_tutor_listeners
 from app.events.listeners.enrollment_listener import register_enrollment_listeners
 
@@ -19,7 +18,5 @@ def register_all_listeners():
 __all__ = [
     "register_all_listeners",
     "NotificationListener",
-    "EmailListener",
-    "StatisticsListener",
-    "AuditLogListener"
+    "EmailListener"
 ]

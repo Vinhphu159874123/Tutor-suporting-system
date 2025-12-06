@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { tutorsApi, coursesApi, sessionsApi } from "../../services/api";
 import { useAuthStore } from "../../stores/authStore";
+import SubjectAutocomplete from "../../components/SubjectAutocomplete";
+import { FACULTY_MAJORS_MAP } from "../../utils/constants";
 
 const DAYS_OF_WEEK = [
   { value: "monday", label: "Thứ 2" },
@@ -52,8 +54,8 @@ const RegisterTutor: React.FC = () => {
   });
 
   // State for existing schedules (approved registrations)
-  const [existingSchedules, setExistingSchedules] = useState<Record<string, Array<{timeSlot: string, subjectName: string}>>>({});
-  
+  const [existingSchedules, setExistingSchedules] = useState<Record<string, Array<{ timeSlot: string, subjectName: string }>>>({});
+
   // State for registered subject IDs
   const [registeredSubjectIds, setRegisteredSubjectIds] = useState<Set<number>>(new Set());
 
@@ -61,17 +63,17 @@ const RegisterTutor: React.FC = () => {
   const timeRangesOverlap = (slot1: string, slot2: string): boolean => {
     const [start1, end1] = slot1.split('-');
     const [start2, end2] = slot2.split('-');
-    
+
     const toMinutes = (time: string) => {
       const [hours, minutes] = time.split(':').map(Number);
       return hours * 60 + minutes;
     };
-    
+
     const start1Min = toMinutes(start1);
     const end1Min = toMinutes(end1);
     const start2Min = toMinutes(start2);
     const end2Min = toMinutes(end2);
-    
+
     // Two ranges overlap if: start1 < end2 AND start2 < end1
     return start1Min < end2Min && start2Min < end1Min;
   };
@@ -87,7 +89,7 @@ const RegisterTutor: React.FC = () => {
         // Load tutor's all registrations to check which subjects are registered
         const registrationsResponse: any = await tutorsApi.getMyRegistrations();
         const allRegs = registrationsResponse.data || [];
-        
+
         const registeredIds = new Set<number>();
         for (const reg of allRegs) {
           if (reg.status === 'approved' || reg.status === 'pending') {
@@ -99,31 +101,31 @@ const RegisterTutor: React.FC = () => {
         // Load actual sessions from the same API that Timetable uses
         const sessionsResponse: any = await sessionsApi.getMySessions({ mode: 'tutor' });
         const allSessions = sessionsResponse.data || [];
-        
+
         // Build schedule map from actual sessions
         // Map JS day (0=Sunday, 1=Monday, ..., 6=Saturday) to our format
         const dayMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-        const scheduleMap: Record<string, Array<{timeSlot: string, subjectName: string}>> = {};
-        
+        const scheduleMap: Record<string, Array<{ timeSlot: string, subjectName: string }>> = {};
+
         for (const session of allSessions) {
           if (session.scheduled_date && session.start_time && session.end_time) {
             // Convert scheduled_date to day of week
             const sessionDate = new Date(session.scheduled_date + 'T00:00:00');
             const dayOfWeek = dayMap[sessionDate.getDay()];
-            
+
             const timeSlot = `${session.start_time.substring(0, 5)}-${session.end_time.substring(0, 5)}`;
-            
+
             if (!scheduleMap[dayOfWeek]) {
               scheduleMap[dayOfWeek] = [];
             }
-            
+
             scheduleMap[dayOfWeek].push({
               timeSlot: timeSlot,
               subjectName: session.subject_name || session.subject?.name || 'Môn đã đăng ký'
             });
           }
         }
-        
+
         setExistingSchedules(scheduleMap);
       } catch (error) {
         console.error("Failed to load data:", error);
@@ -146,7 +148,7 @@ const RegisterTutor: React.FC = () => {
     setAvailability((prev) => {
       const daySlots = prev[day] || [];
       const isSelected = daySlots.includes(timeSlot);
-      
+
       return {
         ...prev,
         [day]: isSelected
@@ -240,36 +242,17 @@ const RegisterTutor: React.FC = () => {
             />
           </div>
 
-          {/* Subject Selection */}
+          {/* Subject Selection with Autocomplete */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Chọn môn học muốn dạy <span className="text-red-500">*</span>
             </label>
-            <select
-              value={selectedSubject}
-              onChange={(e) => setSelectedSubject(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            >
-              <option value="">-- Chọn môn học --</option>
-              {subjects.map((subject) => {
-                const isRegistered = registeredSubjectIds.has(subject.subject_id);
-                return (
-                  <option 
-                    key={subject.subject_id} 
-                    value={subject.subject_id}
-                    disabled={isRegistered}
-                    style={isRegistered ? { color: 'red', fontWeight: 'bold' } : {}}
-                  >
-                    {subject.subject_code} - {subject.subject_name}
-                    {isRegistered ? ' (Đã đăng ký)' : ''}
-                  </option>
-                );
-              })}
-            </select>
-            <p className="text-sm text-gray-500 mt-1">
-              Chọn một môn học bạn muốn đăng ký làm tutor. Bạn có thể đăng ký thêm môn khác sau.
-            </p>
+            <SubjectAutocomplete
+              subjects={subjects}
+              selectedSubject={selectedSubject}
+              onSelect={setSelectedSubject}
+              registeredSubjectIds={registeredSubjectIds}
+            />
           </div>
 
           {/* GPA for this subject */}
@@ -380,20 +363,19 @@ const RegisterTutor: React.FC = () => {
                       // Check for time overlap instead of exact match
                       const conflict = existingSchedules[day.value]?.find(s => timeRangesOverlap(s.timeSlot, slot.value));
                       const hasConflict = !!conflict;
-                      
+
                       return (
                         <div key={slot.value} className="relative group">
                           <button
                             type="button"
                             onClick={() => toggleTimeSlot(day.value, slot.value)}
                             disabled={hasConflict}
-                            className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
-                              hasConflict
+                            className={`w-full px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${hasConflict
                                 ? "bg-red-100 text-red-700 border-2 border-red-400 cursor-not-allowed opacity-75"
                                 : isSelected
-                                ? "bg-blue-600 text-white shadow-md hover:bg-blue-700"
-                                : "bg-white text-gray-700 border border-gray-300 hover:border-blue-400 hover:bg-blue-50"
-                            }`}
+                                  ? "bg-blue-600 text-white shadow-md hover:bg-blue-700"
+                                  : "bg-white text-gray-700 border border-gray-300 hover:border-blue-400 hover:bg-blue-50"
+                              }`}
                           >
                             {slot.label}
                           </button>
@@ -423,14 +405,20 @@ const RegisterTutor: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Khoa
             </label>
-            <input
-              type="text"
+            <select
               name="faculty"
               value={formData.faculty}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Ví dụ: Khoa Khoa học và Kỹ thuật Máy tính"
-            />
+              required
+            >
+              <option value="">-- Chọn khoa --</option>
+              {Object.keys(FACULTY_MAJORS_MAP).sort().map((faculty) => (
+                <option key={faculty} value={faculty}>
+                  {faculty}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Experience Years */}
