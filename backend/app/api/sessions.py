@@ -269,7 +269,7 @@ async def create_session(
     session_data: SessionCreate,
     session_service: SessionService = Depends(get_session_service)
 ):
-    """Create new session - PLACEHOLDER for conflict detection"""
+    """Create new session"""
     return await session_service.create_session(session_data)
 
 @router.get("/{session_id}", response_model=SessionResponse)
