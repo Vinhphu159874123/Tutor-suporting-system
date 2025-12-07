@@ -65,10 +65,11 @@ const TutorList: React.FC = () => {
   useEffect(() => {
     fetchData();
 
-    // Auto refresh every 30 seconds
+    // Reduced auto refresh to 5 minutes (was 30 seconds)
+    // Tutor list doesn't change frequently
     const interval = setInterval(() => {
       fetchData(false);
-    }, 30000);
+    }, 300000); // 5 minutes
 
     return () => clearInterval(interval);
   }, []);

@@ -56,12 +56,12 @@ const Notifications: React.FC = () => {
     // Initial fetch
     fetchNotifications();
     
-    // Auto-refresh every 3 seconds
-    const interval = setInterval(() => {
-      fetchNotifications();
-    }, 3000);
-    
-    return () => clearInterval(interval);
+    // Disabled auto-refresh since we use WebSocket for real-time updates
+    // If you need backup polling, use a much longer interval like 5 minutes:
+    // const interval = setInterval(() => {
+    //   fetchNotifications();
+    // }, 300000); // 5 minutes
+    // return () => clearInterval(interval);
   }, [filter]);
 
   const getIcon = (type: string) => {

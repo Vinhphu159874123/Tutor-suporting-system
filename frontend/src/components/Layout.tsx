@@ -50,9 +50,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
     if (user) {
       fetchUnreadCount();
-      // Poll every 30 seconds
-      const interval = setInterval(fetchUnreadCount, 30000);
-      return () => clearInterval(interval);
+      // Disabled polling since we use WebSocket for real-time updates
+      // WebSocket will update notification count in real-time
     }
   }, [user]);
 

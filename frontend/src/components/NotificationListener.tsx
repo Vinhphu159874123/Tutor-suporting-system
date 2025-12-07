@@ -134,10 +134,8 @@ const NotificationListener: React.FC = () => {
     // Initial check
     checkNotifications();
 
-    // Check every 60 seconds as backup (reduced from 30 seconds since we have WebSocket)
-    const interval = setInterval(checkNotifications, 60000);
-
-    return () => clearInterval(interval);
+    // Disabled backup polling since WebSocket is working reliably
+    // WebSocket provides real-time notifications, no need for polling
   }, [location.pathname, isInitialized, navigate]);
 
   return null; // This component doesn't render anything
