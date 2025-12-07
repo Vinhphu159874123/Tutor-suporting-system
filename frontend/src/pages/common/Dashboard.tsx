@@ -97,7 +97,7 @@ const Dashboard: React.FC = () => {
           Chào mừng, {user?.full_name}!
         </h1>
         <p className="text-sm lg:text-base text-blue-100">
-          Vai trò: <span className="font-semibold">{user?.role?.[0] || user?.role}</span>
+          Vai trò: <span className="font-semibold capitalize">{activeMode}</span>
           {user?.faculty && (
             <>
               {' • '}
