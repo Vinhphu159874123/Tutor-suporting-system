@@ -333,7 +333,6 @@ async def get_user_dashboard_stats(
             tutor = Tutor(
                 user_id=current_user.user_id,
                 faculty="Unknown",
-                expertise=[],
                 bio=current_user.bio or "No bio provided",
                 rating=0.0,
                 total_sessions=0
