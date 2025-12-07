@@ -62,7 +62,6 @@ async def get_my_sessions_dashboard(
                 from app.models.database import Tutor
                 tutor = Tutor(
                     user_id=current_user.user_id,
-                    faculty="Unknown",
                     bio=current_user.bio or "No bio provided",
                     rating=0.0,
                     total_sessions=0
