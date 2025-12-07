@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 import { toast } from "react-toastify";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, X, Copy, CheckCircle } from "lucide-react";
 import logoBK from "../../png/logobk.png";
 
 const Login: React.FC = () => {
@@ -11,7 +11,47 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [showTestAccounts, setShowTestAccounts] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const { login, isLoading } = useAuthStore();
+
+  const testAccounts = [
+    {
+      name: "Tài khoản Student",
+      email: "student_test@hcmut.edu.vn",
+      password: "student",
+      role: "student",
+      color: "blue"
+    },
+    {
+      name: "Tài khoản Tutor",
+      email: "tutor_test@hcmut.edu.vn",
+      password: "tutor",
+      role: "tutor",
+      color: "green"
+    },
+    {
+      name: "Tài khoản Coordinator",
+      email: "coordinator_test@hcmut.edu.vn",
+      password: "coordinator",
+      role: "coordinator",
+      color: "purple"
+    }
+  ];
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+    toast.success(`Đã copy ${field}!`);
+  };
+
+  const fillCredentials = (email: string, password: string) => {
+    setEmail(email);
+    setPassword(password);
+    setShowTestAccounts(false);
+    toast.info("Đã điền thông tin đăng nhập!");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,8 +304,117 @@ const Login: React.FC = () => {
           <a href="#" className="text-blue-600 underline hover:text-blue-800">
             Jasig CAS 3.5.1
           </a>
+          {" • "}
+          <button 
+            onClick={() => setShowTestAccounts(true)}
+            className="text-blue-600 underline hover:text-blue-800 font-medium"
+          >
+            Xem tài khoản test
+          </button>
         </p>
       </div>
+
+      {/* Test Accounts Modal */}
+      {showTestAccounts && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold mb-1">🧪 Tài khoản Test</h2>
+                  <p className="text-blue-100 text-sm">Sử dụng các tài khoản mẫu để trải nghiệm hệ thống</p>
+                </div>
+                <button
+                  onClick={() => setShowTestAccounts(false)}
+                  className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              {testAccounts.map((account, index) => (
+                <div
+                  key={index}
+                  className={`border-2 border-${account.color}-200 rounded-lg p-5 hover:shadow-lg transition-all duration-200 bg-${account.color}-50/30`}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h3 className={`text-lg font-bold text-${account.color}-700 mb-1`}>
+                        {account.name}
+                      </h3>
+                      <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold bg-${account.color}-100 text-${account.color}-700 capitalize`}>
+                        {account.role}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => fillCredentials(account.email, account.password)}
+                      className={`px-4 py-2 bg-${account.color}-600 hover:bg-${account.color}-700 text-white rounded-lg font-medium text-sm transition-colors`}
+                    >
+                      Dùng ngay
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 mt-4">
+                    {/* Email */}
+                    <div className="bg-white rounded-lg p-3 border border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-500 mb-1 font-medium">Email</p>
+                          <p className="text-sm font-mono text-gray-800">{account.email}</p>
+                        </div>
+                        <button
+                          onClick={() => copyToClipboard(account.email, `email-${index}`)}
+                          className="ml-3 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Copy email"
+                        >
+                          {copiedField === `email-${index}` ? (
+                            <CheckCircle className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <Copy className="w-4 h-4 text-gray-500" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Password */}
+                    <div className="bg-white rounded-lg p-3 border border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-500 mb-1 font-medium">Mật khẩu</p>
+                          <p className="text-sm font-mono text-gray-800">{account.password}</p>
+                        </div>
+                        <button
+                          onClick={() => copyToClipboard(account.password, `password-${index}`)}
+                          className="ml-3 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Copy password"
+                        >
+                          {copiedField === `password-${index}` ? (
+                            <CheckCircle className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <Copy className="w-4 h-4 text-gray-500" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Note */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-6">
+                <p className="text-sm text-amber-800">
+                  <strong>📌 Lưu ý:</strong> Các tài khoản này chỉ dành cho mục đích test và demo. 
+                  Dữ liệu có thể được reset bất kỳ lúc nào.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
