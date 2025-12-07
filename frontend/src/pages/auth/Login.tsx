@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 import { toast } from "react-toastify";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, X, Copy, CheckCircle, User, Mail, Lock, LogIn } from "lucide-react";
 import logoBK from "../../png/logobk.png";
 
 const Login: React.FC = () => {
@@ -11,7 +11,50 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [showTestAccounts, setShowTestAccounts] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const { login, isLoading } = useAuthStore();
+
+  const testAccounts = [
+    {
+      name: "Tài khoản Student",
+      username: "student_test",
+      email: "student_test",
+      password: "student",
+      role: "student",
+      color: "blue"
+    },
+    {
+      name: "Tài khoản Tutor",
+      username: "tutor_test",
+      email: "tutor_test",
+      password: "tutor",
+      role: "tutor",
+      color: "green"
+    },
+    {
+      name: "Tài khoản Coordinator",
+      username: "coordinator_test",
+      email: "coordinator_test",
+      password: "coordinator",
+      role: "coordinator",
+      color: "purple"
+    }
+  ];
+
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+    toast.success(`Đã copy ${field}!`);
+  };
+
+  const fillCredentials = (email: string, password: string) => {
+    setEmail(email);
+    setPassword(password);
+    setShowTestAccounts(false);
+    toast.info("Đã điền thông tin đăng nhập!");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,7 +212,7 @@ const Login: React.FC = () => {
                 </div>
               </form>
 
-              <div className="mt-4">
+              <div className="mt-4 flex items-center gap-4">
                 <a
                   href="/forgot-password"
                   className="text-blue-600 hover:text-blue-800 text-sm underline"
@@ -178,10 +221,75 @@ const Login: React.FC = () => {
                 </a>
                 <a
                   href="/landing"
-                  className="ml-4 text-blue-600 hover:text-blue-800 text-sm underline"
+                  className="text-blue-600 hover:text-blue-800 text-sm underline"
                 >
                   Trang chủ
                 </a>
+              </div>
+
+              {/* Test Accounts Section */}
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Tài khoản test
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {testAccounts.map((account, index) => {
+                    const colorClasses = {
+                      blue: {
+                        bg: 'bg-blue-50',
+                        border: 'border-blue-300',
+                        text: 'text-blue-700',
+                        button: 'bg-blue-600 hover:bg-blue-700'
+                      },
+                      green: {
+                        bg: 'bg-green-50',
+                        border: 'border-green-300',
+                        text: 'text-green-700',
+                        button: 'bg-green-600 hover:bg-green-700'
+                      },
+                      purple: {
+                        bg: 'bg-purple-50',
+                        border: 'border-purple-300',
+                        text: 'text-purple-700',
+                        button: 'bg-purple-600 hover:bg-purple-700'
+                      }
+                    };
+                    const colors = colorClasses[account.color as keyof typeof colorClasses];
+                    
+                    return (
+                      <div key={index} className={`border-2 ${colors.border} ${colors.bg} rounded-lg p-3`}>
+                        <p className={`text-xs font-bold ${colors.text} mb-3 uppercase flex items-center gap-1`}>
+                          <User className="w-3 h-3" />
+                          {account.role}
+                        </p>
+                        <div className="space-y-2 mb-3">
+                          <div className="flex items-center gap-1.5 text-xs text-gray-700">
+                            <Mail className="w-3 h-3 flex-shrink-0" />
+                            <span className="font-mono font-semibold">{account.username}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs text-gray-700">
+                            <Lock className="w-3 h-3 flex-shrink-0" />
+                            <span className="font-mono font-semibold">{"•".repeat(account.password.length)}</span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            fillCredentials(account.email, account.password);
+                            setTimeout(() => {
+                              const form = document.querySelector('form');
+                              if (form) form.requestSubmit();
+                            }, 100);
+                          }}
+                          className={`w-full px-3 py-1.5 ${colors.button} text-white rounded text-xs font-medium transition-colors flex items-center justify-center gap-1`}
+                        >
+                          <LogIn className="w-3 h-3" />
+                          Đăng nhập
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
@@ -264,8 +372,146 @@ const Login: React.FC = () => {
           <a href="#" className="text-blue-600 underline hover:text-blue-800">
             Jasig CAS 3.5.1
           </a>
+          {" • "}
+          <button 
+            onClick={() => setShowTestAccounts(true)}
+            className="text-blue-600 underline hover:text-blue-800 font-medium"
+          >
+            Xem tài khoản test
+          </button>
         </p>
       </div>
+
+      {/* Test Accounts Modal */}
+      {showTestAccounts && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold mb-1">🧪 Tài khoản Test</h2>
+                  <p className="text-blue-100 text-sm">Sử dụng các tài khoản mẫu để trải nghiệm hệ thống</p>
+                </div>
+                <button
+                  onClick={() => setShowTestAccounts(false)}
+                  className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              {testAccounts.map((account, index) => {
+                // Define colors based on role
+                const colorClasses = {
+                  blue: {
+                    border: 'border-blue-200',
+                    bg: 'bg-blue-50/30',
+                    text: 'text-blue-700',
+                    badge: 'bg-blue-100 text-blue-700',
+                    button: 'bg-blue-600 hover:bg-blue-700'
+                  },
+                  green: {
+                    border: 'border-green-200',
+                    bg: 'bg-green-50/30',
+                    text: 'text-green-700',
+                    badge: 'bg-green-100 text-green-700',
+                    button: 'bg-green-600 hover:bg-green-700'
+                  },
+                  purple: {
+                    border: 'border-purple-200',
+                    bg: 'bg-purple-50/30',
+                    text: 'text-purple-700',
+                    badge: 'bg-purple-100 text-purple-700',
+                    button: 'bg-purple-600 hover:bg-purple-700'
+                  }
+                };
+                
+                const colors = colorClasses[account.color as keyof typeof colorClasses];
+                
+                return (
+                  <div
+                    key={index}
+                    className={`border-2 ${colors.border} rounded-lg p-5 hover:shadow-lg transition-all duration-200 ${colors.bg}`}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h3 className={`text-lg font-bold ${colors.text} mb-1`}>
+                          {account.name}
+                        </h3>
+                        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${colors.badge} capitalize`}>
+                          {account.role}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => fillCredentials(account.email, account.password)}
+                        className={`px-4 py-2 ${colors.button} text-white rounded-lg font-medium text-sm transition-colors`}
+                      >
+                        Dùng ngay
+                      </button>
+                    </div>
+
+                  <div className="space-y-3 mt-4">
+                    {/* Email */}
+                    <div className="bg-white rounded-lg p-3 border border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-500 mb-1 font-medium">Email</p>
+                          <p className="text-sm font-mono text-gray-800">{account.email}</p>
+                        </div>
+                        <button
+                          onClick={() => copyToClipboard(account.email, `email-${index}`)}
+                          className="ml-3 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Copy email"
+                        >
+                          {copiedField === `email-${index}` ? (
+                            <CheckCircle className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <Copy className="w-4 h-4 text-gray-500" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Password */}
+                    <div className="bg-white rounded-lg p-3 border border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-500 mb-1 font-medium">Mật khẩu</p>
+                          <p className="text-sm font-mono text-gray-800">{account.password}</p>
+                        </div>
+                        <button
+                          onClick={() => copyToClipboard(account.password, `password-${index}`)}
+                          className="ml-3 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Copy password"
+                        >
+                          {copiedField === `password-${index}` ? (
+                            <CheckCircle className="w-4 h-4 text-green-600" />
+                          ) : (
+                            <Copy className="w-4 h-4 text-gray-500" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+              })}
+
+              {/* Note */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-6">
+                <p className="text-sm text-amber-800">
+                  <strong> Lưu ý:</strong> Các tài khoản này chỉ dành cho mục đích test và demo. 
+                  Dữ liệu có thể được reset bất kỳ lúc nào.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
