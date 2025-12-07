@@ -167,62 +167,62 @@ const TutorStatistics: React.FC = () => {
           <p className="text-gray-500 text-sm mt-2">Khi học sinh đăng ký nguyện vọng, thống kê sẽ hiện ở đây</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {statistics.map((stat) => (
-            <div key={stat.subject_id} className="bg-white rounded-lg shadow-lg hover:shadow-xl transition-shadow">
-              <div className="p-6">
+            <div key={stat.subject_id} className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow">
+              <div className="p-4">
                 {/* Subject Header */}
-                <div className="flex justify-between items-start mb-6">
+                <div className="flex justify-between items-start mb-4">
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900">{stat.subject_code}</h2>
-                    <p className="text-gray-600">{stat.subject_name}</p>
+                    <h2 className="text-xl font-bold text-gray-900">{stat.subject_code}</h2>
+                    <p className="text-sm text-gray-600">{stat.subject_name}</p>
                   </div>
                   <div className="text-right">
-                    <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg">
-                      <Users className="inline mr-2" size={20} />
-                      <span className="text-2xl font-bold">{stat.total_requests}</span>
-                      <span className="text-sm ml-1">nguyện vọng</span>
+                    <div className="bg-blue-100 text-blue-800 px-3 py-1.5 rounded-lg">
+                      <Users className="inline mr-1" size={16} />
+                      <span className="text-lg font-bold">{stat.total_requests}</span>
+                      <span className="text-xs ml-1">nguyện vọng</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                   {/* Existing Sessions Count */}
-                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg">
-                    <div className="flex items-center mb-2">
-                      <BookOpen className="text-blue-600 mr-2" size={20} />
-                      <span className="text-sm font-medium text-blue-900">Courses đã có</span>
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-3 rounded-lg">
+                    <div className="flex items-center mb-1">
+                      <BookOpen className="text-blue-600 mr-1" size={16} />
+                      <span className="text-xs font-medium text-blue-900">Courses đã có</span>
                     </div>
-                    <p className="text-2xl font-bold text-blue-900">{stat.existing_sessions_count || 0}</p>
-                    <p className="text-xs text-blue-700 mt-1">sessions đang mở</p>
+                    <p className="text-xl font-bold text-blue-900">{stat.existing_sessions_count || 0}</p>
+                    <p className="text-[10px] text-blue-700">sessions đang mở</p>
                   </div>
 
                   {/* Average Duration */}
-                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg">
-                    <div className="flex items-center mb-2">
-                      <Clock className="text-purple-600 mr-2" size={20} />
-                      <span className="text-sm font-medium text-purple-900">Thời lượng TB</span>
+                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-3 rounded-lg">
+                    <div className="flex items-center mb-1">
+                      <Clock className="text-purple-600 mr-1" size={16} />
+                      <span className="text-xs font-medium text-purple-900">Thời lượng TB</span>
                     </div>
-                    <p className="text-2xl font-bold text-purple-900">{stat.average_duration} phút</p>
+                    <p className="text-xl font-bold text-purple-900">{stat.average_duration} phút</p>
                   </div>
 
                   {/* Average Sessions */}
-                  <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg">
-                    <div className="flex items-center mb-2">
-                      <BookOpen className="text-green-600 mr-2" size={20} />
-                      <span className="text-sm font-medium text-green-900">Số buổi TB</span>
+                  <div className="bg-gradient-to-br from-green-50 to-green-100 p-3 rounded-lg">
+                    <div className="flex items-center mb-1">
+                      <BookOpen className="text-green-600 mr-1" size={16} />
+                      <span className="text-xs font-medium text-green-900">Số buổi TB</span>
                     </div>
-                    <p className="text-2xl font-bold text-green-900">{stat.average_sessions}</p>
+                    <p className="text-xl font-bold text-green-900">{stat.average_sessions}</p>
                   </div>
 
                   {/* Date Range */}
-                  <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-4 rounded-lg">
-                    <div className="flex items-center mb-2">
-                      <Calendar className="text-amber-600 mr-2" size={20} />
-                      <span className="text-sm font-medium text-amber-900">Khung thời gian</span>
+                  <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-3 rounded-lg">
+                    <div className="flex items-center mb-1">
+                      <Calendar className="text-amber-600 mr-1" size={16} />
+                      <span className="text-xs font-medium text-amber-900">Khung thời gian</span>
                     </div>
-                    <p className="text-sm font-bold text-amber-900">
+                    <p className="text-xs font-bold text-amber-900">
                       {stat.earliest_start_date && new Date(stat.earliest_start_date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
                       {' - '}
                       {stat.latest_start_date && new Date(stat.latest_start_date).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
@@ -230,46 +230,48 @@ const TutorStatistics: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Format Distribution */}
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                    <MapPin className="mr-2 text-blue-600" size={20} />
-                    Hình thức học ưa thích
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {Object.entries(stat.format_distribution).map(([format, count]) => (
-                      <div key={format} className="bg-gray-50 p-3 rounded-lg text-center">
-                        <div className="flex items-center justify-center gap-1 text-sm text-gray-600 mb-1">
-                          {getFormatIcon(format)}
-                          <span>{getFormatLabel(format)}</span>
+                {/* Two Column Layout for Format and Time Slots */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  {/* Format Distribution */}
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center">
+                      <MapPin className="mr-1 text-blue-600" size={16} />
+                      Hình thức học ưa thích
+                    </h3>
+                    <div className="grid grid-cols-3 gap-2">
+                      {Object.entries(stat.format_distribution).map(([format, count]) => (
+                        <div key={format} className="bg-gray-50 p-2 rounded-lg text-center">
+                          <div className="flex items-center justify-center gap-1 text-xs text-gray-600 mb-0.5">
+                            {getFormatIcon(format)}
+                            <span className="text-[10px]">{getFormatLabel(format)}</span>
+                          </div>
+                          <p className="text-lg font-bold text-gray-900">{count}</p>
+                          <p className="text-[10px] text-gray-500">
+                            {Math.round((count / stat.total_requests) * 100)}%
+                          </p>
                         </div>
-                        <p className="text-2xl font-bold text-gray-900">{count}</p>
-                        <p className="text-xs text-gray-500">
-                          {Math.round((count / stat.total_requests) * 100)}%
-                        </p>
-                      </div>
                     ))}
                   </div>
                 </div>
 
                 {/* Popular Time Slots */}
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                    <TrendingUp className="mr-2 text-blue-600" size={20} />
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center">
+                    <TrendingUp className="mr-1 text-blue-600" size={16} />
                     Khung giờ phổ biến
                   </h3>
-                  <div className="space-y-2">
-                    {stat.popular_time_slots.slice(0, 5).map((slot, idx) => (
+                  <div className="space-y-1.5">
+                    {stat.popular_time_slots.slice(0, 3).map((slot, idx) => (
                       <div key={idx} className="relative">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-sm font-medium text-gray-700">{slot.time_slot}</span>
-                          <span className="text-sm font-bold text-blue-600">
+                        <div className="flex justify-between items-center mb-0.5">
+                          <span className="text-xs font-medium text-gray-700">{slot.time_slot}</span>
+                          <span className="text-xs font-bold text-blue-600">
                             {slot.count} SV ({slot.percentage}%)
                           </span>
                         </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="w-full bg-gray-200 rounded-full h-1.5">
                           <div
-                            className="bg-blue-600 h-2 rounded-full transition-all"
+                            className="bg-blue-600 h-1.5 rounded-full transition-all"
                             style={{ width: `${slot.percentage}%` }}
                           />
                         </div>
@@ -277,32 +279,35 @@ const TutorStatistics: React.FC = () => {
                     ))}
                   </div>
                 </div>
+              </div>
 
                 {/* Duration Distribution */}
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                <div className="px-4 pb-4">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-2">
                     Phân bố thời lượng buổi học
                   </h3>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-1.5">
                     {Object.entries(stat.duration_distribution)
                       .sort((a, b) => Number(a[0]) - Number(b[0]))
                       .map(([duration, count]) => (
-                        <div key={duration} className="bg-indigo-50 border border-indigo-200 px-3 py-2 rounded-lg">
+                        <div key={duration} className="bg-indigo-50 border border-indigo-200 px-2 py-1 rounded text-xs">
                           <span className="font-medium text-indigo-900">{duration} phút</span>
-                          <span className="text-indigo-600 ml-2">× {count}</span>
+                          <span className="text-indigo-600 ml-1">× {count}</span>
                         </div>
                       ))}
                   </div>
                 </div>
 
                 {/* View Details Button */}
-                <button
-                  onClick={() => handleViewDetails(stat)}
-                  className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors"
-                >
-                  <Eye size={20} />
-                  Xem chi tiết nguyện vọng
-                </button>
+                <div className="px-4 pb-4">
+                  <button
+                    onClick={() => handleViewDetails(stat)}
+                    className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors text-sm"
+                  >
+                    <Eye size={16} />
+                    Xem chi tiết
+                  </button>
+                </div>
               </div>
             </div>
           ))}

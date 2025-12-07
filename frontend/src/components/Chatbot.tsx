@@ -21,8 +21,13 @@ const Chatbot: React.FC = () => {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [hasMoved, setHasMoved] = useState(false);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const buttonRef = useRef<HTMLDivElement>(null);
 
   const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY || '';
   const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
@@ -416,36 +421,103 @@ Bạn phải luôn trả lời sao cho dễ hiểu, thông minh, và đem lại 
     return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Drag handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!buttonRef.current) return;
+    setIsDragging(true);
+    setHasMoved(false);
+    const rect = buttonRef.current.getBoundingClientRect();
+    setDragStart({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    });
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return;
+    
+    setHasMoved(true);
+    
+    const newX = e.clientX - dragStart.x;
+    const newY = e.clientY - dragStart.y;
+    
+    // Keep within viewport bounds
+    const maxX = window.innerWidth - 200; // approximate button width
+    const maxY = window.innerHeight - 200; // approximate button height
+    
+    setPosition({
+      x: Math.max(0, Math.min(newX, maxX)),
+      y: Math.max(0, Math.min(newY, maxY))
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleClick = () => {
+    // Only open if we didn't drag
+    if (!hasMoved) {
+      setIsOpen(true);
+    }
+    setHasMoved(false);
+  };
+
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, dragStart]);
+
   return (
     <>
       {/* Floating Button */}
       {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-          className={`fixed bottom-4 right-4 sm:bottom-6 sm:right-6 bg-transparent text-white rounded-full shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 z-50 group animate-float ${
-            isHovered ? 'scale-110' : 'scale-100'
-          }`}
-          aria-label="Open chatbot"
+        <div
+          ref={buttonRef}
+          style={{
+            position: 'fixed',
+            left: position.x ? `${position.x}px` : 'auto',
+            top: position.y ? `${position.y}px` : 'auto',
+            right: position.x ? 'auto' : '1rem',
+            bottom: position.y ? 'auto' : '1rem',
+            cursor: isDragging ? 'grabbing' : 'grab',
+          }}
+          className="z-50"
+          onMouseDown={handleMouseDown}
         >
-          <div className="relative">
-            <img src={logoChatbot} alt="TTS ChatBot" className={`w-24 h-24 sm:w-32 sm:h-32 lg:w-48 lg:h-48 transition-transform duration-300 ${isHovered ? 'rotate-12' : ''}`} />
-            <Sparkles className={`w-4 h-4 sm:w-6 sm:h-6 lg:w-8 lg:h-8 absolute -top-1 -right-1 sm:-top-2 sm:-right-2 text-yellow-400 transition-opacity duration-300 ${
-              isHovered ? 'opacity-100' : 'opacity-0'
-            }`} />
-          </div>
-          <span className={`absolute -top-1 -right-1 sm:-top-2 sm:-right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center font-semibold transition-all duration-300 ${
-            isHovered ? 'scale-110' : 'scale-100'
-          }`}>
-            AI
-          </span>
-          {isHovered && (
-            <div className="absolute bottom-full right-0 mb-2 px-3 py-1 bg-gray-900 text-white text-sm rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              TTS ChatBot
+          <button
+            onClick={handleClick}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            className={`bg-transparent text-white rounded-full shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 group animate-float ${
+              isHovered && !isDragging ? 'scale-110' : 'scale-100'
+            } ${isDragging ? 'scale-105 rotate-12' : ''}`}
+            aria-label="Open chatbot"
+          >
+            <div className="relative">
+              <img src={logoChatbot} alt="TTS ChatBot" className={`w-24 h-24 sm:w-32 sm:h-32 lg:w-48 lg:h-48 transition-transform duration-300 ${isHovered ? 'rotate-12' : ''} ${isDragging ? 'opacity-80' : ''}`} />
+              <Sparkles className={`w-4 h-4 sm:w-6 sm:h-6 lg:w-8 lg:h-8 absolute -top-1 -right-1 sm:-top-2 sm:-right-2 text-yellow-400 transition-opacity duration-300 ${
+                isHovered ? 'opacity-100' : 'opacity-0'
+              }`} />
             </div>
-          )}
-        </button>
+            <span className={`absolute -top-1 -right-1 sm:-top-2 sm:-right-2 bg-red-500 text-white text-xs rounded-full w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center font-semibold transition-all duration-300 ${
+              isHovered ? 'scale-110' : 'scale-100'
+            }`}>
+              AI
+            </span>
+            {isHovered && !isDragging && (
+              <div className="absolute bottom-full right-0 mb-2 px-3 py-1 bg-gray-900 text-white text-sm rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                TTS ChatBot
+              </div>
+            )}
+          </button>
+        </div>
       )}
 
       {/* Chat Window */}

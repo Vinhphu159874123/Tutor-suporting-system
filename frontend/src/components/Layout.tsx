@@ -1,6 +1,7 @@
 import React, { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuthStore } from "../stores/authStore";
+import { useUnreadMessagesStore } from "../stores/unreadMessagesStore";
 import { notificationsApi } from "../services/api";
 import { 
   LayoutDashboard, 
@@ -23,9 +24,11 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { user, logout, currentMode, switchMode } = useAuthStore();
+  const { getTotalUnread } = useUnreadMessagesStore();
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const totalUnreadMessages = getTotalUnread();
 
   // Determine active mode (use currentMode if available, fallback to user.role)
   const userRoles = user ? (Array.isArray(user.role) ? user.role : [user.role]) : ['student'];
@@ -78,9 +81,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: "Tìm kiếm khóa học", href: "/browse-courses", icon: <BookOpen size={20} /> },
     { name: "Môn học của tôi", href: "/my-courses", icon: <BookOpen size={20} /> },
     { name: "Đăng ký lịch học", href: "/student/scheduling", icon: <Calendar size={20} /> },
+    { name: "Study Groups", href: "/study-groups", icon: <Users size={20} /> },
+    { name: "Forum", href: "/forum", icon: <MessageSquare size={20} /> },
     { name: "Notifications", href: "/notifications", icon: <Bell size={20} /> },
     { name: "Settings", href: "/settings", icon: <SettingsIcon size={20} /> },
-    { name: "Forum", href: "/forum", icon: <MessageSquare size={20} /> },
   ];
 
   // Navigation for Tutors (with session requests)
@@ -88,9 +92,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { name: "Dashboard", href: "/dashboard", icon: <LayoutDashboard size={20} /> },
     { name: "Môn học tôi dạy", href: "/my-courses", icon: <BookOpen size={20} /> },
     { name: "Thống kê nguyện vọng", href: "/tutor/statistics", icon: <BarChart3 size={20} /> },
+    { name: "Study Groups", href: "/study-groups", icon: <Users size={20} /> },
+    { name: "Forum", href: "/forum", icon: <MessageSquare size={20} /> },
     { name: "Notifications", href: "/notifications", icon: <Bell size={20} /> },
     { name: "Settings", href: "/settings", icon: <SettingsIcon size={20} /> },
-    { name: "Forum", href: "/forum", icon: <MessageSquare size={20} /> },
   ];
 
   // Select navigation based on active mode
@@ -125,42 +130,66 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </div>
 
       {/* Sidebar - responsive */}
-      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transition-transform duration-300 lg:translate-x-0 ${
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-white to-blue-50/30 shadow-2xl transition-transform duration-300 lg:translate-x-0 backdrop-blur-sm ${
         isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
-        <Link to="/dashboard" className="flex h-16 items-center justify-center border-b border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer">
-          <h1 className="text-xl font-bold text-blue-600">
+        <Link to="/dashboard" className="flex h-16 items-center justify-center border-b border-blue-100 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 transition-all duration-300 cursor-pointer group">
+          <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent group-hover:scale-105 transition-transform duration-300">
             HCMUT Tutor System
           </h1>
         </Link>
 
-        <nav className="mt-8">
-          <div className="space-y-1">
+        <nav className="mt-8 px-3">
+          <div className="space-y-2">
             {navigation.map((item) => {
               const isActive = location.pathname === item.href;
               const isNotificationItem = item.href === "/notifications";
+              const isStudyGroupsItem = item.href === "/study-groups";
               
               return (
                 <Link
                   key={item.name}
                   to={item.href}
                   className={`
-                    group flex items-center px-4 py-3 text-sm font-medium transition-colors
+                    group flex items-center px-4 py-3 text-sm font-medium transition-all duration-300 rounded-xl relative overflow-hidden
                     ${isActive
-                      ? "bg-blue-50 text-blue-600 border-r-2 border-blue-600"
-                      : "text-gray-700 hover:bg-gray-50 hover:text-blue-600"
+                      ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg shadow-blue-500/50 scale-105"
+                      : "text-gray-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 hover:text-blue-600 hover:scale-105 hover:shadow-md"
                     }
                   `}
                 >
-                  <span className="mr-3 relative">
+                  {/* Active indicator */}
+                  {isActive && (
+                    <span className="absolute left-0 top-0 bottom-0 w-1 bg-white rounded-r-full"></span>
+                  )}
+                  
+                  <span className={`mr-3 relative transition-transform duration-300 ${
+                    isActive ? 'scale-110' : 'group-hover:scale-110 group-hover:rotate-12'
+                  }`}>
                     {item.icon}
                     {isNotificationItem && unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white animate-pulse shadow-lg shadow-red-500/50">
                         {unreadCount > 9 ? '9+' : unreadCount}
                       </span>
                     )}
+                    {isStudyGroupsItem && totalUnreadMessages > 0 && (
+                      <span className="absolute -top-1 -right-1 group/badge">
+                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-green-400 to-green-600 text-[11px] font-extrabold text-white animate-bounce shadow-xl shadow-green-500/60 ring-2 ring-white">
+                          {totalUnreadMessages > 9 ? '9+' : totalUnreadMessages}
+                        </span>
+                        <span className="absolute left-1/2 -translate-x-1/2 top-full mt-2 hidden group-hover/badge:block w-max px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg shadow-lg z-50 whitespace-nowrap">
+                          Bạn có {totalUnreadMessages} tin nhắn chưa đọc từ nhóm học tập
+                          <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></span>
+                        </span>
+                      </span>
+                    )}
                   </span>
-                  {item.name}
+                  <span className="relative z-10">{item.name}</span>
+                  
+                  {/* Hover effect */}
+                  {!isActive && (
+                    <span className="absolute inset-0 bg-gradient-to-r from-blue-400/0 via-purple-400/0 to-blue-400/0 group-hover:from-blue-400/10 group-hover:via-purple-400/10 group-hover:to-blue-400/10 transition-all duration-500"></span>
+                  )}
                 </Link>
               );
             })}

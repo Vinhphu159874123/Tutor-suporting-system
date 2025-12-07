@@ -3,6 +3,8 @@ import { Send, Trash2, MessageCircle } from 'lucide-react';
 import { studyGroupsApi } from '../services/api';
 import { toast } from 'react-toastify';
 import { useAuthStore } from '../stores/authStore';
+import { useWebSocketContext } from '../contexts/WebSocketContext';
+import { useUnreadMessagesStore } from '../stores/unreadMessagesStore';
 
 interface Message {
   message_id: number;
@@ -19,6 +21,7 @@ interface ChatBoxProps {
 
 const ChatBox: React.FC<ChatBoxProps> = ({ groupId }) => {
   const { user } = useAuthStore();
+  const { clearUnread } = useUnreadMessagesStore();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -26,19 +29,69 @@ const ChatBox: React.FC<ChatBoxProps> = ({ groupId }) => {
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const [newMessageCount, setNewMessageCount] = useState(0);
   const [showNewMessageNotif, setShowNewMessageNotif] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState<Set<number>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const prevMessagesLengthRef = useRef(0);
   const isInitialLoadRef = useRef(true);
+  
+  // WebSocket connection from context
+  const { isConnected, sendMessage: sendWsMessage, subscribe } = useWebSocketContext();
 
   useEffect(() => {
     loadMessages();
-    
-    // Auto refresh every 3 seconds for real-time feel
-    const interval = setInterval(loadMessages, 3000);
-    
-    return () => clearInterval(interval);
-  }, [groupId]);
+    // Clear unread count when viewing this chat
+    clearUnread(groupId);
+  }, [groupId, clearUnread]);
+
+  // Subscribe to WebSocket messages
+  useEffect(() => {
+    const unsubscribe = subscribe((message) => {
+      console.log('WebSocket message received:', message);
+      
+      if (message.type === 'new_message') {
+        const chatMessage = message.data;
+        
+        // Only process messages for this group
+        if (chatMessage.group_id === groupId) {
+          // Add message to the list if it doesn't already exist
+          setMessages((prev) => {
+            const exists = prev.some(m => m.message_id === chatMessage.message_id);
+            if (exists) return prev;
+            
+            const newMsg: Message = {
+              message_id: chatMessage.message_id,
+              user_id: chatMessage.user_id,
+              user_name: chatMessage.user_name,
+              message_text: chatMessage.message_text,
+              created_at: chatMessage.created_at,
+              is_deleted: false,
+            };
+            
+            return [...prev, newMsg];
+          });
+        }
+      }
+      
+      // Handle user online/offline status
+      if (message.type === 'user_status') {
+        const statusData = message.data;
+        if (statusData.group_id === groupId) {
+          setOnlineUsers((prev) => {
+            const newSet = new Set(prev);
+            if (statusData.is_online) {
+              newSet.add(statusData.user_id);
+            } else {
+              newSet.delete(statusData.user_id);
+            }
+            return newSet;
+          });
+        }
+      }
+    });
+
+    return unsubscribe;
+  }, [groupId, subscribe]);
 
   useEffect(() => {
     // Skip notification on initial load
@@ -115,10 +168,22 @@ const ChatBox: React.FC<ChatBoxProps> = ({ groupId }) => {
     
     try {
       setSending(true);
-      await studyGroupsApi.sendMessage(groupId, newMessage.trim());
-      setNewMessage('');
-      setShouldAutoScroll(true); // Force scroll on send
-      await loadMessages(); // Reload to get new message
+      
+      // Send via WebSocket if connected, otherwise fallback to HTTP
+      if (isConnected) {
+        sendWsMessage('chat_message', {
+          group_id: groupId,
+          message_text: newMessage.trim(),
+        });
+        setNewMessage('');
+        setShouldAutoScroll(true); // Force scroll on send
+      } else {
+        // Fallback to HTTP API
+        await studyGroupsApi.sendMessage(groupId, newMessage.trim());
+        setNewMessage('');
+        setShouldAutoScroll(true); // Force scroll on send
+        await loadMessages(); // Reload to get new message
+      }
     } catch (error: any) {
       toast.error(error.response?.data?.detail || 'Không thể gửi tin nhắn');
     } finally {
@@ -157,7 +222,20 @@ const ChatBox: React.FC<ChatBoxProps> = ({ groupId }) => {
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-4 py-3 rounded-t-lg flex items-center">
         <MessageCircle size={20} className="mr-2" />
         <h3 className="font-semibold">Chat Nhóm</h3>
-        <span className="ml-auto text-sm opacity-90">{messages.length} tin nhắn</span>
+        <span className="ml-auto text-sm opacity-90 flex items-center gap-2">
+          {messages.length} tin nhắn
+          {isConnected ? (
+            <span className="inline-flex items-center gap-1 bg-green-500 px-2 py-0.5 rounded-full text-xs">
+              <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></span>
+              Live
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 bg-yellow-500 px-2 py-0.5 rounded-full text-xs">
+              <span className="w-1.5 h-1.5 bg-white rounded-full"></span>
+              Offline
+            </span>
+          )}
+        </span>
       </div>
 
       {/* New Message Notification */}
@@ -200,8 +278,11 @@ const ChatBox: React.FC<ChatBoxProps> = ({ groupId }) => {
               >
                 <div className={`max-w-[70%] ${isMyMessage ? 'items-end' : 'items-start'} flex flex-col`}>
                   {!isMyMessage && (
-                    <span className="text-xs text-gray-600 font-medium mb-1 px-2">
+                    <span className="text-xs text-gray-600 font-medium mb-1 px-2 flex items-center gap-1">
                       {message.user_name}
+                      {onlineUsers.has(message.user_id) && (
+                        <span className="w-2 h-2 bg-green-500 rounded-full inline-block" title="Online"></span>
+                      )}
                     </span>
                   )}
                   <div className="flex items-end gap-2">

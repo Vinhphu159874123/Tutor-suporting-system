@@ -14,6 +14,7 @@ import { authApi } from "./services/api";
 import Layout from "./components/Layout";
 import NotificationListener from "./components/NotificationListener";
 import Chatbot from "./components/Chatbot";
+import { WebSocketProvider } from "./contexts/WebSocketContext";
 
 // Auth pages
 import Login from "./pages/auth/Login";
@@ -105,8 +106,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <Router>
-        {/* Global notification listener - shows toast when NOT on notifications page */}
-        {isAuthenticated && <NotificationListener />}
+        <WebSocketProvider>
+          {/* Global notification listener - shows toast when NOT on notifications page */}
+          {isAuthenticated && <NotificationListener />}
         
         <div className="App">
           <Routes>
@@ -230,6 +232,7 @@ function App() {
           {/* AI Chatbot - Always available */}
           <Chatbot />
         </div>
+        </WebSocketProvider>
       </Router>
     </QueryClientProvider>
   );

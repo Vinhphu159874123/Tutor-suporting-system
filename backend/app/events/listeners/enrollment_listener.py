@@ -11,6 +11,7 @@ from app.events.event_bus import event_bus
 from app.events.event_types import EventTypes
 from app.core.database import get_db
 from app.models.database import Notifications, User, Tutor, Subject
+from app.websocket import manager
 from datetime import datetime, timezone, timedelta
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,26 @@ class StudentEnrollmentListener(BaseListener):
                 await db.commit()
                 
                 logger.info(f"✅ Notification sent to tutor {tutor.user_id} for enrollment of student {student_id}")
+                
+                # Send real-time notification via WebSocket if user is online
+                try:
+                    await manager.notify_user(
+                        user_id=tutor.user_id,
+                        notification_type="student_enrolled",
+                        data={
+                            "title": "Sinh viên mới đăng ký khóa học",
+                            "message": f"{student_name} đã đăng ký tham gia khóa học {subject_name} ({sessions_count} buổi học)",
+                            "student_id": student_id,
+                            "student_name": student_name,
+                            "subject_id": subject_id,
+                            "subject_name": subject_name,
+                            "sessions_count": sessions_count,
+                            "timestamp": vietnam_time.isoformat()
+                        }
+                    )
+                    logger.info(f"✅ Real-time WebSocket notification sent to tutor {tutor.user_id}")
+                except Exception as ws_error:
+                    logger.warning(f"⚠️ Failed to send WebSocket notification (user may be offline): {ws_error}")
             
         except Exception as e:
             logger.error(f"❌ Error handling enrollment event: {str(e)}", exc_info=True)

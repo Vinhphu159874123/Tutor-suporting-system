@@ -1,19 +1,19 @@
 """
-Notification Listener - PLACEHOLDER
-Handle notification sending
+Notification Listener
+Handle notification sending via WebSocket
 """
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
 
 from app.events.base_listener import BaseListener
+from app.websocket import manager
 
 logger = logging.getLogger(__name__)
 
 
 class NotificationListener(BaseListener):
     """
-    Handle notification sending
-    PLACEHOLDER - Implement when needed
+    Handle notification sending via WebSocket
     """
     
     async def handle(self, data: Dict[str, Any]):
@@ -27,13 +27,43 @@ class NotificationListener(BaseListener):
             - type: str (info, warning, success, error)
             - link: str (optional)
         """
-        logger.info(f"[PLACEHOLDER] Sending notification: {data.get('title')}")
+        user_ids = data.get('user_id')
+        title = data.get('title', '')
+        message = data.get('message', '')
+        notification_type = data.get('type', 'info')
+        link = data.get('link')
         
-        # For now, just log it
-        # TODO: Implement push notification
-        # TODO: Store notification in database
-        # TODO: Send via WebSocket if user online
-        # TODO: Send via mobile push notification
+        logger.info(f"Sending notification: {title} to user(s): {user_ids}")
+        
+        # Convert single user_id to list
+        if isinstance(user_ids, int):
+            user_ids = [user_ids]
+        
+        # Prepare notification data
+        notification_data = {
+            "title": title,
+            "message": message,
+            "type": notification_type,
+            "timestamp": data.get('timestamp')
+        }
+        
+        if link:
+            notification_data["link"] = link
+        
+        # Send to each user via WebSocket
+        for user_id in user_ids:
+            try:
+                await manager.notify_user(
+                    user_id=user_id,
+                    notification_type=notification_type,
+                    data=notification_data
+                )
+                logger.info(f"✅ WebSocket notification sent to user {user_id}")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to send WebSocket notification to user {user_id}: {e}")
+        
+        # TODO: Store notification in database if needed
+        # TODO: Send via mobile push notification if user offline
 
 
 class EmailListener(BaseListener):
