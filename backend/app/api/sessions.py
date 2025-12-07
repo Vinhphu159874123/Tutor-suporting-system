@@ -230,6 +230,42 @@ async def get_my_sessions(
     # Determine which role to fetch sessions for
     active_role = mode or current_user.role
     
+    # Auto-create Student/Tutor profile if missing
+    from app.core.database import get_db
+    async for db in get_db():
+        user_roles = current_user.role if isinstance(current_user.role, list) else [current_user.role]
+        
+        if mode == 'student' or 'student' in user_roles:
+            if not current_user.student_id:
+                from app.models.database import Student
+                student = Student(
+                    user_id=current_user.user_id,
+                    student_code=f"ST{current_user.user_id:06d}",
+                    faculty="Unknown",
+                    major="Unknown",
+                    preferences={}
+                )
+                db.add(student)
+                await db.commit()
+                await db.refresh(student)
+                await db.refresh(current_user)
+        
+        if mode == 'tutor' or 'tutor' in user_roles:
+            if not current_user.tutor_id:
+                from app.models.database import Tutor
+                tutor = Tutor(
+                    user_id=current_user.user_id,
+                    faculty="Unknown",
+                    bio=current_user.bio or "No bio provided",
+                    rating=0.0,
+                    total_sessions=0
+                )
+                db.add(tutor)
+                await db.commit()
+                await db.refresh(tutor)
+                await db.refresh(current_user)
+        break
+    
     # Validate user has the requested role
     if mode:
         if mode == 'student' and not current_user.student_id:
