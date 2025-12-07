@@ -98,16 +98,16 @@ const Dashboard: React.FC = () => {
         </h1>
         <p className="text-sm lg:text-base text-blue-100">
           Vai trò: <span className="font-semibold capitalize">{activeMode}</span>
-          {user?.faculty && (
+          {(user?.faculty || (user as any)?.tutor?.faculty) && (
             <>
               {' • '}
-              <span>Khoa: {user.faculty}</span>
+              <span>Khoa: {user?.faculty || (user as any)?.tutor?.faculty}</span>
             </>
           )}
-          {user?.major && (
+          {(user?.major || (user as any)?.tutor?.major) && (
             <>
               {' • '}
-              <span>Ngành: {user.major}</span>
+              <span>Ngành: {user?.major || (user as any)?.tutor?.major}</span>
             </>
           )}
         </p>
