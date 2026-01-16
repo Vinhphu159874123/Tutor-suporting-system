@@ -4,6 +4,9 @@
   "outputDirectory": "frontend/build",
   "installCommand": "cd frontend && npm install",
   "framework": null,
+  "env": {
+    "REACT_APP_API_URL": "https://apitts.percytony.com/api/v1"
+  },
   "rewrites": [
     {
       "source": "/(.*)",
@@ -22,7 +25,7 @@
     }
   ],
   "env": {
-    "REACT_APP_API_URL": "https://tutor-suporting-system-production.up.railway.app/api/v1",
+    "REACT_APP_API_URL": "https://apitts.percytony.com/api/v1",
     "CI": "false"
   }
 }
