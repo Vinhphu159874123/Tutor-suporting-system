@@ -26,7 +26,7 @@ app = FastAPI(
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
 
 # Add CORS middleware
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000,http://localhost").split(",")
+allowed_origins = [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000,http://localhost").split(",")]
 
 app.add_middleware(
     CORSMiddleware,
