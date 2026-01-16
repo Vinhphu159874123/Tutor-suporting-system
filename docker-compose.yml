@@ -86,5 +86,19 @@ services:
       - "3003:3003"
     restart: unless-stopped
 
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:latest
+    container_name: nginx_prod
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+    restart: unless-stopped
+
 volumes:
   postgres_data:
