@@ -1,9 +1,11 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import JSONResponse
 import uvicorn
 import os
 from dotenv import load_dotenv
+import traceback
 
 from app.api import auth, users, tutors, students, sessions, scheduling, reports, admin, forum, notifications, courses, coordinator, study_groups, progress, schedule_preferences, websocket_api
 from app.core.database import engine, create_tables
@@ -56,6 +58,27 @@ app.include_router(progress.router, prefix="/api/v1/progress", tags=["progress"]
 app.include_router(schedule_preferences.router, prefix="/api/v1/schedule-preferences", tags=["schedule-preferences"])
 app.include_router(websocket_api.router, prefix="/api/v1", tags=["websocket"])
 # Materials endpoints are in sessions.py router (/{session_id}/materials)
+
+# Global exception handler to ensure CORS headers on errors
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """Handle all exceptions and apply CORS headers"""
+    origin = request.headers.get("origin")
+    allowed_origins = [origin.strip() for origin in os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000,http://127.0.0.1:8000,http://localhost").split(",")]
+    
+    response = JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"}
+    )
+    
+    # Add CORS headers
+    if origin in allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+    
+    return response
 
 @app.on_event("startup")
 async def startup_event():
