@@ -4,169 +4,231 @@ Handle tutor-related events
 """
 import logging
 from typing import Dict, Any
-from sqlalchemy import select, func
+from sqlalchemy import select, func, insert, or_
 
 from app.events.base_listener import BaseListener
 from app.events import event_bus, EventTypes
 from app.core.database import AsyncSessionLocal
+from app.websocket import manager
 
 logger = logging.getLogger(__name__)
 
 
 class TutorRegistrationListener(BaseListener):
     """Handle tutor registration events"""
-    
+
     async def handle(self, data: Dict[str, Any]):
         """
-        Create notification for admin when tutor registers
-        
-        Expected data:
-            - tutor_id: int
-            - user_id: int
-            - email: str
-            - full_name: str
+        Gửi notification cho tất cả admin + coordinator khi tutor tạo profile.
+
+        Cải tiến so với cũ:
+          - Chỉ SELECT user_id thay vì load toàn bộ User object vào RAM
+          - Bulk INSERT thay vì loop INSERT từng row
+          - Fix bug query: dùng OR + any_() đúng với PostgreSQL ARRAY column
+          - WebSocket push realtime cho users đang online
         """
         try:
-            logger.info(f"New tutor registration: {data.get('full_name')} (ID: {data.get('tutor_id')})")
-            
-            # Get all admin users
+            full_name = data.get('full_name', 'Unknown')
+            tutor_id  = data.get('tutor_id')
+            user_id   = data.get('user_id')
+            logger.info(f"New tutor registration: {full_name} (ID: {tutor_id})")
+
             from app.models.database import User, Notifications
-            
+            from sqlalchemy import any_
+
             async with AsyncSessionLocal() as db:
-                # Find all admins and coordinators
+                # ① Chỉ lấy user_id — không load full User object vào RAM
+                #    Fix bug: dùng any_() đúng cho PostgreSQL ARRAY column
                 result = await db.execute(
-                    select(User).where(User.role.in_(['admin', 'coordinator']))
-                )
-                admins_and_coordinators = result.scalars().all()
-                
-                # Create notification for each admin/coordinator
-                for admin in admins_and_coordinators:
-                    notification = Notifications(
-                        user_id=admin.user_id,
-                        type="tutor_registration",
-                        title="Đơn đăng ký Tutor mới",
-                        message=f"{data.get('full_name')} đã đăng ký làm Tutor. Vui lòng xem xét và phê duyệt.",
-                        data={
-                            "tutor_id": data.get('tutor_id'),
-                            "user_id": data.get('user_id'),
-                            "status": "pending"
-                        },
-                        is_read=False
+                    select(User.user_id).where(
+                        or_(
+                            'admin' == any_(User.role),
+                            'coordinator' == any_(User.role)
+                        )
                     )
-                    db.add(notification)
-                
+                )
+                recipient_ids = result.scalars().all()  # list[int] — rất nhẹ
+
+                if not recipient_ids:
+                    logger.warning("No admin/coordinator found to notify")
+                    return
+
+                # ② Bulk INSERT — 1 câu SQL thay vì N câu
+                message = f"{full_name} đã đăng ký làm Tutor. Vui lòng xem xét và phê duyệt."
+                await db.execute(
+                    insert(Notifications),
+                    [
+                        {
+                            "user_id": uid,
+                            "type":    "tutor_registration",
+                            "title":   "Đơn đăng ký Tutor mới",
+                            "message": message,
+                            "data":    {"tutor_id": tutor_id, "user_id": user_id, "status": "pending"},
+                            "is_read": False
+                        }
+                        for uid in recipient_ids
+                    ]
+                )
                 await db.commit()
-                logger.info(f"Created notifications for {len(admins_and_coordinators)} admin(s)/coordinator(s)")
-                
+                logger.info(f"Bulk inserted notifications for {len(recipient_ids)} recipient(s)")
+
+                # ③ WebSocket push — chỉ gửi cho users đang online
+                ws_payload = {
+                    "title":    "Đơn đăng ký Tutor mới",
+                    "message":  message,
+                    "tutor_id": tutor_id,
+                }
+                online_count = 0
+                for uid in recipient_ids:
+                    if manager.is_online(uid):
+                        try:
+                            await manager.notify_user(
+                                user_id=uid,
+                                notification_type="tutor_registration",
+                                data=ws_payload
+                            )
+                            online_count += 1
+                        except Exception as ws_err:
+                            logger.warning(f"WebSocket push failed for user {uid}: {ws_err}")
+
+                logger.info(f"WebSocket push: {online_count}/{len(recipient_ids)} online")
+
         except Exception as e:
-            logger.error(f"Error creating tutor registration notification: {e}")
+            logger.error(f"Error in TutorRegistrationListener: {e}", exc_info=True)
+
 
 
 class TutorSubjectRegistrationListener(BaseListener):
     """Handle tutor subject registration events"""
-    
+
     async def handle(self, data: Dict[str, Any]):
         """
-        Create notification for coordinators when tutor registers for a subject
-        
-        Expected data:
-            - registration_id: int
-            - tutor_id: int
-            - user_id: int
-            - subject_id: int
-            - subject_name: str
-            - subject_code: str
-            - full_name: str
-            - email: str
-            - gpa: float (optional)
-            - qualifications: str (optional)
+        Gửi notification cho coordinators + xác nhận cho tutor khi tutor đăng ký dạy môn.
+
+        Cải tiến so với cũ:
+          - Chỉ SELECT user_id (không load full User object)
+          - Bulk INSERT thay vì loop INSERT
+          - WebSocket push realtime cho coordinators đang online
         """
         try:
-            subject_name = data.get('subject_name')
-            subject_code = data.get('subject_code')
-            full_name = data.get('full_name')
+            subject_name  = data.get('subject_name', '')
+            subject_code  = data.get('subject_code', '')
+            full_name     = data.get('full_name', 'Unknown')
+            tutor_user_id = data.get('user_id')
             logger.info(f"New subject registration: {full_name} for {subject_code} - {subject_name}")
-            
+
             from app.models.database import User, Notifications
             from sqlalchemy import any_
-            
+
+            # Build messages
+            coord_message = f"{full_name} đã đăng ký dạy môn {subject_code} - {subject_name}."
+            if data.get('gpa'):
+                coord_message += f" GPA: {data['gpa']}"
+            if data.get('max_students'):
+                coord_message += f" | Tối đa {data['max_students']} sinh viên/buổi"
+
+            tutor_message = (
+                f"Đơn đăng ký dạy môn {subject_code} - {subject_name} "
+                f"của bạn đã được gửi và đang chờ phê duyệt."
+            )
+
+            notification_meta = {
+                "registration_id": data.get('registration_id'),
+                "tutor_id":        data.get('tutor_id'),
+                "user_id":         tutor_user_id,
+                "subject_id":      data.get('subject_id'),
+                "subject_code":    subject_code,
+                "subject_name":    subject_name,
+                "status":          "pending",
+                "gpa":             data.get('gpa'),
+                "qualifications":  data.get('qualifications'),
+                "availability":    data.get('availability', {}),
+                "total_sessions":  data.get('total_sessions', 10),
+                "start_date":      data.get('start_date'),
+                "end_date":        data.get('end_date'),
+                "max_students":    data.get('max_students', 25)
+            }
+
             async with AsyncSessionLocal() as db:
-                # Find all coordinators
+                # ① Chỉ lấy user_id của coordinators
                 result = await db.execute(
-                    select(User).where('coordinator' == any_(User.role))
+                    select(User.user_id).where('coordinator' == any_(User.role))
                 )
-                coordinators = result.scalars().all()
-                
-                # Create notification for each coordinator
-                message = f"{full_name} đã đăng ký dạy môn {subject_code} - {subject_name}."
-                if data.get('gpa'):
-                    message += f" GPA: {data.get('gpa')}"
-                if data.get('max_students'):
-                    message += f" | Tối đa {data.get('max_students')} sinh viên/buổi"
-                
-                for coordinator in coordinators:
-                    notification = Notifications(
-                        user_id=coordinator.user_id,
-                        type="subject_registration",
-                        title="Đơn đăng ký dạy môn mới",
-                        message=message,
-                        data={
-                            "registration_id": data.get('registration_id'),
-                            "tutor_id": data.get('tutor_id'),
-                            "user_id": data.get('user_id'),
-                            "subject_id": data.get('subject_id'),
-                            "subject_code": subject_code,
-                            "subject_name": subject_name,
-                            "status": "pending",
-                            "bio": data.get('bio'),
-                            "gpa": data.get('gpa'),
-                            "qualifications": data.get('qualifications'),
-                            "availability": data.get('availability', {}),
-                            "total_sessions": data.get('total_sessions', 10),
-                            "start_date": data.get('start_date'),
-                            "end_date": data.get('end_date'),
-                            "max_students": data.get('max_students', 25)
-                        },
-                        is_read=False
+                coordinator_ids = result.scalars().all()  # list[int]
+
+                if coordinator_ids:
+                    # ② Bulk INSERT cho coordinators — 1 query thay vì N
+                    await db.execute(
+                        insert(Notifications),
+                        [
+                            {
+                                "user_id": uid,
+                                "type":    "subject_registration",
+                                "title":   "Đơn đăng ký dạy môn mới",
+                                "message": coord_message,
+                                "data":    notification_meta,
+                                "is_read": False
+                            }
+                            for uid in coordinator_ids
+                        ]
                     )
-                    db.add(notification)
-                
-                await db.commit()
-                logger.info(f"Created subject registration notifications for {len(coordinators)} coordinator(s)")
-                
-                # Also notify the tutor about submission
-                tutor_message = f"Đơn đăng ký dạy môn {subject_code} - {subject_name} của bạn đã được gửi và đang chờ phê duyệt."
-                if data.get('gpa'):
-                    tutor_message += f" GPA: {data.get('gpa')}"
-                if data.get('max_students'):
-                    tutor_message += f" | Tối đa {data.get('max_students')} sinh viên/buổi"
-                
-                tutor_notification = Notifications(
-                    user_id=data.get('user_id'),
-                    type="subject_registration_submitted",
-                    title="Đơn đăng ký đã được gửi",
-                    message=tutor_message,
-                    data={
-                        "registration_id": data.get('registration_id'),
-                        "subject_code": subject_code,
-                        "subject_name": subject_name,
-                        "status": "pending",
-                        "bio": data.get('bio'),
-                        "gpa": data.get('gpa'),
-                        "qualifications": data.get('qualifications'),
-                        "availability": data.get('availability', {}),
-                        "total_sessions": data.get('total_sessions', 10),
-                        "start_date": data.get('start_date'),
-                        "end_date": data.get('end_date'),
-                        "max_students": data.get('max_students', 25)
-                    },
-                    is_read=False
+                    logger.info(f"Bulk inserted notifications for {len(coordinator_ids)} coordinator(s)")
+
+                # ③ INSERT xác nhận cho chính tutor
+                await db.execute(
+                    insert(Notifications),
+                    [{
+                        "user_id": tutor_user_id,
+                        "type":    "subject_registration_submitted",
+                        "title":   "Đơn đăng ký đã được gửi",
+                        "message": tutor_message,
+                        "data":    notification_meta,
+                        "is_read": False
+                    }]
                 )
-                db.add(tutor_notification)
                 await db.commit()
-                
+
+                # ④ WebSocket push cho coordinators đang online
+                ws_payload = {
+                    "title":           "Đơn đăng ký dạy môn mới",
+                    "message":         coord_message,
+                    "registration_id": data.get('registration_id'),
+                    "tutor_id":        data.get('tutor_id'),
+                    "subject_code":    subject_code,
+                    "subject_name":    subject_name,
+                }
+                online_count = 0
+                for uid in coordinator_ids:
+                    if manager.is_online(uid):
+                        try:
+                            await manager.notify_user(
+                                user_id=uid,
+                                notification_type="subject_registration",
+                                data=ws_payload
+                            )
+                            online_count += 1
+                        except Exception as ws_err:
+                            logger.warning(f"WebSocket push failed for coordinator {uid}: {ws_err}")
+
+                # ⑤ WebSocket push xác nhận cho tutor
+                if manager.is_online(tutor_user_id):
+                    try:
+                        await manager.notify_user(
+                            user_id=tutor_user_id,
+                            notification_type="subject_registration_submitted",
+                            data={"title": "Đơn đăng ký đã được gửi", "message": tutor_message}
+                        )
+                    except Exception as ws_err:
+                        logger.warning(f"WebSocket push to tutor failed: {ws_err}")
+
+                logger.info(
+                    f"Done: {len(coordinator_ids)} coordinator(s) notified, "
+                    f"{online_count} online push sent"
+                )
+
         except Exception as e:
-            logger.error(f"Error creating subject registration notification: {e}")
+            logger.error(f"Error in TutorSubjectRegistrationListener: {e}", exc_info=True)
+
 
 
 class TutorApprovalListener(BaseListener):

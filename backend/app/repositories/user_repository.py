@@ -13,6 +13,16 @@ class UserRepository:
     
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    # ── Transaction helpers ──────────────────────────────────────────────
+    async def commit(self):
+        await self.db.commit()
+
+    async def rollback(self):
+        await self.db.rollback()
+
+    def add(self, obj):
+        self.db.add(obj)
     
     async def get_by_id(self, user_id: int) -> Optional[User]:
         """Get user by ID"""
@@ -78,3 +88,19 @@ class UserRepository:
         """Check if user exists by email"""
         user = await self.get_by_email(email)
         return user is not None
+
+    async def get_student_by_user_id(self, user_id: int):
+        """Get student profile by user ID"""
+        from app.models.database import Student
+        result = await self.db.execute(
+            select(Student).where(Student.user_id == user_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_student_by_code(self, student_code: str):
+        """Get student profile by student code"""
+        from app.models.database import Student
+        result = await self.db.execute(
+            select(Student).where(Student.student_code == student_code)
+        )
+        return result.scalar_one_or_none()

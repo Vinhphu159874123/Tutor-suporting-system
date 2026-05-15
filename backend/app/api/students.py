@@ -209,60 +209,6 @@ async def get_student_enrolled_courses(
     """
     Get all courses/subjects the student is enrolled in
     Returns list of subjects with session counts and tutor info
-    
-    Accessible by: Tutors, Coordinators, Admin, or the student themselves
     """
-    from app.models.database import Student, Session, SessionParticipant, Subject, Tutor, User as DBUser
-    from sqlalchemy import select, func
-    from sqlalchemy.ext.asyncio import AsyncSession
-    
-    # Get student's user_id
-    student_result = await student_service.student_repo.db.execute(
-        select(Student).where(Student.student_id == student_id)
-    )
-    student = student_result.scalar_one_or_none()
-    
-    if not student:
-        raise HTTPException(status_code=404, detail="Student not found")
-    
-    # OPTIMIZATION: Get all data in ONE query with JOIN instead of N queries
-    subjects_result = await student_service.student_repo.db.execute(
-        select(
-            Subject,
-            Session.tutor_id,
-            func.count(Session.session_id).label('session_count'),
-            func.count(SessionParticipant.participant_id).label('enrolled_sessions'),
-            DBUser.full_name.label('tutor_name'),
-            DBUser.email.label('tutor_email')
-        )
-        .join(Session, Subject.subject_id == Session.subject_id)
-        .join(SessionParticipant, Session.session_id == SessionParticipant.session_id)
-        .join(Tutor, Session.tutor_id == Tutor.tutor_id)
-        .join(DBUser, Tutor.user_id == DBUser.user_id)
-        .where(SessionParticipant.user_id == student.user_id)
-        .where(SessionParticipant.role == 'student')
-        .group_by(Subject.subject_id, Session.tutor_id, DBUser.full_name, DBUser.email)
-    )
-    results = subjects_result.all()
-    
-    courses = []
-    for subject, tutor_id, session_count, enrolled_sessions, tutor_name, tutor_email in results:
-        courses.append({
-            "subject_id": subject.subject_id,
-            "subject_code": subject.subject_code,
-            "subject_name": subject.subject_name,
-            "department": subject.department,
-            "credits": subject.credits,
-            "total_sessions": session_count,
-            "enrolled_sessions": enrolled_sessions,
-            "tutor_id": tutor_id,
-            "tutor_name": tutor_name,
-            "tutor_email": tutor_email
-        })
-    
-    return {
-        "student_id": student_id,
-        "user_id": student.user_id,
-        "courses": courses,
-        "total_courses": len(courses)
-    }
+    return await student_service.get_enrolled_courses(student_id)
+

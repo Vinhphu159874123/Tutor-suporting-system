@@ -139,8 +139,12 @@ class AuthService:
                 major=sso_user.get("major") or 'Computer Science',
                 year=1
             )
-            self.user_repo.db.add(new_student)
-            await self.user_repo.db.commit()
+            self.user_repo.add(new_student)
+            try:
+                await self.user_repo.commit()
+            except Exception:
+                await self.user_repo.rollback()
+                raise
             print(f"✅ Auto-created student profile for SSO user {user.email}")
         else:
             # OPTIMIZATION: Skip checking existing student profile - not critical for login
@@ -190,40 +194,33 @@ class AuthService:
         
         # Auto-create Student profile for student role
         if 'student' in (role if isinstance(role, list) else [role]):  # Support both array and string
-            from app.core.database import AsyncSessionLocal
-            async with AsyncSessionLocal() as db:
-                # Check if student profile already exists
-                result = await db.execute(
-                    select(Student).where(Student.user_id == user.user_id)
-                )
-                existing_student = result.scalar_one_or_none()
+            # Check if student profile already exists
+            existing_student = await self.user_repo.get_student_by_user_id(user.user_id)
+            
+            if not existing_student:
+                # Validate student_code uniqueness if provided
+                final_student_code = student_code or f'SV{user.user_id:06d}'
                 
-                if not existing_student:
-                    # Validate student_code uniqueness if provided
-                    final_student_code = student_code or f'SV{user.user_id:06d}'
-                    
-                    if student_code:
-                        # Check if student_code already exists
-                        code_check = await db.execute(
-                            select(Student).where(Student.student_code == student_code)
+                if student_code:
+                    # Check if student_code already exists
+                    code_exists = await self.user_repo.get_student_by_code(student_code)
+                    if code_exists:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Mã số sinh viên {student_code} đã tồn tại!"
                         )
-                        if code_check.scalar_one_or_none():
-                            raise HTTPException(
-                                status_code=status.HTTP_400_BAD_REQUEST,
-                                detail=f"Mã số sinh viên {student_code} đã tồn tại!"
-                            )
-                    
-                    # Create student profile with user-provided or auto-generated data
-                    new_student = Student(
-                        user_id=user.user_id,
-                        student_code=final_student_code,
-                        faculty=faculty or 'Computer Science',
-                        major=major or 'Computer Science',
-                        year=int(year) if year else 1
-                    )
-                    db.add(new_student)
-                    await db.commit()
-                    print(f"✅ Auto-created student profile for user {user.email} with code {new_student.student_code}")
+                
+                # Create student profile with user-provided or auto-generated data
+                new_student = Student(
+                    user_id=user.user_id,
+                    student_code=final_student_code,
+                    faculty=faculty or 'Computer Science',
+                    major=major or 'Computer Science',
+                    year=int(year) if year else 1
+                )
+                self.user_repo.add(new_student)
+                await self.user_repo.commit()
+                print(f"✅ Auto-created student profile for user {user.email} with code {new_student.student_code}")
         
         return UserResponse.model_validate(user)
     

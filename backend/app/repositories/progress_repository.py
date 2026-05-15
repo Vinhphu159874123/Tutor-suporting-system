@@ -1,153 +1,91 @@
 """
-Progress Repository - PLACEHOLDER
-Database operations for learning progress tracking
+Progress Repository
+Database operations for student progress tracking
 """
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, and_
 from typing import List, Optional
-from datetime import datetime
+from app.models.database import (
+    ProgressTracking, Session, Subject, Student, Tutor,
+    SessionParticipant, Attendance, User,
+)
 
-# TODO: Import when dependencies available
-# from sqlalchemy.ext.asyncio import AsyncSession
-# from sqlalchemy import select, delete, update
-# from app.models.database import ProgressTracking, LearningAchievement
 
 class ProgressRepository:
-    """Handle progress database operations - PLACEHOLDER"""
-    
-    def __init__(self, db=None):
-        # TODO: Use real AsyncSession
+    """Handle all database operations for Progress module"""
+
+    def __init__(self, db: AsyncSession):
         self.db = db
-    
-    async def create_progress_entry(self, progress_data: dict) -> dict:
-        """
-        Create new progress tracking entry
-        
-        TODO:
-        - Create ProgressTracking instance
-        - Add to database session
-        - Commit transaction
-        - Return created progress entry
-        
-        Returns: Created progress entry
-        """
-        # PLACEHOLDER - Replace with real implementation
-        return {
-            "id": 1,
-            **progress_data,
-            "created_at": datetime.utcnow()
-        }
-    
+
     async def get_student_progress(
-        self, 
-        student_id: int,
+        self, student_id: int, *,
         subject_id: Optional[int] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None
-    ) -> List[dict]:
-        """
-        Get progress entries for student with filters
-        
-        TODO:
-        - Query ProgressTracking by student_id
-        - Apply optional filters (subject, date range)
-        - Order by created_at desc
-        - Return list of progress entries
-        
-        Returns: List of progress entries
-        """
-        # PLACEHOLDER - Replace with real implementation
-        return []
-    
-    async def get_by_session_id(self, session_id: int) -> Optional[dict]:
-        """
-        Get progress entry for specific session
-        
-        TODO:
-        - Query ProgressTracking by session_id
-        - Return progress entry or None
-        
-        Returns: Progress entry or None
-        """
-        # PLACEHOLDER - Replace with real implementation
-        return None
-    
-    async def update_progress_entry(self, progress_id: int, update_data: dict) -> Optional[dict]:
-        """
-        Update existing progress entry
-        
-        TODO:
-        - Query ProgressTracking by ID
-        - Update fields from update_data
-        - Commit transaction
-        - Return updated progress entry
-        
-        Returns: Updated progress entry or None
-        """
-        # PLACEHOLDER - Replace with real implementation
-        return None
-    
-    async def get_subject_progress_stats(self, subject_id: int, student_id: Optional[int] = None) -> dict:
-        """
-        Calculate progress statistics for subject
-        
-        TODO:
-        - Query ProgressTracking by subject_id
-        - Calculate averages and counts
-        - Analyze trends over time
-        - Return statistics dict
-        
-        Returns: Progress statistics
-        """
-        # PLACEHOLDER - Replace with real implementation
-        return {
-            "average_understanding": 0.0,
-            "total_sessions": 0,
-            "topics_covered": 0
-        }
-    
-    async def create_achievement(self, achievement_data: dict) -> dict:
-        """
-        Create new learning achievement
-        
-        TODO:
-        - Create LearningAchievement instance
-        - Add to database session
-        - Commit transaction
-        - Return created achievement
-        
-        Returns: Created achievement
-        """
-        # PLACEHOLDER - Replace with real implementation
-        return {
-            "id": 1,
-            **achievement_data,
-            "earned_at": datetime.utcnow()
-        }
-    
-    async def get_student_achievements(self, student_id: int) -> List[dict]:
-        """
-        Get all achievements for student
-        
-        TODO:
-        - Query LearningAchievement by student_id
-        - Order by earned_at desc
-        - Return list of achievements
-        
-        Returns: List of achievements
-        """
-        # PLACEHOLDER - Replace with real implementation
-        return []
-    
-    async def get_recent_progress(self, student_id: int, days: int = 30) -> List[dict]:
-        """
-        Get recent progress entries for student
-        
-        TODO:
-        - Query ProgressTracking by student_id
-        - Filter by date (last N days)
-        - Order by created_at desc
-        - Return recent progress entries
-        
-        Returns: List of recent progress entries
-        """
-        # PLACEHOLDER - Replace with real implementation
-        return []
+        start_date=None, end_date=None,
+    ) -> list:
+        query = (select(ProgressTracking, Session, Subject)
+                 .join(Session, ProgressTracking.session_id == Session.session_id)
+                 .join(Subject, ProgressTracking.subject_id == Subject.subject_id)
+                 .where(ProgressTracking.student_id == student_id))
+        if subject_id:
+            query = query.where(ProgressTracking.subject_id == subject_id)
+        if start_date:
+            query = query.where(Session.start_time >= start_date)
+        if end_date:
+            query = query.where(Session.start_time <= end_date)
+        return (await self.db.execute(query.order_by(Session.start_time.desc()))).all()
+
+    async def get_subject_by_id(self, subject_id: int) -> Optional[Subject]:
+        return (await self.db.execute(
+            select(Subject).where(Subject.subject_id == subject_id)
+        )).scalar_one_or_none()
+
+    async def get_tutor_by_user_id(self, user_id: int) -> Optional[Tutor]:
+        return (await self.db.execute(
+            select(Tutor).where(Tutor.user_id == user_id)
+        )).scalar_one_or_none()
+
+    async def get_student_by_user_id(self, user_id: int) -> Optional[Student]:
+        return (await self.db.execute(
+            select(Student).where(Student.user_id == user_id)
+        )).scalar_one_or_none()
+
+    async def get_sessions_for_tutor_subject(
+        self, subject_id: int, tutor_id: int
+    ) -> List[Session]:
+        return (await self.db.execute(
+            select(Session).where(and_(
+                Session.subject_id == subject_id,
+                Session.tutor_id == tutor_id))
+            .order_by(Session.scheduled_date, Session.start_time)
+        )).scalars().all()
+
+    async def get_students_in_sessions(self, session_ids: list) -> list:
+        return (await self.db.execute(
+            select(User, Student, SessionParticipant.user_id)
+            .join(Student, User.user_id == Student.user_id)
+            .join(SessionParticipant, User.user_id == SessionParticipant.user_id)
+            .where(and_(SessionParticipant.session_id.in_(session_ids),
+                        SessionParticipant.role == 'student')).distinct()
+        )).all()
+
+    async def get_attendance_for_student_sessions(
+        self, student_id: int, session_ids: list
+    ) -> List[Attendance]:
+        return (await self.db.execute(
+            select(Attendance).where(and_(
+                Attendance.student_id == student_id,
+                Attendance.session_id.in_(session_ids)))
+        )).scalars().all()
+
+    async def get_student_sessions_for_subject(
+        self, subject_id: int, user_id: int, tutor_id: Optional[int] = None
+    ) -> List[Session]:
+        sq = select(Session).where(Session.subject_id == subject_id)
+        if tutor_id:
+            sq = sq.where(Session.tutor_id == tutor_id)
+        return (await self.db.execute(
+            sq.join(SessionParticipant, Session.session_id == SessionParticipant.session_id)
+            .where(and_(SessionParticipant.user_id == user_id,
+                        SessionParticipant.role == 'student'))
+            .order_by(Session.scheduled_date, Session.start_time)
+        )).scalars().all()

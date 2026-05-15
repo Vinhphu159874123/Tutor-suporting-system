@@ -10,10 +10,11 @@ from app.repositories.session_repository import SessionRepository
 from app.schemas.session import SessionCreate, SessionUpdate, SessionResponse
 from app.schemas.session_participant import SessionJoinRequest, SessionParticipantResponse
 from app.events import event_bus, EventTypes
+from app.core.locks import distributed_lock, LockAcquisitionError
 
 
 class SessionService:
-    """Business logic for session operations - PLACEHOLDER"""
+    """Business logic for session operations"""
     
     def __init__(self, session_repo: SessionRepository):
         self.session_repo = session_repo
@@ -354,9 +355,7 @@ class SessionService:
             uploaded_at=datetime.utcnow()
         )
         
-        self.session_repo.db.add(material)
-        await self.session_repo.db.commit()
-        await self.session_repo.db.refresh(material)
+        await self.session_repo.add_material(material)
         
         return {
             "message": "Material uploaded successfully to Supabase Storage",
@@ -398,9 +397,7 @@ class SessionService:
             uploaded_at=datetime.utcnow()
         )
         
-        self.session_repo.db.add(material)
-        await self.session_repo.db.commit()
-        await self.session_repo.db.refresh(material)
+        await self.session_repo.add_material(material)
         
         return {
             "message": "Material metadata saved successfully",
@@ -421,11 +418,19 @@ class SessionService:
         user_id: int,
         join_request: SessionJoinRequest
     ) -> SessionParticipantResponse:
-        """Student joins a session - creates pending participant"""
+        """
+        Student joins a session - creates pending participant.
+
+        Race condition protection:
+            Dùng Redis distributed lock trên key "session:<id>:enroll" để đảm bảo
+            chỉ 1 request được check + insert participant cùng lúc.
+            Nếu 2 student cùng join slot cuối, request thứ 2 sẽ thấy session full
+            sau khi acquire lock và nhận HTTP 400.
+        """
         from app.models.database import SessionParticipant
         from sqlalchemy import select, and_
         
-        # Get session
+        # Get session — đọc trước lock để giảm thời gian giữ lock
         session = await self.session_repo.get_by_id(session_id)
         if not session:
             raise HTTPException(
@@ -440,54 +445,55 @@ class SessionService:
                 detail=f"Cannot join session with status '{session.status}'. Session must be published."
             )
         
-        # Check if already participant
-        result = await self.session_repo.db.execute(
-            select(SessionParticipant).where(
-                and_(
-                    SessionParticipant.session_id == session_id,
-                    SessionParticipant.user_id == user_id
+        try:
+            # ─── CRITICAL SECTION ───────────────────────────────────────────
+            # Lock theo session_id: chỉ 1 request enroll vào session này cùng lúc
+            async with distributed_lock(
+                resource=f"session:{session_id}:enroll",
+                ttl_ms=5_000,      # 5s — đủ cho check + insert + commit
+                timeout_s=3.0,     # chờ tối đa 3s trước khi báo lỗi
+            ):
+                # Kiểm tra lại session sau khi giữ lock (state có thể đã thay đổi)
+                session = await self.session_repo.get_by_id(session_id)
+
+                # Check if already participant
+                existing = await self.session_repo.get_participant(session_id, user_id)
+                if existing:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="You are already a participant in this session"
+                    )
+                
+                # Check max students — đọc lại count sau khi lock để tránh TOCTOU
+                confirmed_students = await self.session_repo.get_confirmed_student_count(session_id)
+                if confirmed_students >= session.max_students:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Session is full ({session.max_students} students max)"
+                    )
+                
+                # Create participant (pending by default)
+                participant = SessionParticipant(
+                    session_id=session_id,
+                    user_id=user_id,
+                    role='student',
+                    status='pending',
+                    notes=join_request.notes,
+                    joined_at=datetime.utcnow()
                 )
-            )
-        )
-        existing = result.scalar_one_or_none()
-        if existing:
+                
+                self.session_repo.add(participant)
+                await self.session_repo.commit()
+                await self.session_repo.refresh(participant, ['user'])
+            # ─── END CRITICAL SECTION ────────────────────────────────────────
+
+        except LockAcquisitionError as e:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="You are already a participant in this session"
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=str(e)
             )
         
-        # Check max students
-        result = await self.session_repo.db.execute(
-            select(SessionParticipant).where(
-                and_(
-                    SessionParticipant.session_id == session_id,
-                    SessionParticipant.role == 'student',
-                    SessionParticipant.status == 'confirmed'
-                )
-            )
-        )
-        confirmed_students = len(result.scalars().all())
-        if confirmed_students >= session.max_students:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Session is full ({session.max_students} students max)"
-            )
-        
-        # Create participant (pending by default)
-        participant = SessionParticipant(
-            session_id=session_id,
-            user_id=user_id,
-            role='student',
-            status='pending',
-            notes=join_request.notes,
-            joined_at=datetime.utcnow()
-        )
-        
-        self.session_repo.db.add(participant)
-        await self.session_repo.db.commit()
-        await self.session_repo.db.refresh(participant, ['user'])
-        
-        # Emit event for tutor notification
+        # Emit event for tutor notification (ngoài lock — không cần bảo vệ)
         await event_bus.emit(EventTypes.SESSION_COMPLETED, {  # TODO: Create SESSION_JOIN_REQUEST event
             "session_id": session_id,
             "student_user_id": user_id,
@@ -514,11 +520,18 @@ class SessionService:
         tutor_user_id: int,
         notes: Optional[str] = None
     ) -> dict:
-        """Tutor accepts/rejects a student join request"""
+        """
+        Tutor accepts/rejects a student join request.
+
+        Race condition protection:
+            Khi tutor accept participant vào session, cần kiểm tra lại max_students
+            vì có thể có nhiều pending participant và tutor đang accept đồng thời
+            từ nhiều tab/request. Lock đảm bảo chỉ 1 accept được xử lý cùng lúc.
+        """
         from app.models.database import SessionParticipant
-        from sqlalchemy import select
+        from sqlalchemy import select, and_
         
-        # Get session and verify tutor
+        # Get session and verify tutor — trước lock để fail-fast
         session = await self.session_repo.get_by_id(session_id)
         if not session:
             raise HTTPException(
@@ -533,26 +546,43 @@ class SessionService:
                 detail="Only the session tutor can accept/reject participants"
             )
         
-        # Get participant
-        result = await self.session_repo.db.execute(
-            select(SessionParticipant).where(
-                SessionParticipant.participant_id == participant_id
-            )
-        )
-        participant = result.scalar_one_or_none()
-        
-        if not participant or participant.session_id != session_id:
+        try:
+            # ─── CRITICAL SECTION ───────────────────────────────────────────
+            # Lock khi accept để tránh over-accept vượt max_students
+            # (reject không cần lock vì không tăng count)
+            lock_resource = f"session:{session_id}:enroll"  # dùng cùng key với join_session
+            async with distributed_lock(resource=lock_resource, ttl_ms=5_000, timeout_s=3.0):
+                # Get participant
+                participant = await self.session_repo.get_participant_by_id(participant_id)
+                
+                if not participant or participant.session_id != session_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Participant not found in this session"
+                    )
+                
+                # Nếu accept, kiểm tra lại capacity trước khi confirm
+                if new_status == 'confirmed':
+                    confirmed_count = await self.session_repo.get_confirmed_student_count(session_id)
+                    if confirmed_count >= session.max_students:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Cannot confirm: session already at max capacity ({session.max_students} students)"
+                        )
+                
+                # Update status
+                participant.status = new_status
+                if notes:
+                    participant.notes = notes
+                
+                await self.session_repo.commit()
+            # ─── END CRITICAL SECTION ────────────────────────────────────────
+
+        except LockAcquisitionError as e:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Participant not found in this session"
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=str(e)
             )
-        
-        # Update status
-        participant.status = new_status
-        if notes:
-            participant.notes = notes
-        
-        await self.session_repo.db.commit()
         
         return {
             "message": f"Participant {new_status}",
@@ -566,16 +596,7 @@ class SessionService:
         from sqlalchemy import select, and_
         
         # Get participant
-        result = await self.session_repo.db.execute(
-            select(SessionParticipant).where(
-                and_(
-                    SessionParticipant.session_id == session_id,
-                    SessionParticipant.user_id == user_id,
-                    SessionParticipant.role == 'student'
-                )
-            )
-        )
-        participant = result.scalar_one_or_none()
+        participant = await self.session_repo.get_participant(session_id, user_id, role='student')
         
         if not participant:
             raise HTTPException(
@@ -584,8 +605,7 @@ class SessionService:
             )
         
         # Delete participant
-        await self.session_repo.db.delete(participant)
-        await self.session_repo.db.commit()
+        await self.session_repo.delete_participant(participant)
         
         return {
             "message": "Successfully left the session",
@@ -598,12 +618,7 @@ class SessionService:
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
         
-        result = await self.session_repo.db.execute(
-            select(SessionParticipant)
-            .options(selectinload(SessionParticipant.user))
-            .where(SessionParticipant.session_id == session_id)
-        )
-        participants = result.scalars().all()
+        participants = await self.session_repo.get_session_participants(session_id)
         
         return [
             SessionParticipantResponse(
@@ -619,4 +634,295 @@ class SessionService:
             )
             for p in participants
         ]
+
+    # ==================================================================
+    # Phase 2: Methods extracted from sessions controller
+    # ==================================================================
+
+    async def get_tutor_id_for_user(self, user_id: int) -> Optional[int]:
+        """Get tutor_id for a given user_id"""
+        return await self.session_repo.get_tutor_id_for_user(user_id)
+
+    async def ensure_profile(self, user, mode: Optional[str] = None):
+        """Auto-create Student/Tutor profile if missing"""
+        roles = user.role if isinstance(user.role, list) else [user.role]
+        if mode == 'student' or 'student' in roles:
+            await self.session_repo.ensure_student_profile(user)
+        if mode == 'tutor' or 'tutor' in roles:
+            await self.session_repo.ensure_tutor_profile(user)
+
+    async def get_dashboard_sessions(self, user, mode: Optional[str] = None) -> dict:
+        """OPTIMIZED + CACHED: Recent and upcoming sessions for dashboard"""
+        from datetime import date
+        from app.core.cache import get_or_load
+
+        active_role = mode or user.role
+
+        async def _load():
+            today = date.today()
+
+            def to_dict(s):
+                return {"session_id": s.session_id, "tutor_id": s.tutor_id,
+                        "subject_id": s.subject_id, "title": s.title, "description": s.description,
+                        "scheduled_date": s.scheduled_date.isoformat() if s.scheduled_date else None,
+                        "start_time": str(s.start_time) if s.start_time else None,
+                        "end_time": str(s.end_time) if s.end_time else None,
+                        "duration": s.duration, "location_type": s.location_type,
+                        "meeting_link": s.meeting_link, "physical_address": s.physical_address,
+                        "status": s.status, "max_students": s.max_students,
+                        "tutor": {"tutor_id": s.tutor.tutor_id, "user_id": s.tutor.user_id,
+                                  "email": s.tutor.user.email if s.tutor and s.tutor.user else None,
+                                  "full_name": s.tutor.user.full_name if s.tutor and s.tutor.user else None} if s.tutor else None}
+
+            if active_role == 'student':
+                recent = await self.session_repo.get_dashboard_recent_student(user.user_id)
+                upcoming = await self.session_repo.get_dashboard_upcoming_student(user.user_id, today)
+            elif active_role == 'tutor':
+                tid = await self.session_repo.get_tutor_id_for_user(user.user_id)
+                if not tid:
+                    return {"recent": [], "upcoming": []}
+                recent = await self.session_repo.get_dashboard_recent_tutor(tid)
+                upcoming = await self.session_repo.get_dashboard_upcoming_tutor(tid, today)
+            else:
+                return {"recent": [], "upcoming": []}
+
+            return {"recent": [to_dict(s) for s in recent],
+                    "upcoming": [to_dict(s) for s in upcoming]}
+
+        cache_key = f"sessions:dashboard:{user.user_id}:{active_role}"
+        return await get_or_load(cache_key, _load, ttl=10)
+
+    async def get_bulk_materials(self, session_ids: list) -> dict:
+        from app.core.cache import get_or_load
+
+        async def _load():
+            mats = await self.session_repo.get_materials_by_session_ids(session_ids)
+            m_map: dict = {}
+            for m in mats:
+                m_map.setdefault(m.session_id, []).append({
+                    "material_id": m.material_id, "file_name": m.file_name,
+                    "file_type": m.file_type, "file_size": m.file_size,
+                    "description": m.description, "uploaded_at": m.uploaded_at,
+                    "uploaded_by": m.uploaded_by})
+            return {sid: m_map.get(sid, []) for sid in session_ids}
+
+        cache_key = f"materials:bulk:{','.join(map(str, sorted(session_ids)))}"
+        return await get_or_load(cache_key, _load, ttl=30)
+
+    async def get_session_materials_list(self, session_id: int) -> dict:
+        mats = await self.session_repo.get_materials_by_session(session_id)
+        return {"data": [{"material_id": m.material_id, "file_name": m.file_name,
+                          "file_type": m.file_type, "file_size": m.file_size,
+                          "description": m.description, "uploaded_at": m.uploaded_at,
+                          "uploaded_by": m.uploaded_by} for m in mats]}
+
+    async def delete_material_by_identifier(self, session_id: int, identifier: str) -> dict:
+        from pathlib import Path
+        import os
+        try:
+            mid = int(identifier)
+            mat = await self.session_repo.get_material_by_id(mid, session_id)
+        except ValueError:
+            mat = await self.session_repo.get_material_by_name(identifier, session_id)
+        if not mat:
+            raise HTTPException(status_code=404, detail=f"Material '{identifier}' not found")
+        if mat.file_url:
+            fp = Path(mat.file_url.replace('\\', '/'))
+            if fp.exists():
+                try: os.remove(fp)
+                except: pass
+        await self.session_repo.delete_material(mat)
+        return {"message": "Material deleted successfully", "file_name": mat.file_name}
+
+    async def download_material_by_identifier(self, session_id: int, identifier: str):
+        try:
+            mid = int(identifier)
+            mat = await self.session_repo.get_material_by_id(mid, session_id)
+        except ValueError:
+            mat = await self.session_repo.get_material_by_name(identifier, session_id)
+        if not mat:
+            raise HTTPException(status_code=404, detail=f"Material '{identifier}' not found")
+        return mat
+
+    async def remove_student_from_subject(self, current_user, subject_id: int,
+                                           student_id: int, tutor_id: int) -> dict:
+        from app.models.database import Notifications
+        from datetime import datetime, timezone, timedelta
+        tutor = await self.session_repo.get_tutor_by_user_id(current_user.user_id)
+        if not tutor or tutor.tutor_id != tutor_id:
+            raise HTTPException(status_code=403, detail="Only the tutor can remove students")
+        sids = await self.session_repo.get_session_ids_for_subject_tutor(subject_id, tutor_id)
+        if not sids:
+            raise HTTPException(status_code=404, detail="No sessions found")
+        student = await self.session_repo.get_user_by_id(student_id)
+        subject = await self.session_repo.get_subject_by_id(subject_id)
+        cnt = await self.session_repo.delete_participants_bulk(sids, student_id)
+        await self.session_repo.commit()
+        if cnt > 0 and student and subject:
+            vn = timezone(timedelta(hours=7))
+            self.session_repo.add(Notifications(user_id=student_id, type="removed_from_course",
+                                 title="Bạn đã bị xóa khỏi khóa học",
+                                 message=f"Giáo viên đã xóa bạn khỏi khóa học {subject.subject_name} ({subject.subject_code}). Bạn đã bị xóa khỏi {cnt} phiên học.",
+                                 related_entity_type="subject", related_entity_id=subject_id,
+                                 is_read=False, created_at=datetime.now(vn)))
+            await self.session_repo.commit()
+        return {"message": f"Student removed from {cnt} sessions", "sessions_affected": cnt,
+                "student_id": student_id, "subject_id": subject_id}
+
+    async def bulk_save_sessions(self, user, subject_id: int, sessions_data: list) -> dict:
+        from app.models.database import Session as SM
+        tutor = await self.session_repo.get_tutor_by_user_id(user.user_id)
+        if not tutor:
+            raise HTTPException(status_code=404, detail="Tutor profile not found")
+        created, updated = [], []
+        try:
+            for sd in sessions_data:
+                try:
+                    sdate = datetime.fromisoformat(sd['date']).date()
+                    ts = sd['time_slots']
+                    if ts and len(ts) > 0:
+                        parts = ts[0].split('-')
+                        try: st = datetime.strptime(parts[0].strip(), "%H:%M:%S").time()
+                        except: st = datetime.strptime(parts[0].strip(), "%H:%M").time()
+                        try: et = datetime.strptime(parts[1].strip(), "%H:%M:%S").time()
+                        except: et = datetime.strptime(parts[1].strip(), "%H:%M").time()
+                    else:
+                        st = datetime.strptime("07:00", "%H:%M").time()
+                        et = datetime.strptime("09:00", "%H:%M").time()
+                    sid = sd.get('session_id')
+                    if sid:
+                        ex = await self.session_repo.get_session_by_tutor_and_id(sid, tutor.tutor_id)
+                        if ex:
+                            ex.description = sd.get('description', ''); ex.scheduled_date = sdate
+                            ex.start_time = st; ex.end_time = et
+                            ex.location_type = 'online' if sd.get('location') == 'Online' else 'physical'
+                            ex.meeting_link = sd.get('meeting_link', '')
+                            ex.physical_address = sd.get('location', '') if sd.get('location') != 'Online' else None
+                            ex.materials = sd.get('materials', []); ex.updated_at = datetime.utcnow()
+                            updated.append(ex); continue
+                        sid = None
+                    if not sid:
+                        dup = await self.session_repo.get_session_by_tutor_subject_date(
+                            tutor.tutor_id, subject_id, sdate, st, et)
+                        if dup:
+                            dup.description = sd.get('description', '')
+                            dup.location_type = 'online' if sd.get('location') == 'Online' else 'physical'
+                            dup.meeting_link = sd.get('meeting_link', '')
+                            dup.physical_address = sd.get('location', '') if sd.get('location') != 'Online' else None
+                            dup.materials = sd.get('materials', []); dup.updated_at = datetime.utcnow()
+                            updated.append(dup)
+                        else:
+                            ns = SM(tutor_id=tutor.tutor_id, subject_id=subject_id,
+                                    title=f"Session {sd['session_number']}",
+                                    description=sd.get('description', ''), scheduled_date=sdate,
+                                    start_time=st, end_time=et,
+                                    location_type='online' if sd.get('location') == 'Online' else 'physical',
+                                    meeting_link=sd.get('meeting_link', ''),
+                                    physical_address=sd.get('location', '') if sd.get('location') != 'Online' else None,
+                                    materials=sd.get('materials', []), status='draft')
+                            self.session_repo.add(ns); created.append(ns)
+                except Exception as e:
+                    raise HTTPException(status_code=400, detail=f"Invalid session data: {e}")
+            await self.session_repo.commit()
+            return {"message": "Sessions saved successfully", "created_count": len(created), "updated_count": len(updated)}
+        except HTTPException:
+            await self.session_repo.rollback(); raise
+        except Exception as e:
+            await self.session_repo.rollback(); raise HTTPException(status_code=500, detail=f"Failed to save sessions: {e}")
+
+    async def submit_feedback(self, session_id: int, user_id: int, rating: int,
+                               comment: Optional[str] = None, is_anonymous: bool = False) -> dict:
+        from app.models.database import SessionFeedback
+        await self.get_session(session_id)
+        p = await self.session_repo.get_participant(session_id, user_id, role='student')
+        if not p:
+            raise HTTPException(status_code=403, detail="You are not enrolled in this session")
+        ex = await self.session_repo.get_feedback(session_id, user_id)
+        if ex:
+            ex.rating = rating; ex.comment = comment; ex.is_anonymous = is_anonymous
+            await self.session_repo.commit(); return {"message": "Feedback updated successfully"}
+        self.session_repo.add(SessionFeedback(session_id=session_id, reviewer_id=user_id, reviewer_type='student',
+                               rating=rating, comment=comment, is_anonymous=is_anonymous, is_public=True))
+        await self.session_repo.commit(); return {"message": "Feedback submitted successfully"}
+
+    async def get_feedbacks(self, session_id: int, user_roles: list, user_id: int) -> list:
+        fbs = await self.session_repo.get_feedbacks_by_session(session_id, user_roles, user_id)
+        return [{"feedback_id": f.feedback_id, "rating": f.rating, "comment": f.comment,
+                 "is_anonymous": f.is_anonymous,
+                 "reviewer_id": None if f.is_anonymous else f.reviewer_id,
+                 "created_at": f.created_at.isoformat() if f.created_at else None} for f in fbs]
+
+    async def get_bulk_feedbacks(self, session_ids: list, user_roles: list, user_id: int) -> dict:
+        from app.core.cache import get_or_load
+
+        async def _load():
+            fbs = await self.session_repo.get_feedbacks_by_session_ids(session_ids, user_roles, user_id)
+            m: dict = {}
+            for f in fbs:
+                m.setdefault(f.session_id, []).append({
+                    "feedback_id": f.feedback_id, "session_id": f.session_id, "rating": f.rating,
+                    "comment": f.comment, "is_anonymous": f.is_anonymous,
+                    "reviewer_id": None if f.is_anonymous else f.reviewer_id,
+                    "created_at": f.created_at.isoformat() if f.created_at else None})
+            return m
+
+        sfx = f":{user_id}" if 'student' in user_roles else ""
+        ck = f"feedbacks:bulk:{','.join(map(str, sorted(session_ids)))}{sfx}"
+        return await get_or_load(ck, _load, ttl=30)
+
+    async def get_subject_feedbacks(self, subject_id: int, user, tutor_id_param: Optional[int]) -> dict:
+        roles = user.role if isinstance(user.role, list) else [user.role]
+        tid = tutor_id_param
+        if 'tutor' in roles and not tid:
+            t = await self.session_repo.get_tutor_by_user_id(user.user_id)
+            if t: tid = t.tutor_id
+        data = await self.session_repo.get_subject_feedbacks(subject_id, tid)
+        if not data:
+            return {"average_rating": 0, "total_feedbacks": 0, "rating_distribution": {1:0,2:0,3:0,4:0,5:0}, "feedbacks": []}
+        ratings = [f.rating for f, _, _ in data]
+        dist = {1:0,2:0,3:0,4:0,5:0}
+        for r in ratings: dist[r] += 1
+        fl = []
+        for f, s, u in data:
+            item = {"feedback_id": f.feedback_id, "session_id": f.session_id,
+                    "session_date": s.scheduled_date.isoformat() if s.scheduled_date else None,
+                    "rating": f.rating, "comment": f.comment, "is_anonymous": f.is_anonymous,
+                    "created_at": f.created_at.isoformat() if f.created_at else None}
+            item["reviewer_name"] = u.full_name if not f.is_anonymous and u else "Ẩn danh"
+            item["reviewer_email"] = u.email if not f.is_anonymous and u else None
+            fl.append(item)
+        return {"average_rating": round(sum(ratings)/len(ratings), 2), "total_feedbacks": len(ratings),
+                "rating_distribution": dist, "feedbacks": fl}
+
+    async def get_attendance_participants(self, session_id: int) -> list:
+        data = await self.session_repo.get_attendance_data(session_id)
+        return [{"user_id": u.user_id, "full_name": u.full_name, "email": u.email,
+                 "status": p.status, "attended": p.attended,
+                 "attendance_status": a.status if a else None,
+                 "joined_at": p.joined_at.isoformat() if p.joined_at else None}
+                for p, u, s, a in data]
+
+    async def mark_attendance(self, session_id: int, attendance_data: list) -> dict:
+        from app.models.database import Attendance
+        from datetime import datetime, timezone, timedelta
+        await self.get_session(session_id)
+        vn = timezone(timedelta(hours=7)); now = datetime.now(vn)
+        updated = 0
+        for rec in attendance_data:
+            uid = rec.get('user_id')
+            st = 'present' if rec.get('is_present') else ('late' if rec.get('is_late') else ('excused' if rec.get('is_excused') else 'absent'))
+            p = await self.session_repo.get_participant(session_id, uid, role='student')
+            if not p: continue
+            stu = await self.session_repo.get_student_by_user_id(uid)
+            if not stu: continue
+            ex = await self.session_repo.get_attendance(session_id, stu.student_id)
+            if ex:
+                ex.status = st; ex.check_in_time = now
+            else:
+                self.session_repo.add(Attendance(session_id=session_id, student_id=stu.student_id, status=st,
+                                  check_in_time=now if st in ['present', 'late'] else None))
+            p.attended = st in ['present', 'late']; updated += 1
+        await self.session_repo.commit()
+        return {"message": f"Attendance marked for {updated} students", "updated_count": updated, "skipped_count": 0}
+
 

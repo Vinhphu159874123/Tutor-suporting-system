@@ -11,6 +11,7 @@ from app.api import auth, users, tutors, students, sessions, scheduling, reports
 from app.core.database import engine, create_tables
 from app.core.config import settings
 from app.events import register_all_listeners
+from app.core.cache import close_redis
 
 # Load environment variables
 load_dotenv()
@@ -90,7 +91,6 @@ async def startup_event():
         
         # Create database tables
         await create_tables()
-        await create_tables()
         print("✅ Database tables created successfully")
     except Exception as e:
         print(f"⚠️  Database connection failed: {e}")
@@ -100,6 +100,7 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown"""
+    await close_redis()
     print("🔄 HCMUT Tutor Support System API is shutting down...")
 
 @app.get("/")

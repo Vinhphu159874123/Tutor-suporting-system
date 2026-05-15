@@ -60,3 +60,18 @@ class CommentResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+class CreatePostRequest(BaseModel):
+    """Create forum post request"""
+    title: str
+    content: str
+    category: Optional[str] = "other"
+    forum_id: Optional[int] = 1
+    is_pinned: Optional[bool] = False
+
+
+class CreateReplyRequest(BaseModel):
+    """Create reply to a post"""
+    content: str
+    parent_post_id: int

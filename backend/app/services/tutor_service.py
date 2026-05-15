@@ -93,24 +93,10 @@ class TutorService:
         user_ids = [t.user_id for t in tutors]
         
         # Batch fetch users
-        users_query = select(User).where(User.user_id.in_(user_ids))
-        users_result = await self.tutor_repo.db.execute(users_query)
-        users = users_result.scalars().all()
+        users = await self.tutor_repo.get_users_by_ids(user_ids)
         user_map = {u.user_id: u for u in users}
         
-        # Batch fetch tutor registrations with subjects using JOIN
-        registrations_query = select(
-            TutorRegistration, Subject
-        ).join(
-            Subject, TutorRegistration.subject_id == Subject.subject_id
-        ).where(
-            and_(
-                TutorRegistration.tutor_id.in_(tutor_ids),
-                TutorRegistration.status == 'approved'
-            )
-        )
-        registrations_result = await self.tutor_repo.db.execute(registrations_query)
-        registrations = registrations_result.all()
+        registrations = await self.tutor_repo.get_approved_registrations_for_tutors(tutor_ids)
         
         # Group subjects by tutor_id
         tutor_subjects_map = {}
@@ -152,13 +138,7 @@ class TutorService:
                 detail="Tutor not found"
             )
         
-        # Query availability from database
-        query = select(TutorAvailability).where(
-            TutorAvailability.tutor_id == tutor_id
-        ).order_by(TutorAvailability.day_of_week, TutorAvailability.start_time)
-        
-        result = await self.tutor_repo.db.execute(query)
-        availabilities = result.scalars().all()
+        availabilities = await self.tutor_repo.get_availability(tutor_id)
         
         # Group by day
         days_map = {
@@ -306,10 +286,7 @@ class TutorService:
         }
         
         # Delete existing availability for this tutor
-        from sqlalchemy import delete
-        await self.tutor_repo.db.execute(
-            delete(TutorAvailability).where(TutorAvailability.tutor_id == tutor_id)
-        )
+        await self.tutor_repo.delete_availability(tutor_id)
         
         # Insert new availability
         for day_name, time_slots in availability.items():
@@ -332,9 +309,13 @@ class TutorService:
                         end_time=time(end_hour, end_min),
                         is_recurring=True
                     )
-                    self.tutor_repo.db.add(avail)
+                    self.tutor_repo.add(avail)
         
-        await self.tutor_repo.db.commit()
+        try:
+            await self.tutor_repo.commit()
+        except Exception:
+            await self.tutor_repo.rollback()
+            raise
 
     async def _save_session_schedule(self, tutor_id: int, subject_id: int, availability: dict, subject_name: str):
         """Save session schedule for specific subject"""
@@ -349,12 +330,7 @@ class TutorService:
         }
         
         # Delete existing schedules for this tutor + subject
-        await self.tutor_repo.db.execute(
-            delete(SessionSchedule).where(
-                SessionSchedule.tutor_id == tutor_id,
-                SessionSchedule.subject_id == subject_id
-            )
-        )
+        await self.tutor_repo.delete_session_schedules(tutor_id, subject_id)
         
         # Insert new schedules
         for day_name, time_slots in availability.items():
@@ -392,9 +368,13 @@ class TutorService:
                         valid_until=None,  # No end date
                         is_active=True
                     )
-                    self.tutor_repo.db.add(schedule)
+                    self.tutor_repo.add(schedule)
         
-        await self.tutor_repo.db.commit()
+        try:
+            await self.tutor_repo.commit()
+        except Exception:
+            await self.tutor_repo.rollback()
+            raise
     
     async def register_subject(
         self, 
@@ -417,9 +397,7 @@ class TutorService:
             )
         
         # Validate subject exists
-        subject_query = select(Subject).where(Subject.subject_id == registration_data.subject_id)
-        subject_result = await self.tutor_repo.db.execute(subject_query)
-        subject = subject_result.scalar_one_or_none()
+        subject = await self.tutor_repo.get_subject(registration_data.subject_id)
         
         if not subject:
             raise HTTPException(
@@ -428,13 +406,8 @@ class TutorService:
             )
         
         # Check if already registered for this subject (approved or pending)
-        existing_query = select(TutorRegistration).where(
-            TutorRegistration.tutor_id == tutor.tutor_id,
-            TutorRegistration.subject_id == registration_data.subject_id,
-            TutorRegistration.status.in_(['approved', 'pending'])
-        )
-        existing_result = await self.tutor_repo.db.execute(existing_query)
-        existing_reg = existing_result.scalar_one_or_none()
+        existing_reg = await self.tutor_repo.get_registration(
+            tutor.tutor_id, registration_data.subject_id, ['approved', 'pending'])
         
         if existing_reg:
             status_text = "đã được duyệt" if existing_reg.status == "approved" else "đang chờ duyệt"
@@ -472,9 +445,13 @@ class TutorService:
             max_students=registration_data.max_students
         )
         
-        self.tutor_repo.db.add(new_registration)
-        await self.tutor_repo.db.commit()
-        await self.tutor_repo.db.refresh(new_registration)
+        self.tutor_repo.add(new_registration)
+        try:
+            await self.tutor_repo.commit()
+            await self.tutor_repo.refresh(new_registration)
+        except Exception:
+            await self.tutor_repo.rollback()
+            raise
         
         # Save availability for this subject if provided
         availability_data = registration_data.availability
@@ -528,7 +505,6 @@ class TutorService:
         
         return response
     
-    # PLACEHOLDER methods - implement when needed
 
     async def get_tutor_sessions(
         self,
@@ -642,12 +618,12 @@ class TutorService:
 
     
     async def set_availability(self, tutor_id: int, availability_data: dict) -> dict:
-        """Set tutor availability - PLACEHOLDER"""
+        """Set tutor availability"""
         # TODO: Implement availability management
         return {"message": "Set availability - Not implemented yet"}
     
     async def get_tutor_schedule(self, tutor_id: int, date_range: dict) -> dict:
-        """Get tutor schedule - PLACEHOLDER"""
+        """Get tutor schedule"""
         # TODO: Implement schedule retrieval
         return {"message": "Get schedule - Not implemented yet"}
     
@@ -717,33 +693,14 @@ class TutorService:
         from app.models.database import TutorRegistration, Subject, SessionSchedule
         from sqlalchemy import select, and_
         
-        # Get all approved registrations for this tutor (exclude current subject if provided)
-        conditions = [
-            TutorRegistration.tutor_id == tutor_id,
-            TutorRegistration.status == 'approved'
-        ]
-        
-        if exclude_subject_id:
-            conditions.append(TutorRegistration.subject_id != exclude_subject_id)
-        
-        approved_query = select(TutorRegistration, Subject).join(
-            Subject, TutorRegistration.subject_id == Subject.subject_id
-        ).where(and_(*conditions))
-        
-        approved_result = await self.tutor_repo.db.execute(approved_query)
-        approved_registrations = approved_result.all()
+        approved_registrations = await self.tutor_repo.get_approved_registrations(
+            tutor_id, exclude_subject_id)
         
         # Check each approved registration's schedule
         for registration, subject in approved_registrations:
             # Get schedule from SessionSchedule table
-            schedule_query = select(SessionSchedule).where(
-                and_(
-                    SessionSchedule.tutor_id == tutor_id,
-                    SessionSchedule.subject_id == registration.subject_id
-                )
-            )
-            schedule_result = await self.tutor_repo.db.execute(schedule_query)
-            schedules = schedule_result.scalars().all()
+            schedules = await self.tutor_repo.get_session_schedules(
+                tutor_id, registration.subject_id)
             
             # Build existing availability dict from SessionSchedule
             existing_availability = {}
@@ -852,3 +809,255 @@ class TutorService:
         
         return overlaps
 
+    # ==================================================================
+    # Methods extracted from tutors controller (Phase 2 refactoring)
+    # ==================================================================
+
+    async def get_my_registrations(self, user_id: int, status_filter: Optional[str] = None) -> list:
+        """Get all subject registrations for current tutor"""
+        from sqlalchemy import select
+        from app.models.database import Tutor, TutorRegistration, Subject, Session as SessionModel
+        from datetime import datetime, timedelta
+
+        tutor = await self.tutor_repo.get_by_user_id(user_id)
+        if not tutor:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tutor profile not found")
+
+        registrations = await self.tutor_repo.get_registrations_with_subjects(
+            tutor.tutor_id, status_filter)
+
+        today = datetime.now().date()
+        future_date = today + timedelta(days=30)
+        day_map = {0: "monday", 1: "tuesday", 2: "wednesday", 3: "thursday",
+                   4: "friday", 5: "saturday", 6: "sunday"}
+
+        response_data = []
+        for reg in registrations:
+            sessions = await self.tutor_repo.get_sessions_for_tutor_subject(
+                tutor.tutor_id, reg.TutorRegistration.subject_id,
+                date_from=today, date_to=future_date,
+                statuses=['published', 'confirmed', 'ongoing'])
+
+            session_schedules = [
+                {"day_of_week": day_map.get(s.scheduled_date.weekday(), "monday"),
+                 "start_time": str(s.start_time), "end_time": str(s.end_time)}
+                for s in sessions
+            ]
+            response_data.append({
+                "registration_id": reg.TutorRegistration.registration_id,
+                "subject_id": reg.TutorRegistration.subject_id,
+                "subject_code": reg.Subject.subject_code,
+                "subject_name": reg.Subject.subject_name,
+                "status": reg.TutorRegistration.status,
+                "gpa": reg.TutorRegistration.gpa,
+                "qualifications": reg.TutorRegistration.qualifications,
+                "availability": reg.TutorRegistration.availability,
+                "total_sessions": reg.TutorRegistration.total_sessions,
+                "start_date": reg.TutorRegistration.start_date.isoformat() if reg.TutorRegistration.start_date else None,
+                "end_date": reg.TutorRegistration.end_date.isoformat() if reg.TutorRegistration.end_date else None,
+                "registered_at": reg.TutorRegistration.registered_at.isoformat() if reg.TutorRegistration.registered_at else None,
+                "max_students": reg.TutorRegistration.max_students,
+                "session_schedules": session_schedules,
+            })
+        return response_data
+
+    async def get_available_courses(self, user_id: int, skip_cache: bool = False) -> dict:
+        """Get all approved courses available for students to browse"""
+        from app.core.cache import get_or_load, get_cached
+
+        cache_key = "available_courses:all"
+        user_cache_key = f"available_courses:user:{user_id}"
+
+        if not skip_cache:
+            cached = await get_cached(user_cache_key)
+            if cached:
+                return {"data": cached, "_cache": "hit"}
+
+        async def _load_all():
+            rows = await self.tutor_repo.get_available_courses_raw()
+            courses = []
+            for row in rows:
+                total_display = row.actual_session_count if row.actual_session_count > 0 else (row.total_sessions or 0)
+                start_display = row.actual_start_date if row.actual_session_count > 0 else row.start_date
+                cur_students = row.current_students if row.actual_session_count > 0 else 0
+                if total_display > 0:
+                    courses.append({
+                        "registration_id": row.registration_id, "subject_id": row.subject_id,
+                        "subject_code": row.subject_code, "subject_name": row.subject_name,
+                        "department": row.department, "tutor_id": row.tutor_id,
+                        "tutor_name": row.tutor_name, "total_sessions": total_display,
+                        "max_students": row.max_students, "current_students": cur_students,
+                        "available_slots": max(0, row.max_students - cur_students),
+                        "start_date": start_display.isoformat() if start_display else None,
+                        "status": row.status,
+                        "average_rating": round(float(row.avg_rating), 1),
+                        "total_feedbacks": row.feedback_count,
+                    })
+            return courses
+
+        if skip_cache:
+            all_courses = await _load_all()
+        else:
+            all_courses = await get_or_load(cache_key, _load_all, ttl=60)
+
+        joined = set((r.subject_id, r.tutor_id) for r in await self.tutor_repo.get_user_joined_courses(user_id))
+        filtered = [c for c in all_courses if (c["subject_id"], c["tutor_id"]) not in joined]
+
+        from app.core.cache import set_cached
+        await set_cached(user_cache_key, filtered, ttl=30)
+        return {"data": filtered, "_cache": "miss"}
+
+    async def request_join_course(self, user_id: int, user_name: str, registration_id: int) -> dict:
+        """Student requests to join a course"""
+        from app.models.database import SessionParticipant
+
+        reg_data = await self.tutor_repo.get_registration_by_id(registration_id)
+        if not reg_data:
+            raise HTTPException(status_code=404, detail="Course registration not found")
+        registration, subject_name, tutor = reg_data
+        if registration.status != "approved":
+            raise HTTPException(status_code=400, detail="Course is not approved yet")
+
+        cur = await self.tutor_repo.count_enrolled_students(registration.subject_id, registration.tutor_id)
+        if cur >= registration.max_students:
+            raise HTTPException(status_code=400, detail="Course is full")
+
+        existing = await self.tutor_repo.is_student_enrolled(
+            registration.subject_id, registration.tutor_id, user_id)
+        if existing:
+            raise HTTPException(status_code=400, detail="You have already joined this course")
+
+        sessions = await self.tutor_repo.get_course_sessions(
+            registration.subject_id, registration.tutor_id)
+        if not sessions:
+            raise HTTPException(status_code=400, detail="No sessions available for this course")
+
+        for s in sessions:
+            self.tutor_repo.add(SessionParticipant(session_id=s.session_id, user_id=user_id,
+                                     role="student", status="confirmed"))
+        try:
+            await self.tutor_repo.commit()
+        except Exception:
+            await self.tutor_repo.rollback()
+            raise
+
+        import logging
+        logger = logging.getLogger(__name__)
+        event_data = {'student_id': user_id, 'student_name': user_name,
+                      'tutor_id': tutor.tutor_id, 'subject_id': registration.subject_id,
+                      'subject_name': subject_name, 'sessions_count': len(sessions)}
+        logger.info(f"🔔 Emitting STUDENT_ENROLLED_COURSE event: {event_data}")
+        await event_bus.emit(EventTypes.STUDENT_ENROLLED_COURSE, event_data)
+        return {"message": f"Successfully joined {subject_name}", "sessions_joined": len(sessions)}
+
+    async def generate_sessions_for_course(self, user_id: int, subject_id: int) -> dict:
+        """Generate sessions for an approved course"""
+        from app.models.database import Session as SM
+        from datetime import timedelta
+        import logging
+        logger = logging.getLogger(__name__)
+
+        tutor = await self.tutor_repo.get_by_user_id(user_id)
+        if not tutor:
+            raise HTTPException(status_code=403, detail="Only tutors can generate sessions")
+
+        reg = await self.tutor_repo.get_registration(tutor.tutor_id, subject_id)
+        if not reg:
+            raise HTTPException(status_code=404, detail="Course registration not found")
+        if reg.status != "approved":
+            raise HTTPException(status_code=400, detail="Course must be approved before generating sessions")
+
+        existing = await self.tutor_repo.count_sessions(tutor.tutor_id, subject_id)
+        if existing > 0:
+            raise HTTPException(status_code=400,
+                                detail=f"Sessions already exist ({existing}). Delete them first.")
+
+        schedule = await self.tutor_repo.get_active_schedule(
+            tutor.tutor_id, subject_id, reg.selected_schedule_id)
+        if not schedule:
+            raise HTTPException(status_code=400, detail="No active schedule found.")
+
+        subject = await self.tutor_repo.get_subject(subject_id)
+        subject_name = subject.subject_name if subject else "Unknown Subject"
+
+        start_date = reg.start_date or datetime.now().date()
+        current_date = start_date
+        while current_date.weekday() != schedule.day_of_week:
+            current_date += timedelta(days=1)
+
+        total = reg.total_sessions or 10
+        max_s = reg.max_students or 5
+        for i in range(total):
+            self.tutor_repo.add(SM(tutor_id=tutor.tutor_id, subject_id=subject_id,
+                      title=f"{subject_name} - Session {i+1}",
+                      description=schedule.description or f"Tutoring session for {subject_name}",
+                      scheduled_date=current_date, start_time=schedule.start_time,
+                      end_time=schedule.end_time, duration=schedule.duration,
+                      location_type=schedule.location_type or 'online',
+                      max_students=max_s, status='draft'))
+            current_date += timedelta(weeks=1)
+        try:
+            await self.tutor_repo.commit()
+        except Exception:
+            await self.tutor_repo.rollback()
+            raise
+        logger.info(f"✅ Generated {total} sessions for tutor {tutor.tutor_id}, subject {subject_id}")
+        return {"message": f"Successfully generated {total} sessions",
+                "generated_count": total, "start_date": start_date.isoformat(),
+                "schedule": {"day_of_week": schedule.day_of_week,
+                             "start_time": str(schedule.start_time),
+                             "end_time": str(schedule.end_time)}}
+
+    async def get_enrolled_students(self, user_id: int) -> dict:
+        """Get students enrolled in tutor's courses"""
+        tutor = await self.tutor_repo.get_by_user_id(user_id)
+        if not tutor:
+            raise HTTPException(status_code=403, detail="Only tutors can access this endpoint")
+
+        regs = await self.tutor_repo.get_approved_registrations_with_subjects(tutor.tutor_id)
+
+        courses = []
+        for registration, subject in regs:
+            students = await self.tutor_repo.get_enrolled_students_for_courses(
+                tutor.tutor_id, registration.subject_id)
+            if students:
+                courses.append({
+                    "registration_id": registration.registration_id,
+                    "subject_id": subject.subject_id,
+                    "subject_code": subject.subject_code,
+                    "subject_name": subject.subject_name,
+                    "total_sessions": registration.total_sessions,
+                    "max_students": registration.max_students,
+                    "enrolled_count": len(students),
+                    "students": [{"user_id": s.user_id, "full_name": s.full_name,
+                                  "email": s.email, "sessions_enrolled": s.sc} for s in students]})
+        return {"data": courses}
+
+    async def check_schedule_conflicts(self, user_id: int, registration_ids: list) -> dict:
+        """Check schedule conflicts for given course registrations"""
+        my_sessions = await self.tutor_repo.get_student_sessions(user_id)
+
+        day_map = {0: 'monday', 1: 'tuesday', 2: 'wednesday', 3: 'thursday',
+                   4: 'friday', 5: 'saturday', 6: 'sunday'}
+        my_schedule: dict = {}
+        for s in my_sessions:
+            day = day_map.get(s.scheduled_date.weekday())
+            slot = f"{str(s.start_time)[:5]}-{str(s.end_time)[:5]}"
+            my_schedule.setdefault(day, []).append(slot)
+
+        conflicts = {}
+        for reg_id in registration_ids:
+            course_sessions = await self.tutor_repo.get_course_sessions_by_registration(reg_id)
+            has_conflict = False
+            for cs in course_sessions:
+                day = day_map.get(cs.scheduled_date.weekday())
+                slot = f"{str(cs.start_time)[:5]}-{str(cs.end_time)[:5]}"
+                for ms in my_schedule.get(day, []):
+                    if self._time_ranges_overlap(slot.split('-')[0], slot.split('-')[1],
+                                                  ms.split('-')[0], ms.split('-')[1]):
+                        has_conflict = True
+                        break
+                if has_conflict:
+                    break
+            conflicts[reg_id] = has_conflict
+        return conflicts

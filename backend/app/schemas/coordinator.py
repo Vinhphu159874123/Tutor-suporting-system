@@ -44,3 +44,8 @@ class RegistrationReview(BaseModel):
     status: str  # approved, rejected
     coordinator_notes: Optional[str] = None
     rejection_reason: Optional[str] = None
+
+
+class ApprovalRequest(BaseModel):
+    """Approval request with optional schedule selection"""
+    schedule_id: Optional[int] = None

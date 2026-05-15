@@ -4,21 +4,19 @@ Handle session-related events with notifications
 """
 import logging
 from typing import Dict, Any
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.events.base_listener import BaseListener
 from app.events.event_bus import event_bus
 from app.events.event_types import EventTypes
-from app.core.database import get_db
-from app.models.database import Notifications, User, Session as SessionModel, Tutor
-from datetime import datetime
+from app.core.database import AsyncSessionLocal
+from app.websocket import manager
 
 logger = logging.getLogger(__name__)
 
 
 class SessionCreatedListener(BaseListener):
     """
-    Handle session creation events - sends notification to tutor
+    Handle session creation events — notify tutor about new session.
     """
     
     async def handle(self, data: Dict[str, Any]):
@@ -39,83 +37,56 @@ class SessionCreatedListener(BaseListener):
         logger.info(f"Processing session created: {session_id}")
         
         try:
-            # Get database session
-            db = None
-            async for db_session in get_db():
-                db = db_session
-                break
+            from sqlalchemy import select, insert
+            from app.models.database import Notifications, Tutor, Session as SessionModel
+            from datetime import datetime
             
-            if not db:
-                logger.error("Failed to get database session")
-                return
-            
-            # Get tutor user_id
-            from sqlalchemy import select
-            tutor_query = select(Tutor).where(Tutor.tutor_id == tutor_id)
-            result = await db.execute(tutor_query)
-            tutor = result.scalar_one_or_none()
-            
-            if not tutor:
-                logger.error(f"Tutor not found: {tutor_id}")
-                return
-            
-            # Get session details
-            session_query = select(SessionModel).where(SessionModel.session_id == session_id)
-            session_result = await db.execute(session_query)
-            session = session_result.scalar_one_or_none()
-            
-            if not session:
-                logger.error(f"Session not found: {session_id}")
-                return
-            
-            # Create notification for tutor
-            notification = Notifications(
-                user_id=tutor.user_id,
-                type="session_booked",
-                title="Lịch học mới",
-                message=f"Bạn có lịch học mới: {session.title}",
-                is_read=False,
-                created_at=datetime.utcnow()
-            )
-            db.add(notification)
-            await db.commit()
-            
-            logger.info(f"Notification sent to tutor {tutor.user_id} for session {session_id}")
-            
+            async with AsyncSessionLocal() as db:
+                # Get tutor user_id
+                tutor_result = await db.execute(
+                    select(Tutor.user_id).where(Tutor.tutor_id == tutor_id)
+                )
+                tutor_user_id = tutor_result.scalar_one_or_none()
+                
+                if not tutor_user_id:
+                    logger.error(f"Tutor not found: {tutor_id}")
+                    return
+                
+                # Get session title
+                session_result = await db.execute(
+                    select(SessionModel.title).where(SessionModel.session_id == session_id)
+                )
+                session_title = session_result.scalar_one_or_none() or "Untitled"
+                
+                # Insert notification
+                message = f"Bạn có lịch học mới: {session_title}"
+                await db.execute(
+                    insert(Notifications),
+                    [{
+                        "user_id": tutor_user_id,
+                        "type": "session_booked",
+                        "title": "Lịch học mới",
+                        "message": message,
+                        "is_read": False,
+                    }]
+                )
+                await db.commit()
+                
+                # WebSocket push if online
+                if manager.is_online(tutor_user_id):
+                    try:
+                        await manager.notify_user(
+                            user_id=tutor_user_id,
+                            notification_type="session_booked",
+                            data={"title": "Lịch học mới", "message": message, "session_id": session_id}
+                        )
+                    except Exception as ws_err:
+                        logger.warning(f"WebSocket push failed: {ws_err}")
+                
+                logger.info(f"Notification sent to tutor user_id={tutor_user_id} for session {session_id}")
+                
         except Exception as e:
-            logger.error(f"Error creating session notification: {e}")
-            # Don't raise - notification is non-critical
-
-
-class SessionCompletedListener(BaseListener):
-    """
-    Handle session completion events
-    PLACEHOLDER - Implement when needed
-    """
-    
-    async def handle(self, data: Dict[str, Any]):
-        """Process session completed event"""
-        logger.info(f"[PLACEHOLDER] Session completed: {data.get('session_id')}")
-        
-        # TODO: Send feedback request to student
-        # TODO: Update tutor statistics (total sessions, hours)
-        # TODO: Update student statistics
-
-
-class SessionCancelledListener(BaseListener):
-    """
-    Handle session cancellation events
-    PLACEHOLDER - Implement when needed
-    """
-    
-    async def handle(self, data: Dict[str, Any]):
-        """Process session cancelled event"""
-        logger.info(f"[PLACEHOLDER] Session cancelled: {data.get('session_id')}")
-        
-        # TODO: Notify both parties
-        # TODO: Free up time slot
-        # TODO: Update cancellation statistics
-        # TODO: Apply cancellation policy if needed
+            logger.error(f"Error in SessionCreatedListener: {e}", exc_info=True)
 
 
 # Register listeners with event bus
@@ -126,18 +97,6 @@ def register_session_listeners():
     event_bus.register(
         EventTypes.SESSION_CREATED,
         session_created.execute
-    )
-    
-    session_completed = SessionCompletedListener()
-    event_bus.register(
-        EventTypes.SESSION_COMPLETED,
-        session_completed.execute
-    )
-    
-    session_cancelled = SessionCancelledListener()
-    event_bus.register(
-        EventTypes.SESSION_CANCELLED,
-        session_cancelled.execute
     )
     
     logger.info("Session event listeners registered")

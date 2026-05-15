@@ -210,8 +210,7 @@ class StudentService:
             )
         
         # Get session to verify ownership and status
-        session_repo = SessionRepository(self.student_repo.db)
-        session = await session_repo.get_by_id(feedback_data.session_id)
+        session = await self.student_repo.get_session_by_id(feedback_data.session_id)
         
         if not session:
             raise HTTPException(
@@ -262,3 +261,37 @@ class StudentService:
             "rating": feedback.rating
         }
 
+    async def get_enrolled_courses(self, student_id: int) -> dict:
+        """Get all courses a student is enrolled in"""
+        student = await self.student_repo.get_by_id(student_id)
+
+        if not student:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Student not found"
+            )
+
+        results = await self.student_repo.get_enrolled_courses_data(student.user_id)
+
+        courses = [
+            {
+                "subject_id": subj.subject_id,
+                "subject_code": subj.subject_code,
+                "subject_name": subj.subject_name,
+                "department": subj.department,
+                "credits": subj.credits,
+                "total_sessions": sc,
+                "enrolled_sessions": es,
+                "tutor_id": tid,
+                "tutor_name": tn,
+                "tutor_email": te,
+            }
+            for subj, tid, sc, es, tn, te in results
+        ]
+
+        return {
+            "student_id": student_id,
+            "user_id": student.user_id,
+            "courses": courses,
+            "total_courses": len(courses),
+        }

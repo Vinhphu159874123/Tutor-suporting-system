@@ -1,6 +1,6 @@
 """
 Scheduling Repository - Database Access Layer
-PLACEHOLDER - No availability table in current schema
+Database Access Layer for scheduling
 """
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
@@ -10,13 +10,13 @@ from app.models.database import TutorAvailability  # Assuming this model will be
 
 
 class SchedulingRepository:
-    """Handle database operations for scheduling - PLACEHOLDER"""
+    """Handle database operations for scheduling"""
     
     def __init__(self, db: AsyncSession):
         self.db = db
     
     async def get_tutor_availability(self, tutor_id: int) -> List[dict]:
-        """Get tutor's availability slots - PLACEHOLDER"""
+        """Get tutor's availability slots"""
         result = await self.db.execute(
             select(TutorAvailability)
             .where(TutorAvailability.tutor_id == tutor_id)

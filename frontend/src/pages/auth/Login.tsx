@@ -6,7 +6,7 @@ import { AlertCircle, X, Copy, CheckCircle, User, Mail, Lock, LogIn } from "luci
 import logoBK from "../../png/logobk.png";
 
 const Login: React.FC = () => {
-  const navigate = useNavigate();
+  const navigate = useNavigate(); // hook to chuyent rang
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);

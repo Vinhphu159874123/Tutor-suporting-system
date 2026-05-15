@@ -1,6 +1,6 @@
 """
 Scheduling Service - Business Logic Layer
-PLACEHOLDER implementations - No availability table yet
+Business logic for scheduling operations
 """
 from typing import List, Optional
 from datetime import datetime
@@ -10,14 +10,14 @@ from app.repositories.session_repository import SessionRepository
 from app.schemas.scheduling import AvailabilityCreate
 from datetime import time, timedelta
 class SchedulingService:
-    """Business logic for scheduling operations - PLACEHOLDER"""
+    """Business logic for scheduling operations"""
     
     def __init__(self, scheduling_repo: SchedulingRepository, session_repo: SessionRepository):
         self.scheduling_repo = scheduling_repo
         self.session_repo = session_repo
     
     async def get_tutor_availability(self, tutor_id: int) -> List[dict]:
-        """Get tutor's availability schedule - PLACEHOLDER"""
+        """Get tutor's availability schedule"""
         availability = await self.scheduling_repo.get_tutor_availability(tutor_id)
         recurring = {i: [] for i in range(7)}  # 0-6 for Mon-Sun
         one_time = []
@@ -93,6 +93,37 @@ class SchedulingService:
             "notes": availability.notes,
             "created_at": availability.created_at.isoformat()
         }
+    
+    async def update_availability(
+        self,
+        availability_id: int,
+        update_data: dict
+    ) -> dict:
+        """Update an existing availability slot"""
+        availability = await self.scheduling_repo.get_by_id(availability_id)
+        if not availability:
+            return None
+        
+        updated = await self.scheduling_repo.update_availability(
+            availability_id, **update_data
+        )
+        
+        return {
+            "availability_id": updated.availability_id,
+            "tutor_id": updated.tutor_id,
+            "is_recurring": updated.is_recurring,
+            "day_of_week": updated.day_of_week,
+            "specific_date": updated.specific_date.isoformat() if updated.specific_date else None,
+            "start_time": updated.start_time.isoformat(),
+            "end_time": updated.end_time.isoformat(),
+            "is_available": updated.is_available,
+            "notes": updated.notes,
+            "created_at": updated.created_at.isoformat()
+        }
+    
+    async def delete_availability(self, availability_id: int) -> bool:
+        """Delete an availability slot"""
+        return await self.scheduling_repo.delete_availability(availability_id)
     
     async def find_available_slots(
         self,
@@ -224,7 +255,7 @@ class SchedulingService:
         start_time: datetime,
         end_time: datetime
     ) -> bool:
-        """Check if time slot has conflict - PLACEHOLDER"""
+        """Check if time slot has conflict"""
         # TODO: Check against existing sessions
         # TODO: Check against availability schedule
         return False

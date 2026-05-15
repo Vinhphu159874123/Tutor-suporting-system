@@ -10,8 +10,14 @@ class SupabaseStorageClient:
     
     def __init__(self):
         self.supabase_url = os.getenv("SUPABASE_URL")
-        # Use SERVICE_ROLE_KEY for storage operations (has full permissions)
+        # SERVICE_ROLE_KEY is required for storage uploads (bypasses RLS)
+        # ANON_KEY will fail with "new row violates row-level security policy"
         self.supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY")
+        
+        if not os.getenv("SUPABASE_SERVICE_ROLE_KEY"):
+            print("⚠️  WARNING: SUPABASE_SERVICE_ROLE_KEY not set! File uploads will fail due to RLS.")
+            print("   Get it from: Supabase Dashboard → Settings → API → service_role key")
+            print("   Add to .env: SUPABASE_SERVICE_ROLE_KEY=your_key_here")
         
         if not self.supabase_url or not self.supabase_key:
             raise ValueError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set in environment")

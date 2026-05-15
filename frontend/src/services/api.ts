@@ -103,10 +103,15 @@ export const authApi = {
         is_active: true,
       });
     }
-    const config = token
-      ? { headers: { Authorization: `Bearer ${token}` } }
-      : {};
-    return apiClient.get("/auth/me", config);
+    // If token is explicitly passed (e.g. during login flow before persist),
+    // use it directly to avoid race condition with localStorage
+    if (token) {
+      return apiClient.get("/auth/me", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    }
+    // Otherwise rely on interceptor (for refresh/subsequent calls)
+    return apiClient.get("/auth/me");
   },
 
   logout: () => {
@@ -162,7 +167,7 @@ export const usersApi = {
         },
       ]);
     }
-    return apiClient.get("/users", { params });
+    return apiClient.get("/users/", { params });
   },
 
   getUser: (userId: number) => {
@@ -229,7 +234,7 @@ export const tutorsApi = {
         },
       ]);
     }
-    return apiClient.get("/tutors", { params });
+    return apiClient.get("/tutors/", { params });
   },
 
   getTutor: (tutorId: number) => {
@@ -331,7 +336,7 @@ export const studentsApi = {
         },
       ]);
     }
-    return apiClient.get("/students");
+    return apiClient.get("/students/");
   },
 
   registerStudent: (data: any) => {
@@ -437,7 +442,7 @@ export const sessionsApi = {
         },
       ]);
     }
-    return apiClient.get("/sessions", { params });
+    return apiClient.get("/sessions/", { params });
   },
 
   createSession: (data: any) => {
@@ -448,7 +453,7 @@ export const sessionsApi = {
         message: "Session created",
       });
     }
-    return apiClient.post("/sessions", data);
+    return apiClient.post("/sessions/", data);
   },
 
   getSession: (sessionId: number) => {
@@ -564,21 +569,9 @@ export const sessionsApi = {
     }
     formData.append('is_anonymous', feedbackData.is_anonymous.toString());
     
-    // Use a separate axios instance to avoid Content-Type override
-    const token = localStorage.getItem("auth-storage");
-    let authHeader = '';
-    if (token) {
-      const parsedToken = JSON.parse(token);
-      if (parsedToken.state?.token) {
-        authHeader = `Bearer ${parsedToken.state.token}`;
-      }
-    }
-    
-    return axios.post(`${API_BASE_URL}/sessions/${sessionId}/feedback`, formData, {
-      headers: {
-        'Authorization': authHeader
-      }
-    });
+    // Token automatically added by request interceptor
+    // Don't set Content-Type header, let axios set it with boundary
+    return apiClient.post(`/sessions/${sessionId}/feedback`, formData);
   },
 
   getFeedback: (sessionId: number) => {
@@ -817,7 +810,7 @@ export const notificationsApi = {
         }
       ]);
     }
-    return apiClient.get("/notifications", { params });
+    return apiClient.get("/notifications/", { params });
   },
 
   getUnreadCount: () => {
@@ -855,14 +848,14 @@ export const forumApi = {
     if (MOCK_MODE) {
       return mockResponse([]);
     }
-    return apiClient.get("/forum");
+    return apiClient.get("/forum/");
   },
 
   createForum: (data: any) => {
     if (MOCK_MODE) {
       return mockResponse({ message: "Forum created" });
     }
-    return apiClient.post("/forum", data);
+    return apiClient.post("/forum/", data);
   },
 
   getForumPosts: (forumId: number) => {

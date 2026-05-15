@@ -77,3 +77,9 @@ class UserUpdate(BaseModel):
     phone: Optional[str] = None
     bio: Optional[str] = None
     avatar_url: Optional[str] = None
+
+
+class ChangePasswordRequest(BaseModel):
+    """Change password request"""
+    current_password: str
+    new_password: str

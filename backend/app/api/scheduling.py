@@ -55,6 +55,34 @@ async def set_availability(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.put("/availability/{availability_id}", response_model=dict)
+async def update_availability(
+    availability_id: int,
+    availability_data: AvailabilityUpdate,
+    scheduling_service: SchedulingService = Depends(get_scheduling_service),
+    current_user: User = Depends(get_current_user)
+):
+    """Update an existing availability slot"""
+    update_dict = availability_data.model_dump(exclude_unset=True)
+    result = await scheduling_service.update_availability(availability_id, update_dict)
+    if not result:
+        raise HTTPException(status_code=404, detail="Availability slot not found")
+    return result
+
+
+@router.delete("/availability/{availability_id}")
+async def delete_availability(
+    availability_id: int,
+    scheduling_service: SchedulingService = Depends(get_scheduling_service),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete an availability slot"""
+    success = await scheduling_service.delete_availability(availability_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Availability slot not found")
+    return {"message": "Availability slot deleted successfully"}
+
+
 @router.post("/find-slots", response_model=List[TimeSlotResponse])
 async def find_available_slots(
     slot_request: TimeSlotRequest,
