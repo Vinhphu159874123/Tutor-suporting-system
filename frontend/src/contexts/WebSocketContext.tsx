@@ -51,7 +51,6 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   const connect = useCallback(() => {
     const token = getToken();
     if (!token) {
-      console.warn('No auth token found, skipping WebSocket connection');
       return;
     }
 
@@ -71,13 +70,11 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       
       const wsUrl = `${wsProtocol}//${wsHost}/api/v1/ws?token=${encodeURIComponent(token)}`;
 
-      console.log('🔌 Connecting to WebSocket...');
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('✅ WebSocket connected');
         setIsConnected(true);
         reconnectAttemptsRef.current = 0;
         
@@ -118,14 +115,12 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       };
 
       ws.onclose = (event) => {
-        console.log('🔌 WebSocket closed:', event.code, event.reason);
         setIsConnected(false);
         wsRef.current = null;
 
         // Attempt reconnection
         if (reconnectAttemptsRef.current < maxReconnectAttempts) {
           reconnectAttemptsRef.current++;
-          console.log(`🔄 Reconnecting... Attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts}`);
           
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
@@ -142,7 +137,6 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       const message = { type, data };
       wsRef.current.send(JSON.stringify(message));
     } else {
-      console.warn('WebSocket is not connected, cannot send message');
     }
   }, []);
 

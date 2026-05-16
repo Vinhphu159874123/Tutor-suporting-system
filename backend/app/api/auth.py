@@ -7,7 +7,6 @@ from fastapi.security import OAuth2PasswordRequestForm
 
 from app.schemas.auth import Token, UserCreate, UserResponse, ChangePasswordRequest
 from app.services.auth_service import AuthService
-from app.services.hcmut_sso import HCMUTSSOService
 from app.core.dependencies import get_auth_service, get_current_user
 from app.models.database import User
 

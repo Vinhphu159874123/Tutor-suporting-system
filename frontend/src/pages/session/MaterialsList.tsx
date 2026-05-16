@@ -85,7 +85,6 @@ const MaterialsList: React.FC = () => {
 
   const handleDownload = (material: Material) => {
     // Simulate download
-    console.log("Downloading:", material.name);
   };
 
   return (

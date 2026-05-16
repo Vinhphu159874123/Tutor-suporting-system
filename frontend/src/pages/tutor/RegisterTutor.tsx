@@ -184,9 +184,7 @@ const RegisterTutor: React.FC = () => {
         availability: availability,
       };
 
-      console.log('Registering tutor profile:', profileData);
       await tutorsApi.registerTutor(profileData);
-      console.log('Tutor profile created successfully');
 
       // Step 2: Register for the selected subject
       const subjectData = {
@@ -199,9 +197,7 @@ const RegisterTutor: React.FC = () => {
         max_students: formData.max_students ? Number(formData.max_students) : 25,
       };
 
-      console.log('Registering subject:', subjectData);
       await tutorsApi.registerSubject(subjectData);
-      console.log('Subject registration successful');
 
       toast.success(
         "Đăng ký làm Tutor thành công! Đơn đăng ký môn học đang chờ phê duyệt."

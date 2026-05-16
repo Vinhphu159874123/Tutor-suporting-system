@@ -113,10 +113,6 @@ const Notifications: React.FC = () => {
   };
 
   const handleNotificationClick = async (notification: any) => {
-    console.log('=== NOTIFICATION CLICKED ===');
-    console.log('Full notification:', notification);
-    console.log('notification.data:', notification.data);
-    console.log('typeof data:', typeof notification.data);
     
     setSelectedNotification(notification);
     setShowModal(true);
@@ -391,7 +387,6 @@ const Notifications: React.FC = () => {
                 const data = typeof selectedNotification.data === 'string' 
                   ? JSON.parse(selectedNotification.data) 
                   : selectedNotification.data;
-                console.log('Modal data:', data);
                 return (
                   <div className="bg-gray-50 rounded-lg p-4 space-y-3">
                     <h4 className="font-semibold text-gray-900 mb-3">Thông tin đăng ký</h4>

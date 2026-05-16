@@ -56,7 +56,6 @@ export const useWebSocket = (options: UseWebSocketOptions = {}): UseWebSocketRet
   const connect = useCallback(() => {
     const token = getToken();
     if (!token) {
-      console.warn('No auth token found, cannot connect to WebSocket');
       return;
     }
 
@@ -72,13 +71,11 @@ export const useWebSocket = (options: UseWebSocketOptions = {}): UseWebSocketRet
       const wsHost = apiBaseUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
       const wsUrl = `${wsProtocol}//${wsHost}/api/v1/ws?token=${encodeURIComponent(token)}`;
 
-      console.log('Connecting to WebSocket:', wsUrl.replace(token, '***'));
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log('✅ WebSocket connected');
         setIsConnected(true);
         reconnectAttemptsRef.current = 0;
         
@@ -115,7 +112,6 @@ export const useWebSocket = (options: UseWebSocketOptions = {}): UseWebSocketRet
       };
 
       ws.onclose = (event) => {
-        console.log('WebSocket closed:', event.code, event.reason);
         setIsConnected(false);
         wsRef.current = null;
 
@@ -124,7 +120,6 @@ export const useWebSocket = (options: UseWebSocketOptions = {}): UseWebSocketRet
         // Attempt reconnection unless it was intentional
         if (!intentionalCloseRef.current && reconnectAttemptsRef.current < maxReconnectAttempts) {
           reconnectAttemptsRef.current++;
-          console.log(`Reconnecting... Attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts}`);
           
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
@@ -166,7 +161,6 @@ export const useWebSocket = (options: UseWebSocketOptions = {}): UseWebSocketRet
       const message = { type, data };
       wsRef.current.send(JSON.stringify(message));
     } else {
-      console.warn('WebSocket is not connected, cannot send message');
     }
   }, []);
 

@@ -118,7 +118,6 @@ const NotificationListener: React.FC = () => {
           // Show toast only if WebSocket didn't already notify
           // (This is a fallback mechanism)
           if (newNotifs.length > 0) {
-            console.log('Backup notification check found new notifications:', newNotifs.length);
           }
         }
 

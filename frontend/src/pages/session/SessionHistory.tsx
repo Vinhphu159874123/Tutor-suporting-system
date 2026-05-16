@@ -32,25 +32,18 @@ const SessionHistory: React.FC = () => {
             const meResponse: any = await authApi.getProfile();
             const userData = meResponse.data;
             
-            console.log('User data from API:', userData);
-            console.log('Current user role:', user?.role);
-            console.log('User ID:', user?.user_id);
             
             if (user?.role?.includes('student') && userData.student_id) {
               params.student_id = userData.student_id;
-              console.log('Filtering by student_id:', userData.student_id);
             } else if (user?.role?.includes('tutor') && userData.tutor_id) {
               params.tutor_id = userData.tutor_id;
-              console.log('Filtering by tutor_id:', userData.tutor_id);
             } else {
-              console.warn('No tutor_id or student_id found in user data');
             }
           } catch (err) {
             console.error('Error fetching user profile:', err);
           }
         }
         
-        console.log('Final params for getSessions:', params);
         
         if (filter !== 'all') {
           params.status = filter;
@@ -96,7 +89,6 @@ const SessionHistory: React.FC = () => {
 
   const exportHistory = () => {
     // Export to CSV or PDF
-    console.log('Export history');
   };
 
   return (

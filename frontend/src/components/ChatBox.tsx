@@ -47,7 +47,6 @@ const ChatBox: React.FC<ChatBoxProps> = ({ groupId }) => {
   // Subscribe to WebSocket messages
   useEffect(() => {
     const unsubscribe = subscribe((message) => {
-      console.log('WebSocket message received:', message);
       
       if (message.type === 'new_message') {
         const chatMessage = message.data;
@@ -106,13 +105,11 @@ const ChatBox: React.FC<ChatBoxProps> = ({ groupId }) => {
     if (messages.length > prevMessagesLengthRef.current && !isInitialLoadRef.current) {
       const newCount = messages.length - prevMessagesLengthRef.current;
       
-      console.log('New messages detected:', newCount, 'shouldAutoScroll:', shouldAutoScroll);
       
       // If not at bottom, show notification
       if (!shouldAutoScroll) {
         setNewMessageCount(prev => prev + newCount);
         setShowNewMessageNotif(true);
-        console.log('Showing notification for', newCount, 'new messages');
         
         // Auto hide notification after 5 seconds
         setTimeout(() => setShowNewMessageNotif(false), 5000);

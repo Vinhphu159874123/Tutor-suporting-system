@@ -6,7 +6,6 @@ import axios from "axios";
 const isVercelProduction = window.location.hostname.includes('vercel.app');
 const API_BASE_URL = process.env.REACT_APP_API_URL;
 
-console.log('🔗 API URL:', API_BASE_URL);
 
 // 🟢 REAL MODE - Connect to backend API
 const MOCK_MODE = false;

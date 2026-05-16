@@ -34,7 +34,6 @@ const CreateForum: React.FC = () => {
         forum_id: 1  // Default forum
       });
       
-      console.log("Post created:", response.data);
       toast.success("Tạo bài viết thành công!");
       navigate("/forum");
     } catch (error: any) {

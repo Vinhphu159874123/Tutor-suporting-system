@@ -32,8 +32,6 @@ const MyCourses: React.FC = () => {
   const fetchMyCourses = async () => {
     try {
       const response = await coursesApi.getMyCourses(activeMode) as any;
-      console.log('My Courses API Response:', response);
-      console.log('Courses data:', response.data);
       setCourses(response.data);
     } catch (error) {
       console.error('Failed to fetch courses:', error);

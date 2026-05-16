@@ -105,8 +105,6 @@ const CoordinatorReview: React.FC = () => {
       const response = await coordinatorApi.getRegistrationSchedules(registrationId);
       const schedulesData = response.data || [];
 
-      console.log("Schedules fetched:", schedulesData);
-      console.log("Number of schedules:", schedulesData.length);
 
       if (schedulesData.length === 0) {
         toast.error("Không tìm thấy lịch dạy cho đăng ký này");
@@ -115,7 +113,6 @@ const CoordinatorReview: React.FC = () => {
 
       if (schedulesData.length === 1) {
         // Only one schedule, approve directly
-        console.log("Only 1 schedule, approving directly with schedule_id:", schedulesData[0].schedule_id);
         setProcessingId(registrationId);
         await coordinatorApi.approveTutorRegistration(registrationId, schedulesData[0].schedule_id);
         toast.success("Đã phê duyệt đăng ký");
@@ -123,7 +120,6 @@ const CoordinatorReview: React.FC = () => {
         setProcessingId(null);
       } else {
         // Multiple schedules, show modal to choose
-        console.log("Multiple schedules, showing modal");
         setSchedules(schedulesData);
         setSelectedRegistration(registrationId);
         setSelectedSchedule(schedulesData[0].schedule_id); // Default to first

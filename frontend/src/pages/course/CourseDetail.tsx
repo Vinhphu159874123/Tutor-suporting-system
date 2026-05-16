@@ -92,7 +92,6 @@ const CourseDetail: React.FC = () => {
 
   // Only log on actual mode or subject change
   if (activeMode !== lastMode.current || subjectId !== lastSubjectId.current) {
-    console.log('🔍 CourseDetail Mode Check:', {
       user: user?.email,
       userRole: user?.role,
       currentMode,
@@ -110,7 +109,6 @@ const CourseDetail: React.FC = () => {
 
     // Reset flag if subjectId changed OR mode changed
     if (subjectId !== lastSubjectId.current || activeMode !== lastMode.current) {
-      console.log('🔄 Mode or Subject changed - resetting and refetching', {
         oldMode: lastMode.current,
         newMode: activeMode,
         oldSubject: lastSubjectId.current,
@@ -122,7 +120,6 @@ const CourseDetail: React.FC = () => {
     }
 
     if (!hasFetched.current) {
-      console.log('📡 Fetching course data...', { subjectId, activeMode });
       hasFetched.current = true;
       fetchCourseData();
     }
@@ -149,7 +146,6 @@ const CourseDetail: React.FC = () => {
             courseData = { ...courseData, tutor_id: currentUserTutorId };
           }
         } catch (err) {
-          console.log('Could not fetch tutor profile');
         }
       } else if (activeMode === 'student') {
         // For students, get the tutor_id and tutor_name from their enrolled sessions
@@ -171,11 +167,9 @@ const CourseDetail: React.FC = () => {
                 };
               }
             } catch (err) {
-              console.log('Could not fetch tutor details');
             }
           }
         } catch (err) {
-          console.log('Could not fetch enrolled course info');
         }
       }
 
@@ -187,7 +181,6 @@ const CourseDetail: React.FC = () => {
         // Call the sessions API to get sessions for this subject
         const params: any = { subject_id: parseInt(subjectId) };
 
-        console.log('🔍 Checking user for session filter:', {
           user,
           role: activeMode,
           user_id: user?.user_id,
@@ -198,12 +191,10 @@ const CourseDetail: React.FC = () => {
         if (activeMode === 'tutor' && currentUserTutorId) {
           // Tutor mode: Show sessions for this tutor
           params.tutor_id = currentUserTutorId;
-          console.log('✅ Tutor mode - Using tutor_id filter:', currentUserTutorId);
         } else if (activeMode === 'student') {
           // Student mode: Show ALL sessions for the course (no student_id filter for now)
           if (currentUserTutorId) {
             params.tutor_id = currentUserTutorId;
-            console.log('✅ Student mode - Using tutor_id filter:', currentUserTutorId);
           }
 
           // TEMPORARILY DISABLED - Show all sessions
@@ -211,17 +202,12 @@ const CourseDetail: React.FC = () => {
           //   params.student_id = user.user_id;
           //   console.log('✅ Student mode - Using student_id filter:', user.user_id);
           // }
-          console.log('⚠️ Student mode - Showing ALL sessions (no student_id filter)');
         } else {
-          console.log('⚠️ No tutor_id found - user may not be enrolled yet');
         }
 
-        console.log('📤 API Request params:', JSON.stringify(params));
         const sessionsResponse = await sessionsApi.getSessions(params) as any;
         const savedSessions = sessionsResponse.data || [];
 
-        console.log('📥 API Response - Fetched sessions count:', savedSessions.length);
-        console.log('Filter params used:', params);
 
         if (savedSessions.length > 0) {
           // Convert DB sessions to WeeklySession format
@@ -239,7 +225,6 @@ const CourseDetail: React.FC = () => {
           }));
 
           setSessions(convertedSessions);
-          console.log('✅ Loaded saved sessions from database');
 
           // Load materials for all sessions in ONE call - OPTIMIZED
           const sessionIds = convertedSessions
@@ -257,7 +242,6 @@ const CourseDetail: React.FC = () => {
                 materialsMap[sessionId] = materialsData[sessionId] || [];
               }
               setSessionMaterials(materialsMap);
-              console.log(`✅ Loaded materials for ${sessionIds.length} sessions in 1 request`);
             } catch (error) {
               console.error('Failed to load bulk materials:', error);
             }
@@ -272,12 +256,10 @@ const CourseDetail: React.FC = () => {
           return; // Exit early if we have saved sessions
         }
       } catch (sessionError) {
-        console.log('No saved sessions found. Tutor needs to manually generate sessions.');
       }
 
       // Step 2: If no saved sessions, just show empty state
       // Tutor must click "Generate Sessions" button to create sessions
-      console.log('✅ No sessions found - showing empty state with generate button');
       setSessions([]);
       setLoading(false);
     } catch (error) {
@@ -289,17 +271,11 @@ const CourseDetail: React.FC = () => {
   };
 
   const generateSessionsFromAvailability = (reg: any) => {
-    console.log('=== REGISTRATION DATA ===');
-    console.log('Registration:', reg);
-    console.log('Availability:', reg.availability);
-    console.log('Total Sessions:', reg.total_sessions);
-    console.log('Start Date:', reg.start_date);
 
     const availability = reg.availability || {};
     const totalSessions = reg.total_sessions || 10;
     const startDate = reg.start_date ? new Date(reg.start_date) : new Date();
 
-    console.log('Parsed Start Date:', startDate);
 
     const dayMap: { [key: string]: number } = {
       'monday': 1, 'tuesday': 2, 'wednesday': 3, 'thursday': 4,
@@ -321,7 +297,6 @@ const CourseDetail: React.FC = () => {
     });
 
     if (daySlots.length === 0) {
-      console.warn('No availability found');
       setSessions([]);
       return;
     }
@@ -330,8 +305,6 @@ const CourseDetail: React.FC = () => {
     daySlots.sort((a, b) => a.dayNum - b.dayNum);
     const primaryDay = daySlots[0]; // Use first available day as the weekly session day
 
-    console.log('Primary Day:', primaryDay);
-    console.log('All Day Slots:', daySlots);
 
     // Generate sessions - one per week on the same day
     const generatedSessions: WeeklySession[] = [];
@@ -345,12 +318,8 @@ const CourseDetail: React.FC = () => {
       daysUntilFirst = 7; // If same day but past time, go to next week
     }
 
-    console.log('Start Day of Week:', startDayOfWeek);
-    console.log('Target Day:', targetDay);
-    console.log('Days Until First Session:', daysUntilFirst);
 
     currentDate.setDate(currentDate.getDate() + daysUntilFirst);
-    console.log('First Session Date:', currentDate);
 
     // Generate totalSessions sessions, one per week
     for (let i = 0; i < totalSessions; i++) {
@@ -413,11 +382,9 @@ const CourseDetail: React.FC = () => {
 
     // Prevent duplicate calls
     if (loading) {
-      console.log('⚠️ Already saving, ignoring duplicate call');
       return;
     }
 
-    console.log('🚀 handleSaveAllSessions called');
 
     try {
       setLoading(true);
@@ -433,12 +400,10 @@ const CourseDetail: React.FC = () => {
         materials: s.materials
       }));
 
-      console.log('📤 Calling bulkSaveForSubject with', sessionsData.length, 'sessions');
 
       // Call API to save all sessions using apiClient with proper auth
       await sessionsApi.bulkSaveForSubject(parseInt(subjectId), sessionsData);
 
-      console.log('✅ Successfully saved all sessions');
       toast.success('Đã lưu tất cả các buổi học!');
     } catch (error) {
       console.error('❌ Failed to save sessions:', error);
@@ -471,7 +436,6 @@ const CourseDetail: React.FC = () => {
         formData.append('file', file);
         formData.append('uploaded_by', userId.toString());
 
-        console.log(`📤 Uploading file: ${file.name} (${file.size} bytes) to session ${session.session_id}`);
         
         // Animate progress 0% -> 90% smoothly
         setUploadProgress(prev => ({ ...prev, [file.name]: 0 }));
@@ -500,14 +464,12 @@ const CourseDetail: React.FC = () => {
               // Ignore intermediate progress events since localhost is too fast
               if (progressEvent.total) {
                 const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                console.log(`📊 Real upload progress: ${percentCompleted}%`);
               }
             }
           );
           
           // Upload complete - jump to 100%
           clearInterval(progressInterval);
-          console.log(`✅ Upload complete: ${file.name}`);
           setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
           
         } catch (uploadError) {
@@ -517,11 +479,9 @@ const CourseDetail: React.FC = () => {
       }
 
       // Wait for backend to save
-      console.log('⏳ Waiting for backend to save files...');
       await new Promise(resolve => setTimeout(resolve, 800));
       
       // Refresh materials to show uploaded files
-      console.log(`🔄 Refreshing materials for session ${session.session_id}...`);
       await fetchSessionMaterials(session.session_id);
       
       // Clear progress bars after showing files
@@ -539,17 +499,13 @@ const CourseDetail: React.FC = () => {
   // Fetch materials for a specific session
   const fetchSessionMaterials = async (sessionId: number) => {
     try {
-      console.log(`🔄 Fetching materials for session ${sessionId}...`);
       const response: any = await sessionsApi.getSessionMaterials(sessionId);
       
-      console.log('📦 Raw response:', response);
-      console.log('📦 response.data:', response.data);
       
       // Backend returns {data: [...]} and axios wraps it, so we need response.data.data
       const materialsData = response.data?.data || response.data || [];
       const materials = Array.isArray(materialsData) ? materialsData : [];
       
-      console.log(`✅ Fetched ${materials.length} materials:`, materials);
       
       // Force re-render by creating NEW object
       setSessionMaterials(prev => ({
@@ -557,7 +513,6 @@ const CourseDetail: React.FC = () => {
         [sessionId]: materials
       }));
       
-      console.log('✅ Materials state updated');
     } catch (error: any) {
       console.error('Failed to fetch materials:', error);
       // Set empty array on error to prevent crash
@@ -782,8 +737,6 @@ const CourseDetail: React.FC = () => {
       return;
     }
 
-    console.log('Submitting feedback for session:', selectedSessionForFeedback);
-    console.log('Feedback data:', { rating: feedbackRating, comment: feedbackComment, is_anonymous: feedbackAnonymous });
 
     try {
       const response = await sessionsApi.submitFeedback(selectedSessionForFeedback, {
@@ -791,7 +744,6 @@ const CourseDetail: React.FC = () => {
         comment: feedbackComment,
         is_anonymous: feedbackAnonymous
       });
-      console.log('Feedback response:', response);
       toast.success('Đã gửi đánh giá thành công!');
 
       // Reload feedback for this session
@@ -804,7 +756,6 @@ const CourseDetail: React.FC = () => {
           }));
         }
       } catch (err) {
-        console.log('Could not reload feedback');
       }
 
       setShowFeedbackModal(false);
@@ -824,12 +775,9 @@ const CourseDetail: React.FC = () => {
     setSelectedSessionForAttendance(sessionId);
     try {
       const response = await sessionsApi.getParticipants(sessionId) as any;
-      console.log('🔍 Raw API response:', response);
-      console.log('🔍 Response.data:', response.data);
 
       // Handle both direct array and nested object response
       const participantsList = Array.isArray(response.data) ? response.data : (response.data?.data || response || []);
-      console.log('📋 Participants list:', participantsList);
 
       setParticipants(participantsList);
 
@@ -1096,7 +1044,6 @@ const CourseDetail: React.FC = () => {
                             <div className="space-y-2">
                               {(() => {
                                 const materials = session.session_id ? (sessionMaterials[session.session_id] || []) : [];
-                                console.log(`🎨 Rendering materials for session ${session.session_id}:`, materials);
                                 return Array.isArray(materials) && materials.length > 0 ? (
                                   <div className="space-y-2 mb-3">
                                     {materials.map((material: any) => (
@@ -1436,7 +1383,6 @@ const CourseDetail: React.FC = () => {
                   const isAlreadyMarked = hasStatusInDB || hasStatusInState;
                   const currentStatus = attendanceData[participant.user_id] || participant.attendance_status;
 
-                  console.log(`👤 ${participant.full_name}:`, {
                     attendance_status: participant.attendance_status,
                     hasStatusInDB,
                     hasStatusInState,
