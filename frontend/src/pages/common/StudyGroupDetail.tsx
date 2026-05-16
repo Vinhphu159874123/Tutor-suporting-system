@@ -254,7 +254,7 @@ const StudyGroupDetail: React.FC = () => {
         responseType: 'blob'
       });
 
-      const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/pdf' });
+      const blob = new Blob([response.data], { type: (response.headers['content-type'] as string) || 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       window.open(url, '_blank');
 
@@ -271,7 +271,7 @@ const StudyGroupDetail: React.FC = () => {
         responseType: 'blob'
       });
 
-      const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/octet-stream' });
+      const blob = new Blob([response.data], { type: (response.headers['content-type'] as string) || 'application/octet-stream' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
