@@ -1,4 +1,4 @@
-# 🎓 HCMUT Tutor Support System# 🎓 HCMUT Tutor Support Systemc
+# 🎓 HCMUT Tutor Support System# 🎓 HCMUT Tutor Support System
 x
 > A comprehensive platform for managing tutoring programs, connecting students with tutors, scheduling sessions, and supporting academic learning at Ho Chi Minh City University of Technology (HCMUT).> A comprehensive platform for managing tutoring programs, connecting students with tutors, scheduling sessions, and supporting academic learning at Ho Chi Minh City University of Technology (HCMUT)
 
