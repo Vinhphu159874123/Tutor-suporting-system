@@ -138,29 +138,23 @@ class SessionService:
         subject_id: Optional[int] = None,
         status: Optional[str] = None
     ) -> List[SessionResponse]:
-        """Get all sessions with filters"""
-        import time
-        
-        # Time database query
-        db_start = time.time()
-        sessions = await self.session_repo.get_all(
-            skip=skip, limit=limit,
-            tutor_id=tutor_id,
-            student_id=student_id,
-            subject_id=subject_id,
-            status=status
-        )
-        db_time = time.time() - db_start
-        print(f"  ⏱️ DB Query: {db_time:.3f}s - Found {len(sessions)} sessions")
-        
-        # Time serialization
-        serialize_start = time.time()
-        result = []
-        for s in sessions:
-            result.append(self._to_response(s))
-        serialize_time = time.time() - serialize_start
-        print(f"  ⏱️ Serialization: {serialize_time:.3f}s")
-        return result
+        """Get all sessions with filters (cached for 15s)"""
+        from app.core.cache import get_or_load
+
+        cache_key = f"sessions:list:{skip}:{limit}:{tutor_id}:{student_id}:{subject_id}:{status}"
+
+        async def _load():
+            sessions = await self.session_repo.get_all(
+                skip=skip, limit=limit,
+                tutor_id=tutor_id,
+                student_id=student_id,
+                subject_id=subject_id,
+                status=status
+            )
+            return [self._to_response(s).dict() for s in sessions]
+
+        data = await get_or_load(cache_key, _load, ttl=15)
+        return [SessionResponse(**d) for d in data]
     
     async def create_session(self, session_data: SessionCreate) -> SessionResponse:
         """Create new session - Emits event for notifications"""

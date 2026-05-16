@@ -16,22 +16,29 @@ class NotificationsService:
         self, user_id: int, *, is_read: Optional[bool] = None,
         limit: int = 50, offset: int = 0
     ) -> List[dict]:
-        notifications = await self.repo.get_by_user(
-            user_id, is_read=is_read, limit=limit, offset=offset
-        )
-        return [
-            {
-                "notification_id": n.notification_id,
-                "type": n.type,
-                "title": n.title,
-                "message": n.message,
-                "data": n.data,
-                "is_read": n.is_read,
-                "created_at": n.created_at.isoformat() if n.created_at else None,
-                "link": None,
-            }
-            for n in notifications
-        ]
+        from app.core.cache import get_or_load
+
+        cache_key = f"notifications:{user_id}:{is_read}:{limit}:{offset}"
+
+        async def _load():
+            notifications = await self.repo.get_by_user(
+                user_id, is_read=is_read, limit=limit, offset=offset
+            )
+            return [
+                {
+                    "notification_id": n.notification_id,
+                    "type": n.type,
+                    "title": n.title,
+                    "message": n.message,
+                    "data": n.data,
+                    "is_read": n.is_read,
+                    "created_at": n.created_at.isoformat() if n.created_at else None,
+                    "link": None,
+                }
+                for n in notifications
+            ]
+
+        return await get_or_load(cache_key, _load, ttl=10)
 
     async def get_unread_count(self, user_id: int) -> int:
         return await self.repo.get_unread_count(user_id)
