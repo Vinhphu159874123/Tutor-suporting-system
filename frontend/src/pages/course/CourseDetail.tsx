@@ -90,16 +90,7 @@ const CourseDetail: React.FC = () => {
   const activeMode = computedMode;
   const isTutor = activeMode === 'tutor';
 
-  // Only log on actual mode or subject change
-  if (activeMode !== lastMode.current || subjectId !== lastSubjectId.current) {
-      user: user?.email,
-      userRole: user?.role,
-      currentMode,
-      activeMode,
-      isTutor,
-      availableRoles: user?.role  // role is now array of all roles
-    });
-  }
+
 
   useEffect(() => {
     // Skip if no data yet
@@ -109,11 +100,6 @@ const CourseDetail: React.FC = () => {
 
     // Reset flag if subjectId changed OR mode changed
     if (subjectId !== lastSubjectId.current || activeMode !== lastMode.current) {
-        oldMode: lastMode.current,
-        newMode: activeMode,
-        oldSubject: lastSubjectId.current,
-        newSubject: subjectId
-      });
       hasFetched.current = false;
       lastSubjectId.current = subjectId || null;
       lastMode.current = activeMode;
@@ -181,11 +167,6 @@ const CourseDetail: React.FC = () => {
         // Call the sessions API to get sessions for this subject
         const params: any = { subject_id: parseInt(subjectId) };
 
-          user,
-          role: activeMode,
-          user_id: user?.user_id,
-          currentUserTutorId
-        });
 
         // IMPORTANT: Filter based on active mode
         if (activeMode === 'tutor' && currentUserTutorId) {
@@ -1383,12 +1364,7 @@ const CourseDetail: React.FC = () => {
                   const isAlreadyMarked = hasStatusInDB || hasStatusInState;
                   const currentStatus = attendanceData[participant.user_id] || participant.attendance_status;
 
-                    attendance_status: participant.attendance_status,
-                    hasStatusInDB,
-                    hasStatusInState,
-                    isAlreadyMarked,
-                    currentStatus
-                  });
+
 
                   return (
                     <div
