@@ -56,6 +56,32 @@ class NotificationRepository:
         await self.db.commit()
         return result.rowcount
 
+    async def create(
+        self, *, user_id: int, type: str, title: str, message: str,
+        data: dict = None, related_entity_type: str = None,
+        related_entity_id: int = None, is_read: bool = False,
+        created_at=None
+    ) -> Notifications:
+        """Create a single notification"""
+        notification = Notifications(
+            user_id=user_id, type=type, title=title, message=message,
+            data=data, related_entity_type=related_entity_type,
+            related_entity_id=related_entity_id, is_read=is_read,
+        )
+        if created_at:
+            notification.created_at = created_at
+        self.db.add(notification)
+        return notification
+
+    async def bulk_create(self, notifications: list[dict]) -> None:
+        """Bulk insert notifications — 1 SQL query instead of N"""
+        from sqlalchemy import insert
+        if notifications:
+            await self.db.execute(insert(Notifications), notifications)
+
+    async def commit(self):
+        await self.db.commit()
+
     async def delete_read(self, user_id: int) -> int:
         notifications = await self.get_by_user(user_id, is_read=True, limit=10000)
         count = len(notifications)

@@ -52,11 +52,22 @@ class AdminRepository:
         )).scalar()
 
     async def get_user_by_id(self, user_id: int) -> Optional[User]:
-        result = await self.db.execute(select(User).where(User.user_id == user_id))
-        return result.scalar_one_or_none()
+        result = await self.db.execute(
+            select(User)
+            .options(
+                joinedload(User.student),
+                joinedload(User.tutor),
+                joinedload(User.coordinator),
+            )
+            .where(User.user_id == user_id)
+        )
+        return result.unique().scalar_one_or_none()
 
     async def commit(self) -> None:
         await self.db.commit()
 
     async def rollback(self) -> None:
         await self.db.rollback()
+
+    def add(self, entity) -> None:
+        self.db.add(entity)

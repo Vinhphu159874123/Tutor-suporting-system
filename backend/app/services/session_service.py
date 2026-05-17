@@ -19,6 +19,38 @@ class SessionService:
     def __init__(self, session_repo: SessionRepository):
         self.session_repo = session_repo
     
+    # ── Authorization helpers ────────────────────────────────────────────
+    @staticmethod
+    def _get_roles(user) -> list:
+        """Get user roles as list"""
+        return user.role if isinstance(user.role, list) else [user.role]
+    
+    def _is_privileged(self, user) -> bool:
+        """Check if user is admin or coordinator"""
+        roles = self._get_roles(user)
+        return any(r in roles for r in ['admin', 'coordinator'])
+    
+    async def _assert_session_owner_or_privileged(self, session, user):
+        """
+        Verify that user is the tutor who owns this session, or is admin/coordinator.
+        Raises 403 if not authorized.
+        """
+        if self._is_privileged(user):
+            return
+        # Check if user is the tutor who owns this session
+        tutor_id = await self.get_tutor_id_for_user(user.user_id)
+        if tutor_id and session.tutor_id == tutor_id:
+            return
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền thực hiện thao tác này trên buổi học này"
+        )
+    
+    async def _is_session_participant(self, session_id: int, user_id: int) -> bool:
+        """Check if user is a participant of this session"""
+        participants = await self.session_repo.get_session_participants(session_id)
+        return any(p.user_id == user_id for p in participants)
+    
     async def get_session(self, session_id: int) -> SessionResponse:
         """Get session by ID"""
         session = await self.session_repo.get_by_id(session_id)
@@ -156,21 +188,39 @@ class SessionService:
         data = await get_or_load(cache_key, _load, ttl=15)
         return [SessionResponse(**d) for d in data]
     
-    async def create_session(self, session_data: SessionCreate) -> SessionResponse:
+    async def create_session(self, session_data: SessionCreate, current_user=None) -> SessionResponse:
         """Create new session - Emits event for notifications"""
-        # TODO: Implement time conflict detection
-        # TODO: Verify tutor availability
+        # Authorization: only tutor or privileged users can create sessions
+        if current_user:
+            roles = self._get_roles(current_user)
+            if not any(r in roles for r in ['tutor', 'admin', 'coordinator']):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Chỉ tutor hoặc coordinator mới có thể tạo buổi học"
+                )
         
         data = session_data.model_dump()
         # Use status from request, or default to 'draft' if not provided
         if 'status' not in data or data['status'] is None:
             data['status'] = 'draft'
         
-        # Remove student_ids - handle separately if needed
+        # Pop student_ids — not a column on Session table, handle separately
         student_ids = data.pop('student_ids', [])
-        coordinator_id = data.pop('coordinator_id', None)
+        # coordinator_id IS a column on Session table — keep it in data
         
         session = await self.session_repo.create(data)
+        
+        # Add students as participants if provided
+        if student_ids:
+            from app.models.database import SessionParticipant
+            for uid in student_ids:
+                self.session_repo.add(SessionParticipant(
+                    session_id=session.session_id,
+                    user_id=uid,
+                    role='student',
+                    status='confirmed'
+                ))
+            await self.session_repo.commit()
         
         # Emit event for async processing (notifications, etc.)
         await event_bus.emit(EventTypes.SESSION_CREATED, {
@@ -183,15 +233,20 @@ class SessionService:
     async def update_session(
         self,
         session_id: int,
-        session_data: SessionUpdate
+        session_data: SessionUpdate,
+        current_user=None
     ) -> SessionResponse:
-        """Update session"""
+        """Update session — only owner tutor or privileged users"""
         session = await self.session_repo.get_by_id(session_id)
         if not session:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Session not found"
             )
+        
+        # Authorization check
+        if current_user:
+            await self._assert_session_owner_or_privileged(session, current_user)
         
         update_data = session_data.model_dump(exclude_unset=True)
         update_data['updated_at'] = datetime.utcnow()
@@ -199,14 +254,18 @@ class SessionService:
         updated = await self.session_repo.update(session_id, update_data)
         return self._to_response(updated)
     
-    async def complete_session(self, session_id: int) -> dict:
-        """Mark session as completed - Emits event for feedback request"""
+    async def complete_session(self, session_id: int, current_user=None) -> dict:
+        """Mark session as completed — only owner tutor or privileged users"""
         session = await self.session_repo.get_by_id(session_id)
         if not session:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Session not found"
             )
+        
+        # Authorization check
+        if current_user:
+            await self._assert_session_owner_or_privileged(session, current_user)
         
         # Validate status transition (confirmed or ongoing can be completed)
         if session.status not in ['confirmed', 'ongoing']:
@@ -309,17 +368,26 @@ class SessionService:
                 detail=f"File type {file.content_type} not supported. Allowed: PDF, images (JPEG/PNG/GIF), text, Word, Excel"
             )
         
-        # Read file data into memory
-        file_data = await file.read()
-        file_size = len(file_data)
+        # Check file size BEFORE reading entire file into memory (prevent DoS)
+        MAX_SIZE = 50 * 1024 * 1024  # 50MB
+        CHUNK_SIZE = 64 * 1024       # 64KB chunks
         
-        # Check file size limit (50MB)
-        MAX_SIZE = 50 * 1024 * 1024
-        if file_size > MAX_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File too large. Maximum size is 50MB"
-            )
+        chunks = []
+        total_size = 0
+        while True:
+            chunk = await file.read(CHUNK_SIZE)
+            if not chunk:
+                break
+            total_size += len(chunk)
+            if total_size > MAX_SIZE:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"File too large. Maximum size is 50MB"
+                )
+            chunks.append(chunk)
+        
+        file_data = b''.join(chunks)
+        file_size = total_size
         
         # Upload to Supabase Storage
         try:
@@ -606,11 +674,26 @@ class SessionService:
             "session_id": session_id
         }
     
-    async def get_session_participants(self, session_id: int) -> List[SessionParticipantResponse]:
-        """Get all participants of a session"""
-        from app.models.database import SessionParticipant
-        from sqlalchemy import select
-        from sqlalchemy.orm import selectinload
+    async def get_session_participants(self, session_id: int, current_user=None) -> List[SessionParticipantResponse]:
+        """Get all participants of a session — only related users"""
+        session = await self.session_repo.get_by_id(session_id)
+        if not session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Session not found"
+            )
+        
+        # Authorization: only session owner, participants, or privileged users
+        if current_user:
+            if not self._is_privileged(current_user):
+                tutor_id = await self.get_tutor_id_for_user(current_user.user_id)
+                is_owner = tutor_id and session.tutor_id == tutor_id
+                is_participant = await self._is_session_participant(session_id, current_user.user_id)
+                if not is_owner and not is_participant:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Bạn không có quyền xem danh sách thành viên của buổi học này"
+                    )
         
         participants = await self.session_repo.get_session_participants(session_id)
         
@@ -728,7 +811,21 @@ class SessionService:
         await self.session_repo.delete_material(mat)
         return {"message": "Material deleted successfully", "file_name": mat.file_name}
 
-    async def download_material_by_identifier(self, session_id: int, identifier: str):
+    async def download_material_by_identifier(self, session_id: int, identifier: str, current_user=None):
+        """Download material — only participants, session owner, or privileged users"""
+        # Authorization check
+        if current_user:
+            session = await self.session_repo.get_by_id(session_id)
+            if session and not self._is_privileged(current_user):
+                tutor_id = await self.get_tutor_id_for_user(current_user.user_id)
+                is_owner = tutor_id and session.tutor_id == tutor_id
+                is_participant = await self._is_session_participant(session_id, current_user.user_id)
+                if not is_owner and not is_participant:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="Bạn không có quyền tải tài liệu của buổi học này"
+                    )
+        
         try:
             mid = int(identifier)
             mat = await self.session_repo.get_material_by_id(mid, session_id)

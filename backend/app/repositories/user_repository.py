@@ -104,3 +104,13 @@ class UserRepository:
             select(Student).where(Student.student_code == student_code)
         )
         return result.scalar_one_or_none()
+
+    async def get_user_ids_by_roles(self, roles: list[str]) -> list[int]:
+        """Get user IDs that have any of the given roles (PostgreSQL ARRAY column)"""
+        from sqlalchemy import any_, or_
+        result = await self.db.execute(
+            select(User.user_id).where(
+                or_(*[role == any_(User.role) for role in roles])
+            )
+        )
+        return result.scalars().all()

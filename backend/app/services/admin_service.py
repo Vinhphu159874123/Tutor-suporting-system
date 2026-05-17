@@ -103,10 +103,35 @@ class AdminService:
         return {"message": "User updated successfully"}
 
     async def update_user_role(self, user_id: int, new_role) -> dict:
+        from app.models.database import Student, Tutor, Coordinator
+        
         user = await self.repo.get_user_by_id(user_id)
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
         user.role = new_role if isinstance(new_role, list) else [new_role]
+        
+        roles = user.role
+        
+        # Auto-create Coordinator profile if needed
+        if 'coordinator' in roles and not user.coordinator:
+            self.repo.add(Coordinator(user_id=user_id, department='General'))
+        
+        # Auto-create Tutor profile if needed
+        if 'tutor' in roles and not user.tutor:
+            self.repo.add(Tutor(
+                user_id=user_id,
+                staff_code=f'GV{user_id:06d}',
+                faculty='General'
+            ))
+        
+        # Auto-create Student profile if needed
+        if 'student' in roles and not user.student:
+            self.repo.add(Student(
+                user_id=user_id,
+                student_code=f'SV{user_id:06d}',
+                faculty='General'
+            ))
+        
         try:
             await self.repo.commit()
         except Exception:

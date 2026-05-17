@@ -76,7 +76,7 @@ async def create_session(
     current_user: User = Depends(get_current_user),
     session_service: SessionService = Depends(get_session_service),
 ):
-    return await session_service.create_session(session_data)
+    return await session_service.create_session(session_data, current_user)
 
 
 @router.get("/{session_id}", response_model=SessionResponse)
@@ -92,7 +92,7 @@ async def update_session(
     current_user: User = Depends(get_current_user),
     session_service: SessionService = Depends(get_session_service),
 ):
-    return await session_service.update_session(session_id, session_data)
+    return await session_service.update_session(session_id, session_data, current_user)
 
 
 @router.post("/{session_id}/complete")
@@ -101,7 +101,7 @@ async def complete_session(
     current_user: User = Depends(get_current_user),
     session_service: SessionService = Depends(get_session_service),
 ):
-    return await session_service.complete_session(session_id)
+    return await session_service.complete_session(session_id, current_user)
 
 
 @router.post("/{session_id}/publish")
@@ -168,9 +168,10 @@ async def delete_material(
 async def download_material(
     session_id: int, material_identifier: str,
     inline: bool = Query(False),
+    current_user: User = Depends(get_current_user),
     session_service: SessionService = Depends(get_session_service),
 ):
-    mat = await session_service.download_material_by_identifier(session_id, material_identifier)
+    mat = await session_service.download_material_by_identifier(session_id, material_identifier, current_user)
     if mat.file_url:
         if not inline:
             return RedirectResponse(url=mat.file_url)
@@ -244,9 +245,11 @@ async def remove_student_from_subject(
 
 @router.get("/{session_id}/participants", response_model=List[SessionParticipantResponse])
 async def get_session_participants(
-    session_id: int, session_service: SessionService = Depends(get_session_service),
+    session_id: int,
+    current_user: User = Depends(get_current_user),
+    session_service: SessionService = Depends(get_session_service),
 ):
-    return await session_service.get_session_participants(session_id)
+    return await session_service.get_session_participants(session_id, current_user)
 
 
 # ============================================================================

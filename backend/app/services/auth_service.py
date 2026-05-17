@@ -192,8 +192,10 @@ class AuthService:
         
         user = await self.user_repo.create(user_dict)
         
+        roles = role if isinstance(role, list) else [role]
+        
         # Auto-create Student profile for student role
-        if 'student' in (role if isinstance(role, list) else [role]):  # Support both array and string
+        if 'student' in roles:
             # Check if student profile already exists
             existing_student = await self.user_repo.get_student_by_user_id(user.user_id)
             
@@ -221,6 +223,27 @@ class AuthService:
                 self.user_repo.add(new_student)
                 await self.user_repo.commit()
                 print(f"✅ Auto-created student profile for user {user.email} with code {new_student.student_code}")
+        
+        # Auto-create Tutor profile for tutor role
+        if 'tutor' in roles:
+            from app.models.database import Tutor
+            self.user_repo.add(Tutor(
+                user_id=user.user_id,
+                staff_code=f'GV{user.user_id:06d}',
+                faculty=faculty or 'General'
+            ))
+            await self.user_repo.commit()
+            print(f"✅ Auto-created tutor profile for user {user.email}")
+        
+        # Auto-create Coordinator profile for coordinator role
+        if 'coordinator' in roles:
+            from app.models.database import Coordinator
+            self.user_repo.add(Coordinator(
+                user_id=user.user_id,
+                department=faculty or 'General'
+            ))
+            await self.user_repo.commit()
+            print(f"✅ Auto-created coordinator profile for user {user.email}")
         
         return UserResponse.model_validate(user)
     
