@@ -45,3 +45,9 @@ Thumbs.db
 
 # Test cases
 backend/testcases/
+
+# Migrations
+backend/migrations/
+
+# SQL scripts
+backend/sql/
