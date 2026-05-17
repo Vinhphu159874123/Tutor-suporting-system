@@ -5,7 +5,8 @@
   "installCommand": "cd frontend && npm install",
   "framework": null,
   "env": {
-    "REACT_APP_API_URL": "https://apitts.percytony.com/api/v1"
+    "REACT_APP_API_URL": "https://apitts.percytony.com/api/v1",
+    "CI": "false"
   },
   "rewrites": [
     {
@@ -23,9 +24,5 @@
         }
       ]
     }
-  ],
-  "env": {
-    "REACT_APP_API_URL": "https://apitts.percytony.com/api/v1",
-    "CI": "false"
-  }
+  ]
 }
